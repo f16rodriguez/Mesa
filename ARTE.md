@@ -51,6 +51,19 @@ Los prompts van en inglés. Hay DOS bloques de estilo — uno para entorno/props
 otro para personajes — porque la dirección es deliberadamente distinta en cada
 mitad. Pegar el que toque al inicio de cada prompt.
 
+## Estado: dirección validada, loop cerrado — 18 sep 2026
+
+La prueba de integración pasó: `arte/prueba-integracion-v1.png` (la abuela en el
+set fotorreal, misma luz, sin choque de estilos). **No se generan más imágenes.**
+Con el ancla, la prueba de integración y el casting descrito en el prompt C, el
+brief al artista sale ya. Las láminas B/E/F no hacen falta: el artista trabaja
+desde el ancla, y el diseño fino de la mesa y las fichas es suyo — las fichas de
+la IA salen mal y da igual, el juego real las coloca el motor.
+
+Qué va en el correo a los 2–3 artistas: las dos imágenes, la lista de assets de
+abajo, el tope de presupuesto, formato glTF, y la nota del skybox. Pedir
+presupuesto y plazo, no bocetos gratis.
+
 ## El ancla visual
 
 `arte/ancla-colmado-v1.png` — keyframe del colmado aprobado el 18 sep (prompt A,

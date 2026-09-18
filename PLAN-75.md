@@ -52,6 +52,26 @@ tapa dos huecos para llegar antes.
 del roadmap en serie — y sin contar que el arte ya no bloquea nada. Si el domingo
 descubre algo gordo, todo corre una semana; la puerta manda.
 
+## El sitio web es el canal principal, no un extra
+
+Mesa ya es una aplicación web: el hito 2 la convierte en un sitio con URL. Lo que
+falta para "lanzar desde la web" son dos piezas: una página de aterrizaje y el
+cobro en la web — y el cobro ya está en el hito 6. Decidido:
+
+- **Dominios:** la página de aterrizaje estática en Netlify (ya hay cuenta y
+  flujo por el Hub); el juego en Fly/Railway con WebSocket en un subdominio
+  (`juega.` o `play.`). Netlify no puede hostear `server.js` — es estado vivo
+  por WebSocket, no serverless.
+- **Economía:** venta directa en la web ≈ 95 % de margen contra ~70 % en Steam.
+  Steam se queda para descubrimiento y credibilidad; la web para margen y para
+  el loop viral que ya existe: el código de sala ES un enlace que se manda por
+  WhatsApp. "Mándale el link" es el marketing.
+- **Orden:** la web lanza PRIMERO (el cobro del hito 6 la hace vendible; la
+  página de aterrizaje son 1–2 días en la semana del hito 7). Steam llega cuando
+  su revisión termine — por eso los $100 se pagan esta semana.
+- **Pendiente:** verificar dominio y marca "Mesa" (ya estaba en CLAUDE.md);
+  decidir el dominio antes del hito 2 para no migrar códigos QR ni enlaces.
+
 ## Definición de hecho — se mide, no se opina
 
 Un desconocido, con solo el enlace:

@@ -69,8 +69,16 @@ cobro en la web — y el cobro ya está en el hito 6. Decidido:
 - **Orden:** la web lanza PRIMERO (el cobro del hito 6 la hace vendible; la
   página de aterrizaje son 1–2 días en la semana del hito 7). Steam llega cuando
   su revisión termine — por eso los $100 se pagan esta semana.
-- **Pendiente:** verificar dominio y marca "Mesa" (ya estaba en CLAUDE.md);
-  decidir el dominio antes del hito 2 para no migrar códigos QR ni enlaces.
+- **Dominios, verificado 18 sep (RDAP/DNS):** libres en .com: `juegamesa.com`,
+  `jugamesa.com`, `lamesagame.com`. Tomados: `mesadomino.com`, `mesagame.com`,
+  `playmesa.com`, `mesa.games`, `mesa.app`, `mesa.do`. Recomendado: comprar
+  **juegamesa.com** + `jugamesa.com` (variante de tecleo) ya; `juegamesa.do`
+  verificar en nic.do (sin RDAP). Marca: no apareció ningún juego "Mesa" en
+  conflicto; las marcas MESA existentes son de otras clases (amplificadores,
+  laboratorios). "Mesa" a secas es palabra común y difícil de registrar —
+  operar como marca compuesta ("Juega Mesa") y hacer búsqueda formal
+  (USPTO + ONAPI en RD) antes de gastar en branding. Esto no es asesoría
+  legal; es el pre-filtro.
 
 ## Definición de hecho — se mide, no se opina
 

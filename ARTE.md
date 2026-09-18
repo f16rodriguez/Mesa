@@ -51,6 +51,19 @@ Los prompts van en inglés. Hay DOS bloques de estilo — uno para entorno/props
 otro para personajes — porque la dirección es deliberadamente distinta en cada
 mitad. Pegar el que toque al inicio de cada prompt.
 
+## El ancla visual
+
+`arte/ancla-colmado-v1.png` — keyframe del colmado aprobado el 18 sep (prompt A,
+desde ChatGPT). **Toda generación nueva y todo asset comisionado se mide contra
+esta imagen.** En Gemini, adjuntarla como referencia con "match this exact style
+and scene". Va dentro del brief al artista como el blanco a igualar.
+
+Qué tiene que sobrevivir de ella: la pintura descascarada y el óxido del zinc, el
+derrame cálido del interior contra el cielo azul-morado, las sillas plásticas
+disparejas, la calle que cae hacia el mar con las luces del pueblo. Ese fondo
+lejano, en el juego, es un telón pintado (skybox), no geometría — decirlo en el
+brief.
+
 ## Bloque de estilo — ENTORNO y PROPS
 
 > Photorealistic environment concept art for a video game. Real-world materials

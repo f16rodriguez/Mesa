@@ -38,7 +38,7 @@ tapa dos huecos para llegar antes.
 
 | Semana | Trabajo | Hito |
 |---|---|---|
-| ya — sáb 20 | Brief de arte a 2–3 artistas con tope de presupuesto. Preparar config de despliegue (Fly/Railway). Pagar los $100 de Steam: la revisión de tienda tarda semanas y corre sola. | prep |
+| ya — sáb 20 | Brief de arte a 2–3 artistas con tope de presupuesto. Comprar `juegamesa.com` + `jugamesa.com`. Config de despliegue lista (`Dockerfile`, `fly.toml`). | prep |
 | dom 21 | La prueba del domingo. Cuatro personas, una serie completa, anotar lo que se rompa. | **1** |
 | 22–28 sep | Lunes: arreglar lo del domingo. Después: servidor en la nube con HTTPS y dominio; códigos de sala desde cualquier red. Extraer cadenas a tabla. | **2** |
 | 29 sep–5 oct | Reparto y barajado animados, sonido, cortes de cámara. Revisar bocetos del artista. | **4** |
@@ -46,7 +46,7 @@ tapa dos huecos para llegar antes.
 | 13–19 oct | Cuentas, perfil, historial. Desbloqueo del anfitrión $14.99 cobrable de verdad, con precio regional. | **6** |
 | 20–26 oct | Salas públicas, navegador de mesas, emparejamiento simple. Liga $4.99/mes. Definir el formato del log de jugadas aunque espectar espere. | **7** |
 | 27 oct–2 nov | Voz: WebRTC en malla, TURN propio, mute pegajoso, frases rápidas. Lo más arriesgado del plan — si TURN se atasca, lo en línea sale con frases rápidas y la voz entra la semana siguiente. | **8** |
-| 3–9 nov | PWA instalable, envoltorio Electron, build a Steam. Integrar el arte comisionado según llegue. | **10** |
+| 3–9 nov | PWA instalable. Integrar el arte comisionado según llegue. (Steam pospuesto — decisión del 18 sep: se retoma después del 75 %, junto con Electron.) | **10** |
 
 **75 % ≈ domingo 9 de noviembre.** Siete semanas y media desde hoy, contra las 8–10
 del roadmap en serie — y sin contar que el arte ya no bloquea nada. Si el domingo
@@ -67,8 +67,9 @@ cobro en la web — y el cobro ya está en el hito 6. Decidido:
   el loop viral que ya existe: el código de sala ES un enlace que se manda por
   WhatsApp. "Mándale el link" es el marketing.
 - **Orden:** la web lanza PRIMERO (el cobro del hito 6 la hace vendible; la
-  página de aterrizaje son 1–2 días en la semana del hito 7). Steam llega cuando
-  su revisión termine — por eso los $100 se pagan esta semana.
+  página de aterrizaje son 1–2 días en la semana del hito 7). Steam pospuesto
+  para después del 75 % — decisión del 18 sep; la web es el único canal del
+  lanzamiento inicial.
 - **Dominios, verificado 18 sep (RDAP/DNS):** libres en .com: `juegamesa.com`,
   `jugamesa.com`, `lamesagame.com`. Tomados: `mesadomino.com`, `mesagame.com`,
   `playmesa.com`, `mesa.games`, `mesa.app`, `mesa.do`. Recomendado: comprar
@@ -89,7 +90,7 @@ Un desconocido, con solo el enlace:
 - [ ] juegan una serie completa a 200 con reglas de casa
 - [ ] un teléfono que se duerme vuelve y recupera su mano, por internet
 - [ ] se hablan por voz en la sala en línea
-- [ ] instala la PWA en su teléfono; la build de Steam está enviada
+- [ ] instala la PWA en su teléfono
 - [ ] nadie del equipo estuvo presente ni fue necesario
 
 ## Riesgos, en orden

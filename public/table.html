@@ -585,12 +585,11 @@ function init3D(){
   // los postes que aguantan la guirnalda
   const palo = new THREE.MeshStandardMaterial({map:texMadera(), roughness:.85});
   [-4.3, 4.3].forEach(px => {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(.035,.05,2.95,8), palo);
-    p.position.set(px, 0.72, 2.2); p.castShadow = true; scene.add(p);
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.035,.05,3.15,8), palo);
+    p.position.set(px, 0.82, 2.2); p.castShadow = true; scene.add(p);
   });
-  armarGuirnalda([-4.5,2.08,-3.75],[4.3,2.18,2.2], .32, 14);
-  armarGuirnalda([2.9,2.08,-3.75],[-4.3,2.18,2.2], .32, 14);
-  armarGuirnalda([-4.3,2.18,2.2],[4.3,2.18,2.2], .22, 12);
+  armarGuirnalda([-4.5,2.3,-3.75],[4.3,2.42,2.2], .3, 14);
+  armarGuirnalda([2.9,2.3,-3.75],[-4.3,2.42,2.2], .3, 14);
   armarGuirnalda([-4.4,2.24,-3.05],[2.8,2.24,-3.05], .14, 12);  // la del alero del zinc
 
   // la gente llega con el set de Blender; aquí solo sus grupos animables
@@ -713,15 +712,15 @@ function animarGente(t){
       if(u >= 1){ gestos[s] = null; }
       else if(ge.tipo === 'jugar'){
         const k = u<0.4 ? easo(u/0.4) : u<0.55 ? 1 : easo((1-u)/0.45);
-        bruRX = -1.05*k; antRX = 0.55*k; torX += 0.14*k;
+        bruRX = -0.72*k; antRX = 0.38*k; torX += 0.12*k;
         if(u>0.4 && u<0.55) bruRX -= 0.12;                    // el golpecito
       } else if(ge.tipo === 'paso'){
         const k = Math.sin(Math.min(1,u)*Math.PI);
-        bruLZ = 0.5*k; bruRZ = -0.5*k; antLX = -0.5*k; antRX = -0.5*k;
+        bruLZ = 0.35*k; bruRZ = -0.35*k; antLX = -0.35*k; antRX = -0.35*k;
         cabY += Math.sin(u*12)*0.14*k;
       } else if(ge.tipo === 'celebra'){
         const k = Math.sin(Math.min(1,u)*Math.PI);
-        bruLX = -2.3*k; bruRX = -2.3*k; torX -= 0.1*k;
+        bruLX = -1.9*k; bruRX = -1.9*k; torX -= 0.1*k;
         f.position.y = f.userData.y0 + 0.03*Math.abs(Math.sin(u*6.28))*k;
       } else if(ge.tipo === 'lamenta'){
         const k = Math.sin(Math.min(1,u)*Math.PI);

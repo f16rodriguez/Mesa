@@ -11,7 +11,7 @@
 # El tope de la mesa queda en z=0 (el juego pone las fichas ahí);
 # el piso en z=-0.75. Ejes: three (x,y,z) = blender (x, z, -y).
 
-import bpy, bmesh, struct, json, math, random
+import bpy, bmesh, struct, json, math, random, os
 from mathutils import Vector, Euler, noise
 
 random.seed(7)
@@ -351,97 +351,202 @@ def silla(nombre, color, px, py, rotz):
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.transform_apply(location=True, rotation=True)
 
-# ---------------- la gente: proporciones reales, por partes ----------------
-# Sentados, piso local z=0, frente hacia -Y. El juego arma la marioneta:
-#   torso (pivote cadera) > cabeza (cuello) y brazos (hombro) > antebrazos (codo)
-def personaje(idx, piel, pantalon, tipo, patron):
+# ---------------- la gente: cuerpos CC0 de Quaternius, poseados y partidos ----------------
+# Cuerpos base profesionales (arte/blender/ubc, licencia CC0). Se sientan con su
+# esqueleto, se parten por pesos de hueso en las piezas de la marioneta, y se
+# pintan por región: piel, camisa, pantalón, zapatos. Los sombreros siguen siendo
+# nuestros.
+RUTA_UBC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ubc')
+
+def _dedos(l):
+    out = {'lowerarm_'+l, 'hand_'+l}
+    for d in ('index','middle','pinky','ring','thumb'):
+        for n in ('01','02','03','04_leaf'):
+            out.add('%s_%s_%s' % (d, n, l))
+    return out
+
+PARTES_ORDEN = ['torso','cabeza','bruL','antL','bruR','antR','piernas']
+GRUPOS = {
+  'torso':   {'spine_01','spine_02','spine_03'},
+  'cabeza':  {'Head','neck_01'},
+  'bruL':    {'clavicle_l','upperarm_l'},
+  'antL':    _dedos('l'),
+  'bruR':    {'clavicle_r','upperarm_r'},
+  'antR':    _dedos('r'),
+  'piernas': {'root','pelvis','thigh_l','thigh_r','calf_l','calf_r',
+              'foot_l','foot_r','ball_l','ball_r'},
+}
+PIEL_G = {'Head','neck_01'} | (_dedos('l') - {'lowerarm_l'}) | (_dedos('r') - {'lowerarm_r'})
+PANT_G = {'root','pelvis','thigh_l','thigh_r','calf_l','calf_r'}
+ZAP_G  = {'foot_l','foot_r','ball_l','ball_r'}
+
+def rotar(pb, nombre, eje, grados):
+    b = pb.get(nombre)
+    if not b: return
+    b.rotation_mode = 'XYZ'
+    b.rotation_euler.rotate_axis(eje, math.radians(grados))
+
+def personaje(idx, piel, pantalon, tipo, camisa_fn):
     P = 'P%d_' % idx
-    pv = lambda x,y,z: {'pv': [x, z, -y]}    # pivote ya en ejes three
+    sexo = 'Female' if tipo == 'panuelo' else 'Male'
+    antes = set(bpy.context.scene.objects)
+    bpy.ops.import_scene.gltf(
+        filepath=os.path.join(RUTA_UBC, 'Superhero_%s_FullBody.gltf' % sexo))
+    nuevos = [o for o in bpy.context.scene.objects if o not in antes]
+    arm = next(o for o in nuevos if o.type == 'ARMATURE')
+    mallas = [o for o in nuevos if o.type == 'MESH']
+    ojos = [o for o in mallas if 'Eye' in o.name]
+    cuerpo = next(o for o in mallas if o not in ojos)
 
-    parts = []
-    parts.append(pieza(caja((.34,.30,.14),(0,-.02,.48)),'pel',pantalon,rough=.9,lit=1,
-                       bevel=.04,subsurf=1))
-    for l in (-1,1):
-        parts.append(pieza(tubo((l*.09,-.04,.50),(l*.10,-.36,.47),.062,.055),'mus',
-                           pantalon,rough=.9,lit=1,subsurf=1))
-        parts.append(pieza(tubo((l*.10,-.38,.45),(l*.10,-.40,.05),.048,.04),'esp',
-                           pantalon,rough=.9,lit=1,subsurf=1))
-        parts.append(pieza(caja((.09,.24,.07),(l*.10,-.46,.035)),'zap',
-                           hexlin('#26201A'),rough=.6,lit=1,bevel=.015,subsurf=1))
-    unir(parts, P+'piernas', lit=1, meta={})
+    # sentarlo con el esqueleto
+    arm.location.z = -0.472
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
+    pb = arm.pose.bones
+    rotar(pb,'thigh_l','X',-86); rotar(pb,'thigh_r','X',-86)
+    rotar(pb,'calf_l','X',86);  rotar(pb,'calf_r','X',86)
+    rotar(pb,'foot_l','X',-6);  rotar(pb,'foot_r','X',-6)
+    rotar(pb,'spine_01','X',7); rotar(pb,'spine_02','X',4)
+    rotar(pb,'neck_01','X',-6)
+    # brazos por objetivos: el hueso apunta a donde debe, sin adivinar ejes
+    objetivos = []
+    def apuntar(hueso, destino):
+        e = bpy.data.objects.new('tgt', None)
+        e.location = destino
+        bpy.context.collection.objects.link(e); objetivos.append(e)
+        c = pb[hueso].constraints.new('DAMPED_TRACK')
+        c.target = e; c.track_axis = 'TRACK_Y'
+    for l, sg in (('l',1),('r',-1)):
+        apuntar('upperarm_'+l, (sg*.26, -.16, .62))    # codo abajo y alante
+        apuntar('lowerarm_'+l, (sg*.18, -.42, .80))    # mano al borde de la mesa
+        for d in ('index','middle','pinky','ring'):
+            for n in ('01','02','03'):
+                rotar(pb,'%s_%s_%s' % (d,n,l), 'X', 24)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.update()
 
-    parts = []
-    parts.append(pieza(caja((.40,.26,.52),(0,0,.84)),'to',patron,rough=.85,lit=1,
-                       bevel=.07,subsurf=2))
-    parts.append(pieza(tubo((0,-.01,1.06),(0,-.02,1.14),.055,.05),'cu',piel,
-                       rough=.7,lit=1))
-    if tipo == 'panuelo':
-        parts.append(pieza(caja((.3,.03,.3),(0,-.145,.82)),'del',hexlin('#EDE6D6'),
-                           rough=.9,lit=1,bevel=.012,subsurf=1))
-    unir(parts, P+'torso', lit=1, meta=dict(pv(0,0,.55), pa=''))
+    def pv_hueso(n):
+        w = arm.matrix_world @ pb[n].head
+        return [round(w.x,4), round(w.z,4), round(-w.y,4)]
+    pivs = {'torso': pv_hueso('spine_01'), 'cabeza': pv_hueso('neck_01'),
+            'bruL': pv_hueso('upperarm_l'), 'antL': pv_hueso('lowerarm_l'),
+            'bruR': pv_hueso('upperarm_r'), 'antR': pv_hueso('lowerarm_r')}
+    padres = {'torso':'', 'cabeza':P+'torso', 'bruL':P+'torso', 'bruR':P+'torso',
+              'antL':P+'bruL', 'antR':P+'bruR'}
+    hw = arm.matrix_world @ pb['Head'].head
 
-    parts = []
-    parts.append(pieza(esfera(.105,(0,-.005,1.26), seg=18, esc=(.92,1,1.08)),'ca',
-                       piel,rough=.7,lit=1,subsurf=1))
-    for sx in (-.04,.04):
-        parts.append(pieza(esfera(.012,(sx,-.098,1.28), seg=8, esc=(1,.5,1.4)),'ojo',
-                           hexlin('#1A120C'),rough=.4,lit=1))
-    parts.append(pieza(esfera(.02,(0,-.108,1.245), seg=8, esc=(.8,.7,1)),'nariz',
-                       piel,rough=.7,lit=1))
+    # congelar la pose en la geometría
+    for m in mallas:
+        bpy.context.view_layer.objects.active = m
+        for mod in list(m.modifiers):
+            if mod.type == 'ARMATURE':
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+
+    # grupo dominante por vértice + color por región, sobre el cuerpo entero
+    nombres_vg = [g.name for g in cuerpo.vertex_groups]
+    me = cuerpo.data
+    dom_at = me.attributes.new('dom', 'INT', 'POINT')
+    base_at = me.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
+    manga_larga = (tipo == 'sombrero')
+    for i, v in enumerate(me.vertices):
+        best, bw = 'root', -1.0
+        for ge in v.groups:
+            if ge.weight > bw: bw, best = ge.weight, nombres_vg[ge.group]
+        k = next((j for j, p in enumerate(PARTES_ORDEN) if best in GRUPOS[p]), 6)
+        dom_at.data[i].value = k
+        if best in PIEL_G: c = piel
+        elif best in ('lowerarm_l','lowerarm_r'):
+            c = camisa_fn(v.co) if manga_larga else piel
+        elif best in PANT_G: c = pantalon
+        elif best in ZAP_G: c = hexlin('#26201A')
+        else: c = camisa_fn(v.co)
+        base_at.data[i].color = (c[0], c[1], c[2], 1.0)
+
+    # partir el cuerpo en las piezas de la marioneta
+    partes_obj = {}
+    for k, parte in enumerate(PARTES_ORDEN):
+        me2 = cuerpo.data.copy()
+        ob = bpy.data.objects.new('tmp_'+parte, me2)
+        bpy.context.collection.objects.link(ob)
+        ob.matrix_world = cuerpo.matrix_world.copy()
+        bm = bmesh.new(); bm.from_mesh(me2)
+        capa = bm.verts.layers.int.get('dom')
+        borrar = [v for v in bm.verts if v[capa] != k]
+        bmesh.ops.delete(bm, geom=borrar, context='VERTS')
+        bm.to_mesh(me2); bm.free()
+        if len(me2.vertices) == 0:
+            bpy.data.objects.remove(ob); continue
+        ob.data.materials.clear(); ob.data.materials.append(material_unico())
+        for p in ob.data.polygons: p.use_smooth = True
+        ob['rough'] = .82; ob['metal'] = 0.0
+        partes_obj[parte] = ob
+
+    # ojos y cejas van con la cabeza, oscuros
+    extras_cabeza = []
+    for m in ojos:
+        m.data.materials.clear(); m.data.materials.append(material_unico())
+        at = m.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
+        col = hexlin('#1A120C')
+        for i in range(len(m.data.vertices)):
+            at.data[i].color = (col[0], col[1], col[2], 1.0)
+        m['rough'] = .35
+        todos.append((m, 1, {}))
+        extras_cabeza.append(m)
+
+    # lo que corona a cada quien, puesto sobre la cabeza ya poseada
+    hx, hy, hz = hw.x, hw.y, hw.z
     if tipo == 'sombrero':
-        bm = cilindro(.19,.18,.02,(0,0,1.345), seg=18)
+        bm = cilindro(.20,.19,.02,(hx,hy,hz+.16), seg=18)
         for v in bm.verts:
-            d = math.hypot(v.co.x, v.co.y)
+            d = math.hypot(v.co.x-hx, v.co.y-hy)
             if d > .12: v.co.z += (d-.12)*.35
-        parts.append(pieza(bm,'ala',hexlin('#C9A96A'),rough=.9,lit=1,subsurf=1))
-        parts.append(pieza(cilindro(.075,.065,.075,(0,0,1.385), seg=14),'copa',
-                           hexlin('#C9A96A'),rough=.9,lit=1,bevel=.012,subsurf=1))
-        parts.append(pieza(esfera(.107,(0,.01,1.24), seg=12, esc=(.9,.95,.7)),'pelo',
-                           hexlin('#9C9890'),rough=1,lit=1))
+        extras_cabeza.append(pieza(bm,'ala',hexlin('#C9A96A'),rough=.9,lit=1,subsurf=1))
+        extras_cabeza.append(pieza(cilindro(.08,.07,.08,(hx,hy,hz+.20), seg=14),'copa',
+                             hexlin('#C9A96A'),rough=.9,lit=1,bevel=.012,subsurf=1))
     elif tipo == 'gorra':
-        bm = esfera(.115,(0,.005,1.30), seg=14)
+        bm = esfera(.115,(hx,hy+.005,hz+.12), seg=14)
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:]+bm.edges[:]+bm.faces[:],
-            plane_co=(0,0,1.295), plane_no=(0,0,-1), clear_inner=True)
-        parts.append(pieza(bm,'gc',hexlin('#22303A'),rough=.85,lit=1,
-                           solidify=.012,subsurf=1))
-        parts.append(pieza(caja((.115,.1,.012),(0,-.135,1.30),
-                           rot=(math.radians(12),0,0)),'vis',hexlin('#22303A'),
-                           rough=.85,lit=1,bevel=.006,subsurf=1))
-        parts.append(pieza(esfera(.112,(0,.01,1.25), seg=12, esc=(1,1,.85)),'pelo',
-                           hexlin('#201812'),rough=1,lit=1))
+            plane_co=(hx,hy,hz+.115), plane_no=(0,0,-1), clear_inner=True)
+        extras_cabeza.append(pieza(bm,'gc',hexlin('#22303A'),rough=.85,lit=1,
+                             solidify=.012,subsurf=1))
+        extras_cabeza.append(pieza(caja((.115,.1,.012),(hx,hy-.135,hz+.12),
+                             rot=(math.radians(12),0,0)),'vis',hexlin('#22303A'),
+                             rough=.85,lit=1,bevel=.006,subsurf=1))
     elif tipo == 'panuelo':
-        parts.append(pieza(esfera(.115,(0,.005,1.30), seg=14, esc=(1,1,.9)),'pan',
-                           hexlin('#D8A03A'),rough=.9,lit=1,subsurf=1))
-        parts.append(pieza(esfera(.035,(.07,.06,1.37), seg=8),'nudo',
-                           hexlin('#D8A03A'),rough=.9,lit=1))
-        for sx in (-.108,.108):
-            parts.append(pieza(cilindro(.022,.022,.008,(sx,0,1.21), seg=10,
-                               rot=(0,math.radians(90),0)),'arete',
-                               hexlin('#D9B23A'),rough=.3,lit=1))
+        extras_cabeza.append(pieza(esfera(.112,(hx,hy+.005,hz+.12), seg=14,
+                             esc=(1,1,.9)),'pan',hexlin('#D8A03A'),rough=.9,lit=1,subsurf=1))
+        extras_cabeza.append(pieza(esfera(.035,(hx+.07,hy+.06,hz+.19), seg=8),'nudo',
+                             hexlin('#D8A03A'),rough=.9,lit=1))
+        for sx in (-.105,.105):
+            extras_cabeza.append(pieza(cilindro(.022,.022,.008,(hx+sx,hy,hz+.01), seg=10,
+                                 rot=(0,math.radians(90),0)),'arete',
+                                 hexlin('#D9B23A'),rough=.3,lit=1))
     else:
-        parts.append(pieza(esfera(.15,(0,.005,1.33), seg=14),'afro', lambda co: tuple(
-            c*(.85+.15*noise.noise(Vector((co.x*30,co.y*30,co.z*30))))
-            for c in hexlin('#171008')), rough=1, lit=1, subsurf=1))
-    unir(parts, P+'cabeza', lit=1, meta=dict(pv(0,-.005,1.13), pa=P+'torso'))
+        extras_cabeza.append(pieza(esfera(.14,(hx,hy+.005,hz+.13), seg=14),'afro',
+            lambda co: tuple(c*(.85+.15*noise.noise(Vector((co.x*30,co.y*30,co.z*30))))
+                             for c in hexlin('#171008')), rough=1, lit=1, subsurf=1))
 
-    # brazos: hombro > codo. Las manos descansan en el borde de la mesa.
-    manga = patron if tipo == 'sombrero' else piel   # la guayabera es manga larga
-    for l, lado in ((-1,'L'),(1,'R')):
-        parts = []
-        parts.append(pieza(esfera(.055,(l*.185,0,1.0), seg=10),'hom',patron,
-                           rough=.85,lit=1,subsurf=1))
-        parts.append(pieza(tubo((l*.185,0,1.0),(l*.215,-.055,.76),.05,.042),'bru',
-                           patron,rough=.85,lit=1,subsurf=1))
-        unir(parts, P+'bru'+lado, lit=1, meta=dict(pv(l*.185,0,1.0), pa=P+'torso'))
-        parts = []
-        parts.append(pieza(tubo((l*.215,-.06,.755),(l*.17,-.31,.77),.04,.033),'ant',
-                           manga,rough=.8,lit=1,subsurf=1))
-        parts.append(pieza(esfera(.038,(l*.165,-.34,.775), seg=10, esc=(1,1.25,.7)),'ma',
-                           piel,rough=.7,lit=1,subsurf=1))
-        unir(parts, P+'ant'+lado, lit=1,
-             meta=dict(pv(l*.215,-.058,.758), pa=P+'bru'+lado))
+    # registrar y nombrar
+    for parte, ob in partes_obj.items():
+        if parte == 'cabeza':
+            ob = unir([ob] + extras_cabeza, P+'cabeza', lit=1,
+                      meta={'pv': pivs['cabeza'], 'pa': padres['cabeza']})
+            # unir deja fuera duplicados de todos; registrar el resultado
+            ya = any(vivo(o) and o.name == P+'cabeza' for o,_,_ in todos)
+            if not ya: todos.append((ob, 1, {'pv': pivs['cabeza'], 'pa': padres['cabeza']}))
+            continue
+        ob.name = P + parte
+        meta = {}
+        if parte in pivs: meta = {'pv': pivs[parte], 'pa': padres[parte]}
+        todos.append((ob, 1, meta))
 
-# los patrones de la ropa
+    # limpiar: esqueleto, objetivos y cuerpo original fuera
+    for e in objetivos: bpy.data.objects.remove(e)
+    bpy.data.objects.remove(arm)
+    if vivo(cuerpo): bpy.data.objects.remove(cuerpo)
+
+# los patrones de la ropa (coordenadas del cuerpo ya sentado: pecho ~z 1.2)
 def ropa_guayabera(co):
     base = hexlin('#E6DCC2')
     if abs(co.x) < .012 or abs(abs(co.x)-.07) < .007:
@@ -449,7 +554,7 @@ def ropa_guayabera(co):
     return base
 def ropa_joven(co):
     base = hexlin('#4A86C8')
-    if .78 < co.z < .86: return hexlin('#D8D2C4')
+    if 1.16 < co.z < 1.26: return hexlin('#D8D2C4')
     return base
 def ropa_dona(co):
     base = hexlin('#B84A62')
@@ -523,6 +628,7 @@ sc.cycles.sample_clamp_indirect = 4
 sc.render.bake.target = 'VERTEX_COLORS'
 for ob, lit, mt in todos:
     if not vivo(ob): continue
+    if os.environ.get('RAPIDO'): break
     at = ob.data.color_attributes.new(name='LUZ', type='FLOAT_COLOR', domain='POINT')
     ob.data.color_attributes.active_color = at
     bpy.ops.object.select_all(action='DESELECT')

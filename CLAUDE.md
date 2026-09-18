@@ -68,11 +68,14 @@ test/fourseats.js  integración: 4 teléfonos + mesa contra el servidor real
 - Interfaz en español rioplatense no: **español dominicano** natural ("te toca",
   "sale", "trancó", "paso"). Nada de "usted". Sin emojis.
 - Componentes de ficha (DOM y textura 3D) ya existen; reutilizar, no duplicar.
-- El arte v1 se modela por script en Blender (decisión del 18 sep, noche):
-  `arte/blender/set.py` construye el set completo, hornea oclusión ambiental en
-  colores de vértice y exporta `public/set.bin`; se regenera con
-  `blender -b -P arte/blender/set.py`. `table.html` lo carga sin dependencias
-  (cargarSet) y pone cielo, vista, guirnaldas y luces por código. Mejorar el
-  arte = mejorar ese script, comparando capturas reales contra el ancla de `arte/`.
+- El arte v1 se construye por script en Blender: `arte/blender/set.py` arma el
+  set a escala real (metros), sienta cuerpos humanos CC0 de Quaternius
+  (`arte/blender/ubc/`, dominio público) con su esqueleto, los parte en piezas
+  de marioneta (torso, cabeza, brazos, antebrazos), hornea iluminación global
+  Cycles en colores de vértice y exporta `public/set.bin`. Regenerar:
+  `blender -b -P arte/blender/set.py` (con `RAPIDO=1` salta el horneado para
+  iterar pose). `table.html` lo carga (cargarSet), arma las marionetas y las
+  anima con el estado del juego (jugar, paso, celebrar, mirar al que le toca).
+  Mejorar el arte = mejorar ese script, con capturas del juego real.
 - Sin dependencias nuevas sin motivo. Hoy solo `ws`.
 - Commits pequeños, en español, imperativo: "Añade reparto animado en 3D".

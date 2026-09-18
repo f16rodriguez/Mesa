@@ -68,6 +68,8 @@ test/fourseats.js  integración: 4 teléfonos + mesa contra el servidor real
 - Interfaz en español rioplatense no: **español dominicano** natural ("te toca",
   "sale", "trancó", "paso"). Nada de "usted". Sin emojis.
 - Componentes de ficha (DOM y textura 3D) ya existen; reutilizar, no duplicar.
-- Los personajes 3D son primitivas de relleno. No invertir en ellos: se reemplazan.
+- El arte v1 es procedural y vive en el código (decisión del 18 sep: sin comisión
+  para v1): texturas de canvas y geometría en `table.html`, comparadas contra el
+  ancla visual de `arte/` con capturas reales. Mejorar el arte = mejorar ese código.
 - Sin dependencias nuevas sin motivo. Hoy solo `ws`.
 - Commits pequeños, en español, imperativo: "Añade reparto animado en 3D".

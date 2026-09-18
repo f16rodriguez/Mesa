@@ -51,6 +51,15 @@ Los prompts van en inglés. Hay DOS bloques de estilo — uno para entorno/props
 otro para personajes — porque la dirección es deliberadamente distinta en cada
 mitad. Pegar el que toque al inicio de cada prompt.
 
+## Estado v2: el arte v1 se hace en el motor — 18 sep 2026, tarde
+
+Decisión del dueño: **sin comisión para v1**. El arte v1 es procedural, dentro de
+`table.html` — cielo de atardecer, colmado con mostrador iluminado, guirnaldas,
+sillas plásticas, y los cuatro personajes (el viejo del sombrero, el joven de la
+gorra, la doña del pañuelo, el del afro). Se valida con capturas reales del juego
+contra el ancla. El correo de comisión (`correo-brief.md`) queda archivado por si
+se retoma después del 75 %.
+
 ## Estado: dirección validada, loop cerrado — 18 sep 2026
 
 La prueba de integración pasó: `arte/prueba-integracion-v1.png` (la abuela en el

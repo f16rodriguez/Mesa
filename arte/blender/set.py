@@ -567,8 +567,16 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         ob.matrix_world = cuerpo.matrix_world.copy()
         bm = bmesh.new(); bm.from_mesh(me2)
         capa = bm.verts.layers.int.get('dom')
-        borrar = [v for v in bm.verts if v[capa] != k]
-        bmesh.ops.delete(bm, geom=borrar, context='VERTS')
+        caras_fuera = []
+        for f in bm.faces:
+            votos = {}
+            for v in f.verts:
+                votos[v[capa]] = votos.get(v[capa], 0) + 1
+            gana = min((p for p in votos if votos[p] == max(votos.values())))
+            if gana != k: caras_fuera.append(f)
+        bmesh.ops.delete(bm, geom=caras_fuera, context='FACES')
+        sueltos = [v for v in bm.verts if not v.link_faces]
+        if sueltos: bmesh.ops.delete(bm, geom=sueltos, context='VERTS')
         bm.to_mesh(me2); bm.free()
         if len(me2.vertices) == 0:
             bpy.data.objects.remove(ob); continue
@@ -687,7 +695,7 @@ COLOC = []
 for ob, lit, mt in todos:
     if vivo(ob) and len(ob.name) > 2 and ob.name[0] == 'P' and ob.name[1].isdigit():
         s = int(ob.name[1])
-        ob.location = (math.sin(ANG[s])*D, -math.cos(ANG[s])*D, PISO)
+        ob.location = (math.sin(ANG[s])*D, -math.cos(ANG[s])*D, PISO - 0.472)
         ob.rotation_euler = (0,0,ANG[s]+math.pi)
         COLOC.append(ob)
 bpy.context.view_layer.update()
@@ -754,7 +762,7 @@ for ob, lit, mt in todos:
     for o2 in ocultos: o2.hide_render = False
 
 for ob in COLOC:
-    ob.location = (0,0,0); ob.rotation_euler = (0,0,0)
+    ob.location = (0,0,-0.472); ob.rotation_euler = (0,0,0)
 bpy.context.view_layer.update()
 
 # ---------------- exportar ----------------

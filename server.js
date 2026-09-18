@@ -15,6 +15,9 @@ const { WebSocketServer } = require('ws');
 const E = require('./engine.js');
 
 const PORT = process.env.PORT || 3000;
+// En la nube: URL_PUBLICA=https://juega.midominio.com — es lo que la mesa
+// enseña a los teléfonos. Sin ella, seguimos en modo portátil con la IP local.
+const URL_PUBLICA = process.env.URL_PUBLICA || null;
 const GRACIA_MS = 20000;     // cuánto esperamos a un teléfono dormido antes de que juegue el bot
 const PAUSA_BOT_MS = 900;    // para que una jugada de bot se vea, no aparezca
 
@@ -196,7 +199,8 @@ wss.on('connection', (ws) => {
         const s = msg.codigo && salas.get(msg.codigo) ? salas.get(msg.codigo) : crearSala();
         d.sala = s.codigo; d.esMesa = true;
         s.mesas.add(ws);
-        enviar(ws, { t:'sala', codigo: s.codigo, url: `http://${ipLocal()}:${PORT}/play` });
+        enviar(ws, { t:'sala', codigo: s.codigo,
+                     url: URL_PUBLICA ? `${URL_PUBLICA}/play` : `http://${ipLocal()}:${PORT}/play` });
         difundir(s);
         break;
       }

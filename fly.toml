@@ -1,0 +1,26 @@
+# Mesa en Fly.io — hito 2.
+#
+# Despliegue:
+#   fly launch --no-deploy        (primera vez; usa este archivo, no lo regenera)
+#   fly secrets set URL_PUBLICA=https://<dominio-del-juego>
+#   fly deploy
+#
+# Las salas viven en memoria: la máquina NO se puede dormir ni escalar a más de
+# una hasta el hito 6. Por eso auto_stop apagado y una sola máquina.
+
+app = "mesa-domino"
+primary_region = "mia"          # Miami: mejor latencia RD + costa este
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

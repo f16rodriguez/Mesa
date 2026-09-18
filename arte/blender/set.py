@@ -182,12 +182,21 @@ def generar_texturas():
     guardar_tex('panio', w, h, (m, m, m))
     # concreto: manchas y grano
     grande = _suavizar(rng.random((h, w)), 14)
-    grano = .94 + .06*rng.random((h, w))
-    m = np.clip((.78 + .22*grande)*grano, .6, 1)
-    guardar_tex('concreto', w, h, (m, m, m*1.01))
+    medio = _suavizar(rng.random((h, w)), 6)
+    grano = .90 + .10*rng.random((h, w))
+    m = np.clip((.60 + .28*grande + .16*medio)*grano, .42, 1.06)
+    guardar_tex('concreto', w, h, (m, m*.995, m*1.02))
     # estuco: pared repellada
     m = .90 + .10*_suavizar(rng.random((h, w)), 5)
     guardar_tex('estuco', w, h, (m, m, m))
+    # tela: pliegues finos y trama, para que la ropa no sea plástico liso
+    fino = _suavizar(rng.random((h, w)), 2)
+    pliegue = _suavizar(rng.random((h, w)), 9)
+    xs = np.arange(w)[None, :].repeat(h, 0)
+    ys = np.arange(h)[:, None].repeat(w, 1)
+    trama = 1 + .022*(np.sin(xs*np.pi/3) + np.sin(ys*np.pi/3))
+    m = np.clip((.90 + .07*fino + .09*pliegue)*trama, .78, 1.08)
+    guardar_tex('tela', w, h, (m, m, m))
 
 generar_texturas()
 
@@ -446,6 +455,26 @@ def silla(nombre, color, px, py, rotz):
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.transform_apply(location=True, rotation=True)
 
+# ---------------- lo que hace que la esquina se vea vivida ----------------
+def vecindario():
+    # una silla vacía como si alguien se paró, un banquito con radio, la
+    # neverita de las cervezas y botellas en el piso: la mesa deja de flotar
+    pieza(caja((.42,.42,.44),(1.55,1.9,PISO+.22)), 'nevera2',
+          hexlin('#C4453A'), rough=.45, bevel=.02, lit=1)
+    pieza(caja((.44,.44,.04),(1.55,1.9,PISO+.46)), 'tapa2',
+          hexlin('#E8E2D4'), rough=.5, bevel=.012, lit=1)
+    pieza(cilindro(.17,.19,.42,(-1.7,1.75,PISO+.21), seg=12), 'banquito',
+          MADOSC, rough=.7, lit=1, bevel=.015)
+    pieza(caja((.24,.16,.14),(-1.7,1.75,PISO+.49)), 'radio',
+          hexlin('#2A2622'), rough=.4, lit=1, bevel=.02)
+    pieza(cilindro(.055,.05,.02,(-1.7,1.66,PISO+.49), seg=12, rot=(math.radians(90),0,0)),
+          'bocina', hexlin('#15120F'), rough=.6, lit=1)
+    for (px,py,c) in [(1.15,1.62,'#3A6B2A'),(1.28,1.72,'#4A2A10'),(-1.35,2.05,'#3A6B2A')]:
+        pieza(cilindro(.036,.036,.19,(px,py,PISO+.095), seg=10), 'botellaSuelo',
+              hexlin(c), rough=.25, lit=1)
+        pieza(cilindro(.014,.012,.06,(px,py,PISO+.22), seg=8), 'cuelloSuelo',
+              hexlin(c), rough=.25, lit=1)
+
 # ---------------- la gente: cuerpos CC0 de Quaternius, poseados y partidos ----------------
 # Cuerpos base profesionales (arte/blender/ubc, licencia CC0). Se sientan con su
 # esqueleto, se parten por pesos de hueso en las piezas de la marioneta, y se
@@ -682,6 +711,8 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         ob.data.materials.clear(); ob.data.materials.append(material_unico())
         for p in ob.data.polygons: p.use_smooth = True
         ob['rough'] = .82; ob['metal'] = 0.0
+        if parte in ('torso','piernas','bruL','bruR'):
+            ob['tx'] = 'tela'; ob['txs'] = .22      # grano de tela, no plástico
         # el mapa de normales del cuerpo solo donde hay piel: cara y antebrazos.
         # sobre la camisa dibuja músculos y parece pintura corporal.
         if parte == 'cabeza' or (parte in ('antL','antR') and tipo != 'sombrero'):
@@ -690,13 +721,22 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
 
     # ojos y cejas van con la cabeza, oscuros
     extras_cabeza = []
+    BLANCO = hexlin('#D8D2C8'); IRIS = hexlin('#3A2414'); PUPILA = hexlin('#0A0806')
     for m in ojos:
         m.data.materials.clear(); m.data.materials.append(material_unico())
         at = m.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
-        col = hexlin('#1A120C')
-        for i in range(len(m.data.vertices)):
+        # El ojo es una bolita: lo que mira al frente (-Y) es iris y pupila; el
+        # resto, blanco. Pintarlo todo oscuro dejaba la cara con dos huecos.
+        vs = m.data.vertices
+        c = Vector((0,0,0))
+        for v in vs: c += v.co
+        c /= max(1, len(vs))
+        for i, v in enumerate(vs):
+            d = (v.co - c)
+            d.normalize()
+            col = PUPILA if d.y < -.88 else (IRIS if d.y < -.62 else BLANCO)
             at.data[i].color = (col[0], col[1], col[2], 1.0)
-        m['rough'] = .35
+        m['rough'] = .25
         todos.append((m, 1, {}))
         extras_cabeza.append(m)
 
@@ -765,7 +805,7 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
                                  rot=(0,math.radians(90),0)),'arete',
                                  hexlin('#D9B23A'),rough=.3,lit=1))
     else:
-        extras_cabeza.append(pieza(esfera(.14,(hx,hy+.005,hz+.13), seg=14),'afro',
+        extras_cabeza.append(pieza(esfera(.125,(hx,hy+.012,hz+.155), seg=14, esc=(1,1,.92)),'afro',
             lambda co: tuple(c*(.85+.15*noise.noise(Vector((co.x*30,co.y*30,co.z*30))))
                              for c in hexlin('#171008')), rough=1, lit=1, subsurf=1))
 
@@ -800,9 +840,9 @@ def ropa_joven(co):
     return base
 def ropa_dona(co):
     base = hexlin('#B84A62')
-    n = noise.noise(Vector((co.x*48, co.y*48, co.z*48)))
-    if n > .52: return mezcla(base, hexlin('#E8935A'), .85)
-    if n < -.55: return mezcla(base, hexlin('#EDE6D6'), .8)
+    n = noise.noise(Vector((co.x*70, co.y*70, co.z*70)))
+    if n > .55: return mezcla(base, hexlin('#E8935A'), .30)
+    if n < -.58: return mezcla(base, hexlin('#EDE6D6'), .22)
     return base
 def ropa_afro(co):
     return hexlin('#D4622A')
@@ -812,12 +852,14 @@ limpiar()
 calle()
 colmado()
 mesa()
+vecindario()
 ANG = [0, math.pi/2, math.pi, -math.pi/2]
 D = 1.15/2 + .28
 SILLA_COL = [hexlin('#2E8B4F'), CREMA, hexlin('#2F9556'), hexlin('#237A44')]
 for s in range(4):
     silla('Silla%d' % s, SILLA_COL[s], math.sin(ANG[s])*D, -math.cos(ANG[s])*D,
           ANG[s] + math.pi)
+silla('SillaVacia', hexlin('#2E8B4F'), -0.15, 2.15, math.radians(20))
 PIELES = [hexlin('#8A5A3B'), hexlin('#A8764E'), hexlin('#6E4529'), hexlin('#5C3A26')]
 TIPOS  = ['sombrero','gorra','panuelo','afro']
 PATRONES = [ropa_guayabera, ropa_joven, ropa_dona, ropa_afro]

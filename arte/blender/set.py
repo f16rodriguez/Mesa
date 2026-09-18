@@ -44,7 +44,7 @@ def material_unico():
 todos = []   # (ob, lit, meta)  meta: {'pa': padre, 'pv': pivote en ejes three}
 
 def pieza(bm, nombre, color, rough=.9, metal=0.0, lit=0, meta=None,
-          solidify=None, bevel=None, subsurf=None, cuts=None):
+          solidify=None, bevel=None, subsurf=None, cuts=None, tx=None, txs=1.0):
     me = bpy.data.meshes.new(nombre)
     if cuts: bmesh.ops.subdivide_edges(bm, edges=bm.edges, cuts=cuts, use_grid_fill=True)
     bm.to_mesh(me); bm.free()
@@ -64,6 +64,7 @@ def pieza(bm, nombre, color, rough=.9, metal=0.0, lit=0, meta=None,
         bpy.ops.object.modifier_apply(modifier='su')
     for p in ob.data.polygons: p.use_smooth = True
     ob['rough'] = rough; ob['metal'] = metal
+    if tx: ob['tx'] = tx; ob['txs'] = txs
     at = ob.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
     for i, v in enumerate(ob.data.vertices):
         c = color(v.co) if callable(color) else color
@@ -144,6 +145,66 @@ def pared_color(base, viejo):
 
 CX, CY = -0.8, 4.0     # el colmado: 4 m detrás de la mesa
 
+
+# ---------------- texturas de detalle (PNG locales, generadas aquí) ----------------
+import numpy as np
+TEXDIR = '/home/user/Mesa/public/tex'
+
+def _suavizar(a, veces):
+    for _ in range(veces):
+        a = (a + np.roll(a,1,0) + np.roll(a,-1,0) + np.roll(a,1,1) + np.roll(a,-1,1)) / 5.0
+    return a
+
+def guardar_tex(nombre, w, h, rgb):
+    img = bpy.data.images.new(nombre, w, h, alpha=False)
+    a = np.ones((h, w, 4), dtype=np.float32)
+    a[:,:,0] = rgb[0]; a[:,:,1] = rgb[1]; a[:,:,2] = rgb[2]
+    img.pixels.foreach_set(a.ravel())
+    img.filepath_raw = os.path.join(TEXDIR, nombre + '.png')
+    img.file_format = 'PNG'
+    img.save()
+
+def generar_texturas():
+    os.makedirs(TEXDIR, exist_ok=True)
+    rng = np.random.default_rng(7)
+    # madera: veta a lo largo con nudos suaves
+    w = h = 512
+    x = np.linspace(0, 1, w)[None, :].repeat(h, 0)
+    ruido = _suavizar(rng.random((h, w)), 6)
+    veta = .86 + .14*np.sin(x*90 + ruido*14)**2
+    fino = .96 + .04*_suavizar(rng.random((h, w)), 1)
+    m = np.clip(veta*fino, .72, 1)
+    guardar_tex('madera', w, h, (m, m*.985, m*.96))
+    # panio: motas de fieltro
+    base = _suavizar(rng.random((h, w)), 3)
+    motas = _suavizar(rng.random((h, w)), 10)
+    m = .84 + .10*base + .06*motas
+    guardar_tex('panio', w, h, (m, m, m))
+    # concreto: manchas y grano
+    grande = _suavizar(rng.random((h, w)), 14)
+    grano = .94 + .06*rng.random((h, w))
+    m = np.clip((.78 + .22*grande)*grano, .6, 1)
+    guardar_tex('concreto', w, h, (m, m, m*1.01))
+    # estuco: pared repellada
+    m = .90 + .10*_suavizar(rng.random((h, w)), 5)
+    guardar_tex('estuco', w, h, (m, m, m))
+
+generar_texturas()
+
+# los mapas de normales del pack, reescalados y vendorizados
+def vendor_normal(src, nombre):
+    destino = os.path.join(TEXDIR, nombre + '.png')
+    if os.path.exists(destino): return
+    if not os.path.exists(src): return
+    img = bpy.data.images.load(src)
+    img.scale(1024, 1024)
+    img.filepath_raw = destino; img.file_format = 'PNG'
+    img.save()
+
+_UBC_TEX = '/tmp/claude-0/-home-user/49e6c7df-b939-5d61-8a6d-e9c314c28791/scratchpad/ubc/Universal Base Characters[Standard]/Base Characters/Godot - UE'
+vendor_normal(os.path.join(_UBC_TEX, 'T_Superhero_Male_Normal.png'), 'nm_m')
+vendor_normal(os.path.join(_UBC_TEX, 'T_Superhero_Female_Normal.png'), 'nm_f')
+
 # ---------------- la calle ----------------
 def calle():
     def suelo_color(co):
@@ -155,7 +216,7 @@ def calle():
             c = mezcla(c, hexlin('#241E1A'), .25)
         return c
     bm = rejilla(140, 140, 30, 30, (0,0,PISO))
-    pieza(bm, 'sueloCalle', suelo_color, rough=.45, metal=.06)
+    pieza(bm, 'sueloCalle', suelo_color, rough=.45, metal=.06, tx='concreto', txs=.35)
 
 # ---------------- el colmado ----------------
 def colmado():
@@ -164,7 +225,7 @@ def colmado():
     AB0, AB1, ABW = 0.20, 1.55, 2.6           # la boca del mostrador
     for (w,px,z0,z1) in [(2.45,-2.6,H0,H1),(2.45,2.6,H0,H1),(ABW,0,AB1,H1)]:
         bm = caja((w,.22,z1-z0),(CX+px, CY, (z0+z1)/2))
-        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012)
+        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012, tx='estuco', txs=.8)
     bm = caja((ABW,.06,AB1-AB0),(CX, CY+.7, (AB0+AB1)/2))
     pieza(bm, 'fondoInt', hexlin('#4A2A14'), rough=.95, cuts=6)
     for sz in (0.5, 0.86, 1.22):
@@ -180,7 +241,7 @@ def colmado():
         pieza(caja((.11,.03,.15),(CX-1.05+i*.3, CY+.32, 1.42)),
               'funda', hexlin(random.choice(PALETA)), rough=.7)
     bm = caja((2.75,.4,AB0-H0),(CX, CY-.12, (H0+AB0)/2))
-    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015)
+    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015, tx='estuco', txs=.8)
     pieza(caja((2.9,.48,.04),(CX, CY-.12, AB0+.02)), 'tope', hexlin('#C9BFA6'),
           rough=.6, bevel=.01)
     # zinc corrugado
@@ -198,7 +259,7 @@ def colmado():
     for px in (-3.7, 3.7):
         pieza(cilindro(.035,.05,3.25,(CX+px, CY-1.3, PISO+1.62), seg=10),'puntal',MAD,rough=.8)
     bm = caja((.25,3.6,3.5),(CX-3.85, CY-0.8, PISO+1.75))
-    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015)
+    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015, tx='estuco', txs=.8)
     pieza(caja((.95,.1,2.05),(CX-3.0, CY-.13, PISO+1.02)), 'puerta', MADOSC,
           rough=.85, bevel=.015)
     def calada(co):
@@ -270,14 +331,14 @@ def mesa():
         n = noise.noise(Vector((co.x*9, co.y*9, 0)))
         return tuple(c*(.88+.12*n) for c in ROJO)
     pieza(caja((M,M,.045),(0,0,-.0225)), 'panio', panio_rojo, rough=.96, lit=1,
-          cuts=8, bevel=.006)
+          cuts=8, bevel=.006, tx='panio', txs=1.6)
     # el borde ancho de pino con su lomo
     r = M/2+.06
     marcos = []
     for i,(px,py) in enumerate([(0,r),(0,-r),(r,0),(-r,0)]):
         dim = (M+.24,.12,.07) if i<2 else (.12,M+.24,.07)
         marcos.append(pieza(caja(dim,(px,py,-.014)), 'marco', PINO, rough=.5, lit=1,
-                            bevel=.014))
+                            bevel=.014, tx='madera', txs=1.2))
     # los huecos del vaso en las esquinas
     for sx,sy in [(1,1),(1,-1),(-1,1),(-1,-1)]:
         marcos.append(pieza(cilindro(.042,.042,.012,(sx*r,sy*r,.018), seg=14),
@@ -295,7 +356,7 @@ def mesa():
                 matrix=Euler((0,0,a+math.pi)).to_matrix().to_4x4())
             ox, oy = math.sin(a)*(r+dd), -math.cos(a)*(r+dd)
             bmesh.ops.translate(bm, verts=bm.verts, vec=(ox, oy, dz))
-            marcos.append(pieza(bm, 'atril', PINOSC, rough=.55, lit=1, bevel=.006))
+            marcos.append(pieza(bm, 'atril', PINOSC, rough=.55, lit=1, bevel=.006, tx='madera', txs=1.2))
     unir(marcos, 'marcoMesa', lit=1)
     # vasos y una botella en el borde, como en el patio
     for (sx,sy) in [(1,1),(-1,-1)]:
@@ -310,7 +371,7 @@ def mesa():
         for lado in (-1,1):
             bm = caja((.045,.03,1.02),(0,0,0), rot=(0, lado*.5, 0))
             bmesh.ops.translate(bm, verts=bm.verts, vec=(0, sy*(M/2-.14), PISO+.37))
-            pieza(bm, 'pataX', PINO, rough=.55, lit=1, bevel=.008)
+            pieza(bm, 'pataX', PINO, rough=.55, lit=1, bevel=.008, tx='madera', txs=1.2)
         pieza(cilindro(.014,.014,.05,(0, sy*(M/2-.14), PISO+.37), seg=8,
                        rot=(math.radians(90),0,0)), 'perno', hexlin('#6A6258'),
               rough=.4, metal=.6, lit=1)
@@ -480,6 +541,10 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         ob.data.materials.clear(); ob.data.materials.append(material_unico())
         for p in ob.data.polygons: p.use_smooth = True
         ob['rough'] = .82; ob['metal'] = 0.0
+        # el mapa de normales del cuerpo solo donde hay piel: cara y antebrazos.
+        # sobre la camisa dibuja músculos y parece pintura corporal.
+        if parte == 'cabeza' or (parte in ('antL','antR') and tipo != 'sombrero'):
+            ob['nm'] = 'nm_f' if sexo == 'Female' else 'nm_m'
         partes_obj[parte] = ob
 
     # ojos y cejas van con la cabeza, oscuros
@@ -672,12 +737,29 @@ def exportar(path):
         base = me.color_attributes.get('Base')
         luz  = me.color_attributes.get('LUZ')
         pos = bytearray(); nor = bytearray(); col = bytearray(); idx = bytearray()
+        uvb = bytearray()
+        tx = ob.get('tx'); nm = ob.get('nm'); txs = ob.get('txs', 1.0)
+        uv_mesh = None
+        if nm and me.uv_layers.active:
+            uv_mesh = [None]*nv
+            for loop in me.loops:
+                if uv_mesh[loop.vertex_index] is None:
+                    uv_mesh[loop.vertex_index] = me.uv_layers.active.data[loop.index].uv[:]
         M = ob.matrix_world
         for i, v in enumerate(me.vertices):
             wp = M @ v.co
             n = (M.to_3x3() @ v.normal).normalized()
             pos += struct.pack('<3f', wp.x, wp.z, -wp.y)
             nor += struct.pack('<3f', n.x, n.z, -n.y)
+            if uv_mesh is not None:
+                u_, v_ = uv_mesh[i] or (0.0, 0.0)
+                uvb += struct.pack('<2f', u_, v_)
+            elif tx:
+                ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+                if az >= ax and az >= ay: u_, v_ = wp.x, wp.y
+                elif ax >= ay:            u_, v_ = wp.y, wp.z
+                else:                     u_, v_ = wp.x, wp.z
+                uvb += struct.pack('<2f', u_/txs, v_/txs)
             b = base.data[i].color if base else (1,1,1,1)
             l = luz.data[i].color if luz else (1,1,1,1)
             if lit:
@@ -692,16 +774,20 @@ def exportar(path):
             idx += struct.pack('<3I', *t.vertices)
         o = {'n': ob.name, 'v': nv, 't': nt, 'l': lit,
              'r': round(ob.get('rough', .9),3), 'm': round(ob.get('metal', 0),3)}
+        if uvb: o['u'] = 1
+        if tx: o['tx'] = tx
+        if nm: o['nm'] = nm
         if mt.get('pv'): o['pv'] = [round(x,4) for x in mt['pv']]
         if mt.get('pa') is not None and 'pa' in mt: o['pa'] = mt['pa']
         objetos.append(o)
-        blobs.append((bytes(pos), bytes(nor), bytes(col), bytes(idx)))
+        blobs.append((bytes(pos), bytes(nor), bytes(col), bytes(uvb), bytes(idx)))
     meta = json.dumps({'objects': objetos}).encode()
     with open(path,'wb') as f:
         f.write(struct.pack('<4sI', b'MESA', len(meta)))
         f.write(meta); f.write(b'\0'*((-f.tell()) % 4))
-        for (p,n,c,i) in blobs:
-            f.write(p); f.write(n); f.write(c); f.write(b'\0'*((-len(c)) % 4)); f.write(i)
+        for (p,n,c,u,i) in blobs:
+            f.write(p); f.write(n); f.write(c); f.write(b'\0'*((-len(c)) % 4))
+            f.write(u); f.write(i)
     print('exportado', path, sum(o['v'] for o in objetos), 'vertices,',
           sum(o['t'] for o in objetos), 'triangulos')
 

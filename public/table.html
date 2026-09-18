@@ -488,6 +488,18 @@ function armarPalma(px,pz,esc){
   scene.add(g);
 }
 /* ---------- el set modelado en Blender: arte/blender/set.py ---------- */
+const TEXS = {};
+function texLocal(n, esColor){
+  if(!TEXS[n]){
+    const t = new THREE.TextureLoader().load('tex/'+n+'.png');
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = esColor ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.anisotropy = 4;
+    TEXS[n] = t;
+  }
+  return TEXS[n];
+}
+
 async function cargarSet(){
   const r = await fetch('set.bin');
   const buf = await r.arrayBuffer();
@@ -500,6 +512,8 @@ async function cargarSet(){
     const pos = new Float32Array(buf, off, o.v*3); off += o.v*12;
     const nor = new Float32Array(buf, off, o.v*3); off += o.v*12;
     const colU = new Uint8Array(buf, off, o.v*3); off += o.v*3; off = (off+3)&~3;
+    let uv = null;
+    if(o.u){ uv = new Float32Array(buf, off, o.v*2); off += o.v*8; }
     const idx = new Uint32Array(buf, off, o.t*3); off += o.t*12;
     // los bytes vienen en sRGB; three espera colores de vértice lineales
     const col = new Float32Array(o.v*3);
@@ -508,11 +522,16 @@ async function cargarSet(){
     g.setAttribute('position', new THREE.BufferAttribute(pos,3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor,3));
     g.setAttribute('color', new THREE.BufferAttribute(col,3));
+    if(uv) g.setAttribute('uv', new THREE.BufferAttribute(uv,2));
     g.setIndex(new THREE.BufferAttribute(idx,1));
     // l=1: convive con las fichas y lo ilumina el juego. l=0: luz horneada en Cycles
+    const extra = {};
+    if(o.tx) extra.map = texLocal(o.tx, true);
+    if(o.nm && uv){ extra.normalMap = texLocal(o.nm, false); }
     const m = new THREE.Mesh(g, o.l
-      ? new THREE.MeshStandardMaterial({vertexColors:true, roughness:o.r, metalness:o.m})
-      : new THREE.MeshBasicMaterial({vertexColors:true}));
+      ? new THREE.MeshStandardMaterial(Object.assign(
+          {vertexColors:true, roughness:o.r, metalness:o.m}, extra))
+      : new THREE.MeshBasicMaterial(Object.assign({vertexColors:true}, extra)));
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
     const p = o.n.match(/^P(\d)_(\w+)$/);
     if(p) partes[+p[1]][p[2]] = { mesh: m, o };
@@ -618,13 +637,14 @@ function init3D(){
   luna.position.set(-5,6,-4); scene.add(luna);
 
   redimensionar(); addEventListener('resize', redimensionar);
+  camAng = camAngGoal; camRad = camRadGoal; camAlt = camAltGoal;   // sin viaje inicial
   animar();
 }
 function redimensionar(){
   const w = innerWidth, h = innerHeight, a = w/h;
   renderer.setSize(w,h,false); camera.aspect = a;
-  if(a < 1.1){ camera.fov = 52; baseRad = 1.5; baseAlt = 2.3; }
-  else       { camera.fov = 44; baseRad = 1.9; baseAlt = 1.5; }
+  if(a < 1.1){ camera.fov = 54; baseRad = 1.5; baseAlt = 2.15; }
+  else       { camera.fov = 46; baseRad = 1.85; baseAlt = 1.52; }
   camera.updateProjectionMatrix();
   apuntarCamara();
 }
@@ -671,7 +691,9 @@ function colocarManos(conteos){
     }
   });
 }
-const SUTIL = [0, 0.55, 0.22, -0.55], DRAMA = [0, 1.50, 2.90, -1.50];
+/* La sutil mira desde una esquina, como un mirón parado en la mesa:
+   nunca hay una espalda tapando el centro. */
+const SUTIL = [0.79, 1.06, 0.79, 0.52], DRAMA = [0, 1.50, 2.90, -1.50];
 function apuntarCamara(){
   const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
   camAngGoal = (dramatica ? DRAMA : SUTIL)[s];
@@ -687,7 +709,7 @@ function animar(){
   let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
   if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
   camera.position.set(sx, camAlt, sz);
-  camera.lookAt(0,0.3,0);
+  camera.lookAt(0,0.06,0);
   animarGente(t);
   renderer.render(scene,camera);
 }

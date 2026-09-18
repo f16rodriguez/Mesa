@@ -274,6 +274,16 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let ws = null, S = null, previo = null, dramatica = false;
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
 let rigs = [null,null,null,null], gestos = [null,null,null,null];
+let manosMarca = [null,null,null,null];   // muñeca de cada brazo, para el IK
+let fichasMesh = [];                      // malla de la cadena por índice
+let vuelo = null;                         // la ficha que va de camino a la mesa
+const ASIENTO_ANG = [0, Math.PI/2, Math.PI, -Math.PI/2];
+const _v1=new THREE.Vector3(), _v2=new THREE.Vector3(), _v3=new THREE.Vector3(),
+      _v4=new THREE.Vector3(), _vP=new THREE.Vector3();
+const _q1=new THREE.Quaternion(), _q2=new THREE.Quaternion(),
+      _q3=new THREE.Quaternion(), _q4=new THREE.Quaternion(),
+      _qb=new THREE.Quaternion(), _qa=new THREE.Quaternion(),
+      _qT=new THREE.Quaternion();
 let camAng = 0, camAngGoal = 0, camRad = 6.8, camRadGoal = 6.8, camAlt = 5, camAltGoal = 5;
 let baseRad = 6.8, baseAlt = 5, sacudida = 0;
 const texCache = new Map();
@@ -557,10 +567,100 @@ function armarMarioneta(s, partes){
     p.mesh.position.set(-pv[0], -pv[1], -pv[2]);
     grp.add(p.mesh); padre.add(grp);
     g[nom] = grp;
+    if(p.o.hp){                      // dónde cae la muñeca: el IK apunta ahí
+      const marca = new THREE.Object3D();
+      marca.position.set(p.o.hp[0]-pv[0], p.o.hp[1]-pv[1], p.o.hp[2]-pv[2]);
+      grp.add(marca);
+      manosMarca[s] = manosMarca[s] || {};
+      manosMarca[s][nom === 'antL' ? 'L' : 'R'] = marca;
+    }
   }
   rigs[s] = g;
 }
 function gesto(s, tipo){ gestos[s] = { tipo, t0: performance.now()/1000 }; }
+
+/* Dos huesos que alcanzan un punto (CCD): el codo y el hombro giran hasta que
+   la muñeca cae donde debe. Sin esto la mano hace un gesto al aire y la ficha
+   aparece sola en la mesa. */
+function ikAlcanzar(bru, ant, marca, destino, iter){
+  for(let k=0; k<iter; k++){
+    for(const j of [ant, bru]){
+      j.updateMatrixWorld(true);
+      j.getWorldPosition(_v1);
+      marca.getWorldPosition(_v2);
+      _v3.subVectors(_v2, _v1); _v4.subVectors(destino, _v1);
+      if(_v3.lengthSq() < 1e-9 || _v4.lengthSq() < 1e-9) continue;
+      _q1.setFromUnitVectors(_v3.normalize(), _v4.normalize());
+      j.getWorldQuaternion(_q2);
+      _q3.copy(_q1).multiply(_q2);
+      j.parent.getWorldQuaternion(_q4).invert();
+      j.quaternion.copy(_q4.multiply(_q3));
+      j.updateMatrixWorld(true);
+    }
+  }
+}
+
+const V_TOMA = .32, V_LLEVA = .46, V_POSA = .16, V_VUELTA = .26;
+function aplicarVuelo(s, t){
+  const r = rigs[s], marcas = manosMarca[s];
+  const fm = fichasMesh[vuelo.idx];
+  if(!r || !marcas || !fm) return;
+  if(!vuelo.Pfin){                       // primer cuadro: de dónde a dónde
+    vuelo.Pfin = fm.position.clone();
+    vuelo.qFin = fm.quaternion.clone();
+    const ang = ASIENTO_ANG[s], d = MESA/2 + .06;
+    vuelo.P0 = new THREE.Vector3(Math.sin(ang)*d, .12, Math.cos(ang)*d);
+    vuelo.qIni = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(-1.28, ang, 0, 'YXZ'));
+    const dL = marcas.L ? marcas.L.getWorldPosition(_v1).distanceTo(vuelo.Pfin) : 9;
+    const dR = marcas.R ? marcas.R.getWorldPosition(_v2).distanceTo(vuelo.Pfin) : 9;
+    vuelo.lado = (dR <= dL && marcas.R) ? 'R' : 'L';
+    vuelo.ficha = fm.clone();
+    vuelo.ficha.position.copy(vuelo.P0);
+    vuelo.ficha.quaternion.copy(vuelo.qIni);
+    scene.add(vuelo.ficha);
+  }
+  fm.visible = false;
+  const u = t - vuelo.t0, P = _vP;
+  let w = 1;
+  if(u < V_TOMA){                                   // la mano va al atril
+    P.copy(vuelo.P0); P.y += .035;
+    w = easo(u/.14);
+    vuelo.ficha.position.copy(vuelo.P0);
+    vuelo.ficha.quaternion.copy(vuelo.qIni);
+  } else if(u < V_TOMA+V_LLEVA){                    // la lleva por el aire
+    const v = easo((u-V_TOMA)/V_LLEVA);
+    P.copy(vuelo.P0).lerp(vuelo.Pfin, v);
+    P.y += .10*Math.sin(v*Math.PI) + .04;
+    vuelo.ficha.position.copy(P); vuelo.ficha.position.y -= .014;
+    _qT.copy(vuelo.qIni).slerp(vuelo.qFin, easo(Math.min(1, v*1.4)));
+    vuelo.ficha.quaternion.copy(_qT);
+  } else if(u < V_TOMA+V_LLEVA+V_POSA){             // la posa
+    const v = easo((u-V_TOMA-V_LLEVA)/V_POSA);
+    P.copy(vuelo.Pfin); P.y += .04*(1-v) + .02;
+    vuelo.ficha.position.copy(vuelo.Pfin);
+    vuelo.ficha.position.y += .04*(1-v);
+    vuelo.ficha.quaternion.copy(vuelo.qFin);
+  } else {                                          // suelta y recoge el brazo
+    if(vuelo.ficha.parent){
+      scene.remove(vuelo.ficha); sacudida = Math.max(sacudida, .014);
+    }
+    fm.visible = true;
+    const v = (u - V_TOMA-V_LLEVA-V_POSA)/V_VUELTA;
+    if(v >= 1){ vuelo = null; return; }
+    w = 1 - easo(v);
+    P.copy(vuelo.Pfin); P.y += .06;
+  }
+  const bru = r['bru'+vuelo.lado], ant = r['ant'+vuelo.lado], marca = marcas[vuelo.lado];
+  if(bru && ant && marca){
+    bru.quaternion.identity(); ant.quaternion.identity();
+    figuras[s].updateMatrixWorld(true);
+    ikAlcanzar(bru, ant, marca, P, 4);
+    _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);
+    bru.quaternion.identity().slerp(_qb, w);
+    ant.quaternion.identity().slerp(_qa, w);
+  }
+}
 function armarGuirnalda(a, b, sag, n){
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
   const M = A.clone().lerp(B,.5); M.y -= sag;
@@ -654,21 +754,22 @@ function redimensionar(){
 }
 function colocarCadena(board){
   cadenaGrupo.clear();
+  fichasMesh = [];
   if(!board || !board.length) return;
   const util = MESA - 0.18, sepZ = TL*1.35;
   const filas = []; let fila = [], w = 0;
-  board.forEach(e => {
+  board.forEach((e, i) => {
     const largo = (e.a === e.b) ? TW : TL;
     if(w + largo > util && fila.length){ filas.push(fila); fila = []; w = 0; }
-    fila.push(e); w += largo;
+    fila.push({e, i}); w += largo;
   });
   if(fila.length) filas.push(fila);
   const z0 = -((filas.length-1)*sepZ)/2;
   filas.forEach((f,fi) => {
-    const total = f.reduce((s,e) => s + (e.a===e.b ? TW : TL), 0);
+    const total = f.reduce((s,o) => s + (o.e.a===o.e.b ? TW : TL), 0);
     const der = fi % 2 === 0;
     let x = der ? -total/2 : total/2;
-    f.forEach(e => {
+    f.forEach(({e, i}) => {
       const doble = e.a === e.b, largo = doble ? TW : TL;
       const m = mallaFicha(der ? e.a : e.b, der ? e.b : e.a);
       m.rotation.y = doble ? 0 : Math.PI/2;
@@ -677,8 +778,10 @@ function colocarCadena(board){
       m.position.set(x, TH/2, z0 + fi*sepZ);
       x += der ? largo/2 : -largo/2;
       cadenaGrupo.add(m);
+      fichasMesh[i] = m;
     });
   });
+  if(vuelo && fichasMesh[vuelo.idx]) fichasMesh[vuelo.idx].visible = false;
 }
 function colocarManos(conteos){
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
@@ -759,6 +862,7 @@ function animarGente(t){
     if(r.bruR){ r.bruR.rotation.x = bruRX; r.bruR.rotation.z = bruRZ; }
     if(r.antL) r.antL.rotation.x = antLX;
     if(r.antR) r.antR.rotation.x = antRX;
+    if(vuelo && vuelo.s === s) aplicarVuelo(s, t);
     const activo = S && S.fase === 'jugando' && S.turno === s;
     const esc = activo ? 1.02 : 1;
     f.scale.x += (esc - f.scale.x)*0.1; f.scale.y = f.scale.x; f.scale.z = f.scale.x;
@@ -861,8 +965,10 @@ function mostrarResultado(){
   fila('Fichas de Nosotros', r.teamPips[0] + ' pts');
   fila('Fichas de Ellos',    r.teamPips[1] + ' pts');
   if(r.winnerTeam !== null && r.winnerTeam !== undefined){
-    fila('Anota ' + (r.winnerTeam === 0 ? 'Nosotros' : 'Ellos'), '+' + r.base);
-    if(r.bonus) fila('Capicúa', '+' + r.bonus, 'bono');
+    // el motor manda `points` con la capicúa ya sumada; aquí se desglosa
+    const bono = (r.note === 'capicua' && S.rules.capicua) ? S.rules.capicuaBonus : 0;
+    fila('Anota ' + (r.winnerTeam === 0 ? 'Nosotros' : 'Ellos'), '+' + (r.points - bono));
+    if(bono) fila('Capicúa', '+' + bono, 'bono');
   }
   fila('Serie', S.scores[0] + ' – ' + S.scores[1]);
   $('seguirBtn').textContent = fin ? 'Nueva serie' : 'Repartir la próxima';
@@ -1044,7 +1150,13 @@ function conectar(){
       if(antes && antes.board && m.board && m.board.length > antes.board.length) sacudida = 0.02;
       // la vida de la mesa: quién jugó alcanza, quién pasó se encoge
       if(antes && antes.fase === 'jugando' && m.fase !== 'lobby' && antes.turno !== null){
-        if(m.board.length > antes.board.length) gesto(antes.turno, 'jugar');
+        if(m.board.length > antes.board.length){
+          const izq = !antes.board.length ||
+            m.board[0].a !== antes.board[0].a || m.board[0].b !== antes.board[0].b;
+          if(vuelo && vuelo.ficha) scene.remove(vuelo.ficha);
+          vuelo = { s: antes.turno, idx: izq ? 0 : m.board.length - 1,
+                    t0: performance.now()/1000 };
+        }
         else if(m.fase === 'jugando' && m.board.length === antes.board.length &&
                 m.turno !== antes.turno) gesto(antes.turno, 'paso');
       }

@@ -558,6 +558,7 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
             'bruR': pv_hueso('upperarm_r'), 'antR': pv_hueso('lowerarm_r')}
     padres = {'torso':'', 'cabeza':P+'torso', 'bruL':P+'torso', 'bruR':P+'torso',
               'antL':P+'bruL', 'antR':P+'bruR'}
+    manos_pv = {'antL': pv_hueso('hand_l'), 'antR': pv_hueso('hand_r')}
     hw = arm.matrix_world @ pb['Head'].head
 
     # congelar la pose en la geometría
@@ -821,6 +822,7 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         ob.name = P + parte
         meta = {}
         if parte in pivs: meta = {'pv': pivs[parte], 'pa': padres[parte]}
+        if parte in manos_pv: meta['hp'] = manos_pv[parte]
         todos.append((ob, 1, meta))
 
     # limpiar: esqueleto, objetivos y cuerpo original fuera
@@ -997,6 +999,7 @@ def exportar(path):
         if tx: o['tx'] = tx
         if nm: o['nm'] = nm
         if mt.get('pv'): o['pv'] = [round(x,4) for x in mt['pv']]
+        if mt.get('hp'): o['hp'] = [round(x,4) for x in mt['hp']]
         if mt.get('pa') is not None and 'pa' in mt: o['pa'] = mt['pa']
         objetos.append(o)
         blobs.append((bytes(pos), bytes(nor), bytes(col), bytes(uvb), bytes(idx)))

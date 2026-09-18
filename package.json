@@ -1,0 +1,13 @@
+{
+  "name": "mesa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mesa — Dominican dominoes for one table and four phones. Co-located prototype.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/fourseats.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

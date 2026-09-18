@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0A0D10">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Mesa · tu mano</title>
+<style>
+:root{
+  --noche:#0A0D10; --panel:#14181C; --linea:#252B31;
+  --hueso:#F4ECDE; --hueso-sombra:#CFC2AC;
+  --tinta:#EFE4D2; --tinta-suave:#8D8880;
+  --mamey:#D4622A; --ambar:#E0A526; --verde:#2E7D50;
+  --p1:#2F5FA0; --p2:#2E7D50; --p3:#C4362B; --p4:#6B4A9E; --p5:#D4622A; --p6:#2B2724;
+  --u:clamp(38px, calc((100vw - 90px) / 7), 54px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{height:100%; margin:0; overscroll-behavior:none}
+body{
+  background:var(--noche); color:var(--tinta);
+  font:15px/1.4 "Helvetica Neue",Arial,system-ui,sans-serif;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  -webkit-text-size-adjust:100%; user-select:none;
+}
+button{font:inherit; color:inherit; border:none; background:none; cursor:pointer}
+[hidden]{display:none !important}
+
+.pantalla{height:100%; display:flex; flex-direction:column; padding:0 16px}
+
+/* ---- entrar ---- */
+.entrar{justify-content:center; gap:14px; text-align:center}
+.entrar h1{font-size:34px; margin:0 0 2px; letter-spacing:.02em; font-weight:800}
+.entrar p{margin:0 0 14px; color:var(--tinta-suave); font-size:14px}
+.campo{display:block; width:100%; background:var(--panel); border:1px solid var(--linea);
+  color:var(--tinta); border-radius:12px; padding:15px; font-size:17px; text-align:center}
+#codigo{font-size:38px; font-weight:800; letter-spacing:.28em; text-transform:uppercase;
+  padding:18px 15px 18px 25px}
+.campo:focus{outline:none; border-color:var(--ambar)}
+.principal{width:100%; background:var(--mamey); color:#fff; font-weight:700; font-size:17px;
+  border-radius:12px; padding:16px; margin-top:4px}
+.principal:disabled{opacity:.4}
+.aviso{color:var(--mamey); font-size:13.5px; min-height:19px; margin:0}
+
+/* ---- barra ---- */
+.barra{display:flex; align-items:center; gap:10px; padding:12px 0 8px; flex:0 0 auto}
+.yo{font-weight:700; font-size:15px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.marcador{font-size:13px; color:var(--tinta-suave); font-variant-numeric:tabular-nums}
+.marcador b{color:var(--ambar); font-weight:700}
+.marcador i{color:#4A86C8; font-style:normal; font-weight:700}
+.señal{width:8px; height:8px; border-radius:99px; background:var(--verde); flex:0 0 auto}
+.señal.mal{background:var(--mamey)}
+
+/* ---- estado ---- */
+.estado{flex:0 0 auto; text-align:center; padding:10px 0 6px}
+.estado .grande{font-size:23px; font-weight:800; line-height:1.15; margin:0}
+.estado .chico{font-size:13.5px; color:var(--tinta-suave); margin:5px 0 0; min-height:18px}
+.estado.turno .grande{color:var(--ambar)}
+.extremos{display:flex; justify-content:center; gap:10px; margin-top:12px}
+.extremos .cara{width:46px; height:46px; border-radius:8px; background:var(--hueso);
+  display:grid; place-items:center; box-shadow:0 0 0 2px rgba(224,165,38,.45)}
+
+/* ---- fichas ---- */
+.ficha{width:var(--u); height:calc(var(--u)*2); background:var(--hueso); border-radius:7px;
+  display:flex; flex-direction:column; overflow:hidden; flex:0 0 auto; position:relative;
+  box-shadow:0 2px 0 var(--hueso-sombra), 0 4px 10px rgba(0,0,0,.5)}
+.ficha .mitad{flex:1; display:grid; place-items:center}
+.ficha .mitad+.mitad{box-shadow:inset 0 1px 0 var(--hueso-sombra)}
+.ficha .pips{--dot:calc(var(--u)*0.115)}
+.pips{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  width:74%; height:74%; place-items:center; transform:rotate(90deg)}
+.pips i{width:var(--dot,5px); height:var(--dot,5px); border-radius:99px; display:block}
+.pips[data-n="1"] i{background:var(--p1)} .pips[data-n="2"] i{background:var(--p2)}
+.pips[data-n="3"] i{background:var(--p3)} .pips[data-n="4"] i{background:var(--p4)}
+.pips[data-n="5"] i{background:var(--p5)} .pips[data-n="6"] i{background:var(--p6)}
+.cara .pips{width:76%; height:76%; --dot:5.5px}
+
+/* ---- mano ---- */
+.mano-zona{flex:1 1 auto; display:flex; flex-direction:column; justify-content:flex-end;
+  min-height:0; padding-bottom:10px}
+.mano{display:flex; gap:9px; overflow-x:auto; padding:16px 2px 14px; scrollbar-width:none}
+.mano::-webkit-scrollbar{display:none}
+.mano .ficha{transition:transform .14s, opacity .18s, box-shadow .14s}
+.mano .ficha.no{opacity:.55; filter:saturate(.45) brightness(.8)}
+.mano .ficha.si:active{transform:translateY(-10px) scale(1.04)}
+.mano .ficha.elegida{transform:translateY(-12px);
+  box-shadow:0 0 0 3px var(--ambar), 0 8px 16px rgba(0,0,0,.6)}
+.acciones{display:flex; gap:10px}
+.acciones button{flex:1; border-radius:12px; padding:16px; font-weight:700; font-size:16px;
+  border:1px solid var(--linea); background:var(--panel); color:var(--tinta-suave)}
+.paso.puede{border-color:var(--mamey); color:var(--mamey); background:#2A1811}
+.paso:disabled{opacity:.35}
+.lado{display:flex; gap:10px; margin-bottom:10px}
+.lado button{flex:1; border:1px solid var(--ambar); color:var(--ambar); background:#241C12;
+  border-radius:12px; padding:15px; font-weight:700}
+.cancelar{flex:0 0 auto !important; border-color:var(--linea) !important;
+  color:var(--tinta-suave) !important; background:var(--panel) !important; padding:15px 18px !important}
+
+/* ---- lobby ---- */
+.lobby{justify-content:center; text-align:center; gap:16px}
+.lobby h2{font-size:26px; margin:0; font-weight:800}
+.lobby .sillas{display:flex; flex-direction:column; gap:8px; margin-top:6px}
+.silla{display:flex; align-items:center; gap:10px; background:var(--panel);
+  border:1px solid var(--linea); border-radius:11px; padding:13px 15px; font-size:15px}
+.silla.libre{color:var(--tinta-suave); border-style:dashed}
+.silla.tu{border-color:var(--ambar)}
+.silla .eq{margin-left:auto; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--tinta-suave)}
+.nota{color:var(--tinta-suave); font-size:13px; margin:0}
+.enlace{background:none; color:var(--tinta-suave); font-size:14px; text-decoration:underline;
+  text-underline-offset:4px; padding:10px}
+.enlace:hover{color:var(--tinta)}
+
+/* ---- tutorial ---- */
+.tutoBarra{display:flex; align-items:center; gap:12px; padding:12px 0 4px; flex:0 0 auto}
+.tutoBarra .salir{font-size:22px; line-height:1; color:var(--tinta-suave); padding:4px 8px}
+.puntitos{display:flex; gap:6px; flex:1; justify-content:center}
+.puntitos i{width:7px; height:7px; border-radius:99px; background:var(--linea); display:block}
+.puntitos i.hecho{background:var(--tinta-suave)}
+.puntitos i.ahora{background:var(--ambar); transform:scale(1.35)}
+.tuto .estado .grande{font-size:21px}
+.tuto .estado .chico{font-size:14px; color:var(--tinta-suave); line-height:1.45;
+  max-width:30em; margin-left:auto; margin-right:auto}
+.dedo{position:relative}
+.dedo::after{content:''; position:absolute; inset:-5px; border-radius:11px;
+  border:2px solid var(--ambar); animation:latir 1.5s ease-in-out infinite; pointer-events:none}
+@keyframes latir{0%,100%{opacity:.35} 50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){ .dedo::after{animation:none; opacity:.9} }
+</style>
+</head>
+<body>
+
+<section class="pantalla entrar" id="pEntrar">
+  <h1>Mesa</h1>
+  <p>Escribe el código que está en la pantalla</p>
+  <input class="campo" id="codigo" inputmode="latin" autocomplete="off"
+         autocapitalize="characters" maxlength="4" placeholder="ABCD" aria-label="Código de la mesa">
+  <input class="campo" id="nombre" maxlength="14" placeholder="Tu nombre" autocomplete="given-name"
+         aria-label="Tu nombre">
+  <button class="principal" id="btnEntrar">Sentarme</button>
+  <p class="aviso" id="aviso"></p>
+  <button class="enlace" id="tutoDesdeEntrar">¿Cómo se juega?</button>
+</section>
+
+<section class="pantalla lobby" id="pLobby" hidden>
+  <h2 id="lobbyTitulo">Estás sentado</h2>
+  <p class="nota" id="lobbyNota">Esperando a que la mesa se llene</p>
+  <div class="sillas" id="sillas"></div>
+  <button class="enlace" id="tutoDesdeLobby">¿Cómo se juega?</button>
+</section>
+
+<section class="pantalla tuto" id="pTuto" hidden>
+  <div class="tutoBarra">
+    <button class="salir" id="tutoSalir" aria-label="Salir">&times;</button>
+    <div class="puntitos" id="puntitos"></div>
+    <span style="width:34px"></span>
+  </div>
+  <div class="estado">
+    <p class="grande" id="tutoGrande">—</p>
+    <p class="chico" id="tutoChico"></p>
+    <div class="extremos" id="tutoExtremos" hidden>
+      <div class="cara" id="tutoIzq"></div>
+      <div class="cara" id="tutoDer"></div>
+    </div>
+  </div>
+  <div class="mano-zona">
+    <div class="mano" id="tutoMano"></div>
+    <div class="lado" id="tutoLado" hidden></div>
+    <div class="acciones">
+      <button class="paso" id="tutoPaso" disabled>Paso</button>
+      <button class="principal" id="tutoSig" style="margin-top:0">Siguiente</button>
+    </div>
+  </div>
+</section>
+
+<section class="pantalla" id="pJuego" hidden>
+  <div class="barra">
+    <span class="señal" id="señal"></span>
+    <span class="yo" id="yo">—</span>
+    <span class="marcador"><b id="m0">0</b> – <i id="m1">0</i></span>
+  </div>
+
+  <div class="estado" id="estado">
+    <p class="grande" id="estadoGrande">—</p>
+    <p class="chico" id="estadoChico"></p>
+    <div class="extremos" id="extremos" hidden>
+      <div class="cara" id="extIzq"></div>
+      <div class="cara" id="extDer"></div>
+    </div>
+  </div>
+
+  <div class="mano-zona">
+    <div class="mano" id="mano"></div>
+    <div class="lado" id="lado" hidden></div>
+    <div class="acciones" id="acciones">
+      <button class="paso" id="btnPaso" disabled>Paso</button>
+    </div>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const PIPMAP = {0:[],1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+const EQUIPOS = ['Nosotros','Ellos'];
+
+let ws = null, yo = null, token = null, codigo = null, estado = null, elegida = null;
+let reintento = 0;
+
+/* ---- almacenamiento del asiento (para volver tras un refresco) ---- */
+function guardar(){ try{ localStorage.setItem('mesa.sesion', JSON.stringify({token,codigo})); }catch(e){} }
+function leer(){ try{ return JSON.parse(localStorage.getItem('mesa.sesion')||'null'); }catch(e){ return null; } }
+function olvidar(){ try{ localStorage.removeItem('mesa.sesion'); }catch(e){} }
+
+/* ---- fichas ---- */
+function pipGrid(n){
+  const p = document.createElement('div'); p.className='pips'; p.dataset.n = n;
+  for(let c=1;c<=9;c++){
+    const cell = document.createElement('div');
+    cell.style.gridArea = `${Math.ceil(c/3)} / ${((c-1)%3)+1}`;
+    if(PIPMAP[n].includes(c)) cell.appendChild(document.createElement('i'));
+    p.appendChild(cell);
+  }
+  return p;
+}
+function ficha(a,b){
+  const d = document.createElement('div'); d.className='ficha';
+  [a,b].forEach(n=>{ const m=document.createElement('div'); m.className='mitad';
+    m.appendChild(pipGrid(n)); d.appendChild(m); });
+  return d;
+}
+function vibrar(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
+/* ---- conexión ---- */
+function conectar(alAbrir){
+  ws = new WebSocket((location.protocol==='https:'?'wss://':'ws://') + location.host);
+  ws.onopen = () => { reintento = 0; señal(true); alAbrir && alAbrir(); };
+  ws.onmessage = ev => {
+    let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+    if(m.t === 'tu'){ yo = m.asiento; token = m.token; codigo = m.codigo; guardar(); }
+    else if(m.t === 'state'){ estado = m; pintar(); }
+    else if(m.t === 'err'){ error(m.msg); }
+  };
+  ws.onclose = () => {
+    señal(false);
+    const espera = Math.min(800 * Math.pow(1.6, reintento++), 8000);
+    setTimeout(() => conectar(() => { if(token && codigo) manda({t:'volver', codigo, token}); }), espera);
+  };
+  ws.onerror = () => {};
+}
+function manda(o){ if(ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function señal(ok){ $('señal').classList.toggle('mal', !ok); }
+function error(msg){
+  if(!$('pEntrar').hidden){ $('aviso').textContent = msg; $('btnEntrar').disabled = false; }
+  else { $('estadoChico').textContent = msg; vibrar(40); }
+  if(/no es tuyo|ya no existe/i.test(msg)){ olvidar(); token = null; verPantalla('pEntrar'); }
+}
+
+/* ---- pantallas ---- */
+function verPantalla(id){
+  ['pEntrar','pLobby','pJuego','pTuto'].forEach(p => { $(p).hidden = (p !== id); });
+}
+
+/* ---- pintar ---- */
+let turnoAnterior = null;
+function pintar(){
+  if(tuto.abierto) return;            // el servidor sigue hablando; el tutorial manda
+  if(yo === null || !estado) return;
+  const s = estado;
+
+  if(s.fase === 'lobby'){
+    verPantalla('pLobby');
+    $('lobbyTitulo').textContent = 'Mesa ' + s.codigo;
+    const faltan = s.ocupados.filter(o => !o).length;
+    $('lobbyNota').textContent = faltan
+      ? (faltan === 1 ? 'Falta un jugador' : 'Faltan ' + faltan + ' jugadores')
+      : 'Listos. Empiecen desde la pantalla grande.';
+    const c = $('sillas'); c.innerHTML = '';
+    s.nombres.forEach((n,i) => {
+      const d = document.createElement('div');
+      d.className = 'silla' + (s.ocupados[i] ? '' : ' libre') + (i === yo ? ' tu' : '');
+      d.innerHTML = `<span>${s.ocupados[i] ? escapar(n) : 'Libre'}${i===yo?' · tú':''}</span>` +
+                    `<span class="eq">${EQUIPOS[i % 2]}</span>`;
+      c.appendChild(d);
+    });
+    return;
+  }
+
+  verPantalla('pJuego');
+  $('yo').textContent = s.nombres[yo] + ' · ' + EQUIPOS[yo % 2];
+  $('m0').textContent = s.scores[0];
+  $('m1').textContent = s.scores[1];
+
+  const miTurno = s.fase === 'jugando' && s.turno === yo;
+  const grande = $('estadoGrande'), chico = $('estadoChico');
+  $('estado').classList.toggle('turno', miTurno);
+
+  if(s.fase === 'manoCerrada' || s.fase === 'serieCerrada'){
+    const r = s.resultado || {};
+    const mio = r.winnerTeam === (yo % 2);
+    grande.textContent = s.fase === 'serieCerrada'
+      ? (s.campeon === (yo % 2) ? '¡Ganamos la serie!' : 'Ellos ganaron la serie')
+      : (r.kind === 'tranque' ? 'Tranque' : (r.seat === yo ? '¡Dominó!' : 'Dominó de ' + s.nombres[r.seat]));
+    chico.textContent = r.winnerTeam === null || r.winnerTeam === undefined
+      ? 'Nadie anota.'
+      : (mio ? '+' + r.points + ' para nosotros' : '+' + r.points + ' para ellos')
+        + (r.note === 'capicua' ? ' · capicúa' : '');
+  } else if(miTurno){
+    grande.textContent = 'Te toca';
+    chico.textContent = s.legales.length ? 'Toca una ficha' : 'No tienes ficha';
+  } else {
+    grande.textContent = s.turno !== null ? 'Juega ' + s.nombres[s.turno] : 'Esperando';
+    chico.textContent = 'Fichas: ' + s.conteos.map((c,i) => s.nombres[i].split(' ')[0] + ' ' + c).join(' · ');
+  }
+
+  if(miTurno && turnoAnterior !== true) vibrar([12, 60, 12]);
+  turnoAnterior = miTurno;
+
+  const ex = $('extremos');
+  ex.hidden = !s.ends || s.fase !== 'jugando';
+  if(s.ends){
+    $('extIzq').innerHTML = ''; $('extIzq').appendChild(pipGrid(s.ends[0]));
+    $('extDer').innerHTML = ''; $('extDer').appendChild(pipGrid(s.ends[1]));
+  }
+
+  pintarMano(s, miTurno);
+  $('acciones').hidden = s.fase !== 'jugando';
+}
+
+function pintarMano(s, miTurno){
+  const jugables = new Set(s.legales.map(m => m.tile.join('-')));
+  const c = $('mano'); c.innerHTML = '';
+  [...s.mano].sort((x,y) => (y[0]===y[1])-(x[0]===x[1]) || (y[0]+y[1])-(x[0]+x[1])).forEach(t => {
+    const el = ficha(t[0], t[1]);
+    const ok = miTurno && jugables.has(t.join('-'));
+    el.className = 'ficha ' + (ok ? 'si' : 'no');
+    if(elegida && elegida[0]===t[0] && elegida[1]===t[1]) el.classList.add('elegida');
+    if(ok){
+      el.setAttribute('role','button');
+      el.setAttribute('aria-label', `Jugar ${t[0]} ${t[1]}`);
+      el.addEventListener('click', () => elegir(t));
+    }
+    c.appendChild(el);
+  });
+  const pb = $('btnPaso');
+  const puede = miTurno && s.legales.length === 0;
+  pb.disabled = !puede;
+  pb.classList.toggle('puede', puede);
+  if(!miTurno){ $('lado').hidden = true; elegida = null; }
+}
+
+function elegir(t){
+  const lados = estado.legales.filter(m => m.tile[0]===t[0] && m.tile[1]===t[1]);
+  if(lados.length === 1){ jugar(t, lados[0].side); return; }
+  elegida = t;
+  const [L,R] = estado.ends, lado = $('lado');
+  lado.hidden = false; lado.innerHTML = '';
+  const bi = document.createElement('button'); bi.textContent = 'Al ' + L;
+  bi.onclick = () => jugar(t, 'L');
+  const bd = document.createElement('button'); bd.textContent = 'Al ' + R;
+  bd.onclick = () => jugar(t, 'R');
+  const bc = document.createElement('button'); bc.className = 'cancelar'; bc.textContent = '✕';
+  bc.onclick = () => { elegida = null; lado.hidden = true; pintar(); };
+  lado.append(bi, bd, bc);
+  pintar();
+}
+function jugar(t, side){
+  vibrar(18);
+  elegida = null; $('lado').hidden = true;
+  manda({ t:'jugar', tile:t, side });
+}
+$('btnPaso').onclick = () => { if(!$('btnPaso').disabled){ vibrar(18); manda({ t:'paso' }); } };
+
+function escapar(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+
+/* =================== La escuelita ===================
+ * No explica el dominó con párrafos: te pone una mano de verdad delante y
+ * te hace tocarla. Lo que hay que aprender el domingo no son las reglas —
+ * casi todos ya las saben — sino que el teléfono ES tu mano.
+ */
+const tuto = { abierto:false, i:0 };
+
+const ESCENAS = [
+  {
+    grande: 'Esta es tu mano',
+    chico: 'Siete fichas, y solo tú las ves. El teléfono se queda contigo: en la pantalla grande nadie ve lo que tienes.',
+    mano: [[6,6],[6,4],[5,3],[5,1],[4,2],[3,0],[2,2]],
+    ends: null, espera: 'boton'
+  },
+  {
+    grande: 'La mesa tiene dos puntas',
+    chico: 'Solo se puede jugar por los extremos. Ahora mismo están abiertos el 5 y el 2, así que sirve cualquier ficha que tenga un 5 o un 2. Mira cuáles se encienden.',
+    mano: [[6,6],[6,4],[5,3],[5,1],[4,2],[3,0],[2,2]],
+    ends: [5,2], espera: 'boton'
+  },
+  {
+    grande: 'Toca una para jugarla',
+    chico: 'Las apagadas no pegan con ninguna punta. Elige cualquiera de las encendidas.',
+    mano: [[6,6],[6,4],[5,3],[5,1],[4,2],[3,0],[2,2]],
+    ends: [5,2], espera: 'jugar'
+  },
+  {
+    grande: 'Cuando pega por los dos lados',
+    chico: 'El 3|2 sirve en el 3 y en el 2. Tócalo y el teléfono te pregunta por cuál lado lo quieres poner.',
+    mano: [[6,6],[6,4],[5,1],[3,2],[4,2]],
+    ends: [3,2], solo: [3,2], espera: 'lado'
+  },
+  {
+    grande: 'Si no tienes, pasas',
+    chico: 'Las puntas son 6 y 6, y aquí no hay ningún seis. El botón Paso solo se enciende cuando de verdad no puedes jugar — así nadie pasa por error.',
+    mano: [[5,1],[4,2],[3,0],[2,2]],
+    ends: [6,6], espera: 'paso'
+  },
+  {
+    grande: 'Juegas con el de enfrente',
+    chico: 'Son dos parejas: tú y quien está al frente contra los otros dos. Cuando alguien se queda sin fichas, su pareja suma lo que quedó en manos de los contrarios. Se juega hasta 200.',
+    mano: [], ends: null, espera: 'fin'
+  }
+];
+
+function escena(){ return ESCENAS[tuto.i]; }
+
+function tutoPuntitos(){
+  const c = $('puntitos'); c.innerHTML = '';
+  ESCENAS.forEach((_, k) => {
+    const i = document.createElement('i');
+    i.className = k < tuto.i ? 'hecho' : (k === tuto.i ? 'ahora' : '');
+    c.appendChild(i);
+  });
+}
+
+function tutoPega(t, e){
+  if(!e) return false;
+  return t[0] === e[0] || t[1] === e[0] || t[0] === e[1] || t[1] === e[1];
+}
+
+function tutoPintar(){
+  const e = escena();
+  tutoPuntitos();
+  $('tutoGrande').textContent = e.grande;
+  $('tutoChico').textContent = e.chico;
+
+  $('tutoExtremos').hidden = !e.ends;
+  if(e.ends){
+    $('tutoIzq').innerHTML = ''; $('tutoIzq').appendChild(pipGrid(e.ends[0]));
+    $('tutoDer').innerHTML = ''; $('tutoDer').appendChild(pipGrid(e.ends[1]));
+  }
+
+  const c = $('tutoMano'); c.innerHTML = '';
+  e.mano.forEach(t => {
+    const el = ficha(t[0], t[1]);
+    const soloEsta = e.solo && e.solo[0] === t[0] && e.solo[1] === t[1];
+    const viva = e.espera === 'jugar' ? tutoPega(t, e.ends)
+               : e.espera === 'lado'  ? soloEsta
+               : (e.ends ? tutoPega(t, e.ends) : true);
+    el.className = 'ficha ' + (viva ? 'si' : 'no');
+    if(viva && (e.espera === 'jugar' || e.espera === 'lado')){
+      if(e.espera === 'lado' || e.mano.filter(x => tutoPega(x, e.ends)).length === 1) el.classList.add('dedo');
+      el.addEventListener('click', () => tutoToco(t));
+    }
+    c.appendChild(el);
+  });
+
+  const puede = e.espera === 'paso';
+  $('tutoPaso').disabled = !puede;
+  $('tutoPaso').classList.toggle('puede', puede);
+  $('tutoPaso').classList.toggle('dedo', puede);
+  $('tutoLado').hidden = true;
+
+  const sig = $('tutoSig');
+  sig.hidden = !(e.espera === 'boton' || e.espera === 'fin');
+  sig.textContent = e.espera === 'fin' ? 'Listo, a jugar' : 'Siguiente';
+}
+
+function tutoToco(t){
+  const e = escena();
+  if(e.espera === 'jugar'){ vibrar(18); tutoAvanza(); return; }
+  if(e.espera === 'lado'){
+    const lado = $('tutoLado');
+    lado.hidden = false; lado.innerHTML = '';
+    const bi = document.createElement('button'); bi.textContent = 'Al ' + e.ends[0];
+    const bd = document.createElement('button'); bd.textContent = 'Al ' + e.ends[1];
+    bi.onclick = bd.onclick = () => { vibrar(18); tutoAvanza(); };
+    lado.append(bi, bd);
+  }
+}
+function tutoAvanza(){
+  if(tuto.i >= ESCENAS.length - 1){ tutoCerrar(); return; }
+  tuto.i++; tutoPintar();
+}
+function tutoAbrir(){
+  tuto.abierto = true; tuto.i = 0;
+  verPantalla('pTuto'); tutoPintar();
+}
+function tutoCerrar(){
+  tuto.abierto = false;
+  if(yo !== null && estado) pintar();
+  else verPantalla('pEntrar');
+}
+$('tutoSig').onclick = tutoAvanza;
+$('tutoPaso').onclick = () => { if(!$('tutoPaso').disabled){ vibrar(18); tutoAvanza(); } };
+$('tutoSalir').onclick = tutoCerrar;
+$('tutoDesdeEntrar').onclick = tutoAbrir;
+$('tutoDesdeLobby').onclick = tutoAbrir;
+
+/* ---- entrar ---- */
+$('codigo').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+  if(e.target.value.length === 4) $('nombre').focus();
+});
+$('btnEntrar').onclick = () => {
+  const c = $('codigo').value.trim().toUpperCase(), n = $('nombre').value.trim();
+  if(c.length !== 4){ $('aviso').textContent = 'El código son cuatro letras.'; return; }
+  if(!n){ $('aviso').textContent = '¿Cómo te llamas?'; return; }
+  $('aviso').textContent = ''; $('btnEntrar').disabled = true;
+  manda({ t:'entrar', codigo:c, nombre:n });
+};
+$('nombre').addEventListener('keydown', e => { if(e.key === 'Enter') $('btnEntrar').click(); });
+
+/* el teléfono se duerme: al volver, reclamamos el asiento enseguida */
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && token && codigo){
+    if(!ws || ws.readyState !== 1) conectar(() => manda({t:'volver', codigo, token}));
+    else manda({ t:'ping' });
+  }
+});
+setInterval(() => { if(ws && ws.readyState === 1) manda({ t:'ping' }); }, 10000);
+
+const guardada = leer();
+const url = new URL(location.href);
+if(url.searchParams.get('c')) $('codigo').value = url.searchParams.get('c').toUpperCase().slice(0,4);
+conectar(() => {
+  if(guardada && guardada.token && guardada.codigo){
+    token = guardada.token; codigo = guardada.codigo;
+    manda({ t:'volver', codigo, token });
+  }
+});
+</script>
+</body>
+</html>

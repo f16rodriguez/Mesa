@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mesa</title>
+<script src="three.min.js"></script>
+<style>
+/* Todo local: ni fuentes ni scripts de fuera. Esto tiene que correr en un
+   patio con wifi y sin internet. */
+:root{
+  --noche:#0A0D10; --hueso:#F4ECDE; --tinta:#EFE4D2; --tinta-suave:#9C9086;
+  --mamey:#D4622A; --ambar:#E0A526; --anil:#4A86C8; --linea:#2A2420;
+  --p1:#2F5FA0; --p2:#2E7D50; --p3:#C4362B; --p4:#6B4A9E; --p5:#D4622A; --p6:#2B2724;
+  --ui:"Helvetica Neue",Arial,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%; margin:0}
+body{background:var(--noche); color:var(--tinta); font:15px/1.4 var(--ui); overflow:hidden}
+button{font:inherit; color:inherit; border:none; background:none; cursor:pointer}
+:focus-visible{outline:2px solid var(--ambar); outline-offset:2px}
+#lienzo{position:fixed; inset:0; width:100%; height:100%; z-index:0; display:block}
+
+.app{position:relative; z-index:1; height:100%; display:flex; flex-direction:column;
+  padding:0 20px; pointer-events:none}
+.app>*{pointer-events:auto}
+
+/* marcador */
+.marcador{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px;
+  padding-block:14px 4px; text-shadow:0 1px 8px rgba(0,0,0,.85)}
+.equipo{display:flex; align-items:baseline; gap:10px; min-width:0}
+.equipo .col{flex:1; min-width:0}
+.equipo .nombre{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--tinta-suave)}
+.equipo.ellos .nombre{text-align:right}
+.equipo .puntos{font-size:42px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums}
+.equipo.nosotros .puntos{color:var(--ambar)} .equipo.ellos .puntos{color:var(--anil)}
+.barra{height:3px; background:rgba(255,255,255,.14); border-radius:2px; overflow:hidden; margin-top:5px}
+.barra i{display:block; height:100%; border-radius:2px; transition:width .5s ease}
+.equipo.nosotros .barra i{background:var(--ambar)} .equipo.ellos .barra i{background:var(--anil)}
+.centro{text-align:center; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--tinta-suave); white-space:nowrap}
+.centro b{display:block; font-size:17px; letter-spacing:.02em; text-transform:none;
+  color:var(--tinta); font-weight:700}
+.chips{display:flex; gap:6px; justify-content:center; margin-top:7px}
+.chip{background:rgba(10,13,16,.6); border:1px solid rgba(255,255,255,.16); color:var(--tinta-suave);
+  border-radius:99px; padding:4px 11px; font-size:11.5px}
+.chip:hover{color:var(--tinta); border-color:rgba(255,255,255,.34)}
+.chip[aria-pressed="true"]{border-color:var(--ambar); color:var(--ambar)}
+
+.hueco{flex:1 1 auto; min-height:0; pointer-events:none}
+
+/* extremos + locución */
+.pie{padding-bottom:18px; text-align:center}
+.extremos{display:flex; justify-content:center; gap:14px; margin-bottom:10px}
+.extremo{display:flex; flex-direction:column; align-items:center; gap:4px}
+.cara .pips{--dot:5.5px}
+.cara{width:46px; height:46px; border-radius:8px; background:var(--hueso); display:grid;
+  place-items:center; box-shadow:0 0 0 2px rgba(224,165,38,.5), 0 4px 12px rgba(0,0,0,.65)}
+.extremo small{font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:rgba(244,236,222,.6); text-shadow:0 1px 5px #000}
+.locucion{font-size:16px; color:var(--tinta-suave); text-shadow:0 1px 8px #000; min-height:22px}
+.locucion b{color:var(--tinta); font-weight:700}
+
+.pips{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  width:76%; height:76%; place-items:center; transform:rotate(90deg)}
+.pips i{width:var(--dot,5px); height:var(--dot,5px); border-radius:99px; display:block}
+.pips[data-n="1"] i{background:var(--p1)} .pips[data-n="2"] i{background:var(--p2)}
+.pips[data-n="3"] i{background:var(--p3)} .pips[data-n="4"] i{background:var(--p4)}
+.pips[data-n="5"] i{background:var(--p5)} .pips[data-n="6"] i{background:var(--p6)}
+
+/* capas */
+.capa{position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:24px;
+  background:rgba(6,8,10,.86)}
+.tarjeta{width:100%; max-width:520px; background:#14100D; border:1px solid var(--linea);
+  border-radius:16px; padding:26px; box-shadow:0 24px 60px rgba(0,0,0,.7);
+  max-height:88vh; overflow-y:auto}
+.tarjeta h2{font-size:30px; margin:0 0 4px; font-weight:800; line-height:1.1}
+.tarjeta h2.gana{color:var(--ambar)} .tarjeta h2.pierde{color:var(--anil)}
+.tarjeta .sub{color:var(--tinta-suave); font-size:14px; margin:0 0 18px}
+.desglose{display:flex; flex-direction:column; margin:0 0 20px; border-top:1px solid var(--linea)}
+.desglose div{display:flex; justify-content:space-between; gap:14px; padding:10px 0;
+  border-bottom:1px solid var(--linea); font-size:15px}
+.desglose span:last-child{font-variant-numeric:tabular-nums; font-weight:700}
+.desglose .bono span:last-child{color:var(--ambar)}
+.principal{width:100%; background:var(--mamey); color:#fff; font-weight:700; border-radius:11px;
+  padding:15px; font-size:16px}
+.principal:disabled{opacity:.35}
+.secundaria{width:100%; margin-top:10px; border:1px solid var(--linea); color:var(--tinta-suave);
+  border-radius:11px; padding:13px; font-weight:600}
+
+/* lobby */
+.codigo{font-size:76px; font-weight:800; letter-spacing:.22em; text-align:center;
+  color:var(--ambar); margin:6px 0 2px; padding-left:.22em}
+.url{text-align:center; font-size:19px; margin:0 0 20px; color:var(--tinta)}
+.url span{color:var(--tinta-suave); font-size:14px; display:block; margin-bottom:4px;
+  letter-spacing:.1em; text-transform:uppercase}
+.sillas{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:20px}
+.silla{display:flex; align-items:center; gap:9px; border:1px solid var(--linea); border-radius:11px;
+  padding:13px 15px; font-size:15px; background:#191512}
+.silla.libre{color:var(--tinta-suave); border-style:dashed; background:none}
+.silla .eq{margin-left:auto; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--tinta-suave)}
+.silla.eq0 .eq{color:var(--ambar)} .silla.eq1 .eq{color:var(--anil)}
+.comose{border-top:1px solid var(--linea); margin-top:4px; padding-top:16px}
+.comose h3{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--tinta-suave); margin:0 0 10px; font-weight:600}
+.comose dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:7px 14px; font-size:13.5px}
+.comose dt{font-weight:700; color:var(--ambar); white-space:nowrap}
+.comose dd{margin:0; color:var(--tinta-suave)}
+
+.regla{display:flex; justify-content:space-between; align-items:center; gap:14px;
+  padding:13px 0; border-bottom:1px solid var(--linea)}
+.regla:last-of-type{border-bottom:none}
+.regla p{margin:0; font-size:14px; font-weight:600}
+.regla small{display:block; color:var(--tinta-suave); font-weight:400; font-size:12.5px; margin-top:2px}
+.seg{display:flex; background:#241E19; border-radius:8px; padding:2px; flex:0 0 auto}
+.seg button{padding:7px 12px; border-radius:6px; font-size:13px; color:var(--tinta-suave); font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--mamey); color:#fff}
+/* La escuelita en la pantalla grande: NO tapa la mesa. Se queda abajo para que
+   uno explique señalando el 3D mientras los demás miran. */
+.escuela{position:fixed; left:0; right:0; bottom:0; z-index:25;
+  background:linear-gradient(rgba(10,13,16,0) 0%, rgba(10,13,16,.93) 22%, #0A0D10 100%);
+  padding:56px 28px 26px}
+.escuela .caja{max-width:1000px; margin:0 auto; display:flex; align-items:flex-end; gap:32px}
+.escuela .texto{flex:1 1 auto; min-width:0}
+.escuela h2{font-size:30px; font-weight:800; margin:0 0 6px; line-height:1.12}
+.escuela p{margin:0; font-size:17px; line-height:1.5; color:var(--tinta-suave); max-width:46em}
+.escuela .muestra{flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:10px}
+.escuela .fila{display:flex; gap:8px; align-items:flex-end}
+.escuela .rotulo{font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--tinta-suave)}
+.mini{width:42px; height:84px; background:var(--hueso); border-radius:6px; display:flex;
+  flex-direction:column; overflow:hidden; flex:0 0 auto;
+  box-shadow:0 2px 0 #CFC2AC, 0 4px 10px rgba(0,0,0,.55)}
+.mini .mitad{flex:1; display:grid; place-items:center}
+.mini .mitad+.mitad{box-shadow:inset 0 1px 0 #CFC2AC}
+.mini .pips{--dot:5px}
+.mini.no{opacity:.5; filter:saturate(.4) brightness(.8)}
+.mini.si{box-shadow:0 0 0 2px var(--ambar), 0 4px 12px rgba(0,0,0,.6)}
+.escuela .pasos{display:flex; gap:7px; justify-content:center; margin-bottom:16px}
+.escuela .pasos i{width:8px; height:8px; border-radius:99px; background:var(--linea); display:block}
+.escuela .pasos i.hecho{background:var(--tinta-suave)}
+.escuela .pasos i.ahora{background:var(--ambar); transform:scale(1.4)}
+.escuela .nav{display:flex; gap:10px; justify-content:center; margin-top:20px}
+.escuela .nav button{border:1px solid var(--linea); border-radius:10px; padding:11px 22px;
+  font-weight:700; color:var(--tinta-suave); font-size:15px}
+.escuela .nav .sig{background:var(--mamey); border-color:var(--mamey); color:#fff}
+.escuela .teclas{text-align:center; font-size:12px; color:var(--tinta-suave); margin-top:12px;
+  opacity:.75}
+.desconectado{position:fixed; top:0; left:0; right:0; z-index:40; background:var(--mamey);
+  color:#fff; text-align:center; padding:9px; font-weight:700; font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="desconectado" id="desconectado" hidden>Se perdió la conexión con la mesa…</div>
+<canvas id="lienzo"></canvas>
+
+<div class="app">
+  <header class="marcador">
+    <div class="equipo nosotros">
+      <div class="col"><div class="nombre">Nosotros</div><div class="barra"><i id="barra0"></i></div></div>
+      <div class="puntos" id="pts0">0</div>
+    </div>
+    <div class="centro">
+      <b id="manoNo">Mesa</b><span id="objetivo">a 200</span>
+      <div class="chips">
+        <button class="chip" id="camBtn" aria-pressed="false">Cámara sutil</button>
+        <button class="chip" id="reglasBtn">Reglas</button>
+      </div>
+    </div>
+    <div class="equipo ellos">
+      <div class="puntos" id="pts1">0</div>
+      <div class="col"><div class="nombre">Ellos</div><div class="barra"><i id="barra1"></i></div></div>
+    </div>
+  </header>
+
+  <div class="hueco"></div>
+
+  <div class="pie">
+    <div class="extremos" id="extremos" hidden>
+      <div class="extremo"><div class="cara" id="extIzq"></div><small>Extremo</small></div>
+      <div class="extremo"><div class="cara" id="extDer"></div><small>Extremo</small></div>
+    </div>
+    <div class="locucion" id="locucion"></div>
+  </div>
+</div>
+
+<div class="capa" id="capaLobby" hidden>
+  <div class="tarjeta">
+    <h2>Mesa</h2>
+    <p class="sub">Cada quien abre esta dirección en su teléfono y escribe el código.</p>
+    <p class="url"><span>En el teléfono</span><b id="url">—</b></p>
+    <div class="codigo" id="codigo">····</div>
+    <div class="sillas" id="sillas"></div>
+    <button class="principal" id="empezarBtn" disabled>Faltan jugadores</button>
+    <button class="secundaria" id="botsBtn">Rellenar lo que falte con bots</button>
+    <button class="secundaria" id="escuelaBtn">Cómo se juega — explicarlo aquí</button>
+
+    <div class="comose">
+      <h3>Cómo se cuenta</h3>
+      <dl>
+        <dt>Dominó</dt><dd>alguien se queda sin fichas; su pareja suma todos los puntos
+          que quedaron en las manos de los contrarios</dd>
+        <dt>Tranque</dt><dd>nadie puede jugar; gana la pareja con menos puntos en mano
+          y suma los del contrario</dd>
+        <dt>Capicúa</dt><dd>cierras con una ficha que pegaba por las dos puntas: bonificación</dd>
+        <dt>Zapato</dt><dd>ganar la serie dejándolos en cero</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<div class="escuela" id="escuela" hidden>
+  <div class="pasos" id="escuelaPasos"></div>
+  <div class="caja">
+    <div class="texto">
+      <h2 id="escuelaTitulo">—</h2>
+      <p id="escuelaTexto"></p>
+    </div>
+    <div class="muestra" id="escuelaPuntas" hidden>
+      <div class="fila" id="escuelaEnds"></div>
+      <div class="rotulo">Puntas abiertas</div>
+    </div>
+    <div class="muestra" id="escuelaMuestra" hidden>
+      <div class="fila" id="escuelaMano"></div>
+      <div class="rotulo">Una mano de ejemplo</div>
+    </div>
+  </div>
+  <div class="nav">
+    <button id="escuelaAtras">Atrás</button>
+    <button class="sig" id="escuelaSig">Siguiente</button>
+    <button id="escuelaSalir">Cerrar</button>
+  </div>
+  <div class="teclas">Flechas para avanzar · Esc para cerrar</div>
+</div>
+
+<div class="capa" id="capaResultado" hidden>
+  <div class="tarjeta">
+    <h2 id="resTitulo">—</h2>
+    <p class="sub" id="resSub">—</p>
+    <div class="desglose" id="resDesglose"></div>
+    <button class="principal" id="seguirBtn">Repartir la próxima</button>
+  </div>
+</div>
+
+<div class="capa" id="capaReglas" hidden>
+  <div class="tarjeta">
+    <h2>Reglas de la casa</h2>
+    <p class="sub">Cada familia juega distinto. Ajusta la mesa a la tuya.</p>
+    <div class="regla"><p>Se juega a<small>Puntos para ganar la serie</small></p>
+      <div class="seg" data-regla="target"><button data-v="100">100</button><button data-v="200">200</button></div></div>
+    <div class="regla"><p>Capicúa<small>Bonificación al cerrar por ambos extremos</small></p>
+      <div class="seg" data-regla="capicua"><button data-v="0">No</button><button data-v="25">+25</button><button data-v="50">+50</button></div></div>
+    <div class="regla"><p>Tranque empatado<small>Cuando ambas parejas tienen los mismos puntos</small></p>
+      <div class="seg" data-regla="tranqueTie"><button data-v="last">Gana quien trancó</button><button data-v="none">Nadie</button></div></div>
+    <div class="regla"><p>Al ganar se cuentan<small>Las fichas que quedan en la mesa</small></p>
+      <div class="seg" data-regla="countAllTiles"><button data-v="0">Solo el contrario</button><button data-v="1">Las cuatro manos</button></div></div>
+    <button class="secundaria" id="cerrarReglas">Listo</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PIPMAP_DOM = {0:[],1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+const PIPMAP_TEX = {0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const PIP_HEX = {0:null,1:'#2F5FA0',2:'#2E7D50',3:'#C4362B',4:'#6B4A9E',5:'#D4622A',6:'#2B2724'};
+const TL = 0.44, TW = 0.22, TH = 0.068, MESA = 3.8;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let ws = null, S = null, previo = null, dramatica = false;
+let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
+let camAng = 0, camAngGoal = 0, camRad = 6.8, camRadGoal = 6.8, camAlt = 5, camAltGoal = 5;
+let baseRad = 6.8, baseAlt = 5, sacudida = 0;
+const texCache = new Map();
+
+/* ================= 3D ================= */
+function texFicha(a,b){
+  const k = a+'-'+b; if(texCache.has(k)) return texCache.get(k);
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#F4ECDE'; x.fillRect(0,0,128,256);
+  const g = x.createLinearGradient(0,0,128,256);
+  g.addColorStop(0,'rgba(255,255,255,.5)'); g.addColorStop(1,'rgba(180,165,140,.25)');
+  x.fillStyle = g; x.fillRect(0,0,128,256);
+  x.strokeStyle = '#C7B89E'; x.lineWidth = 3;
+  x.beginPath(); x.moveTo(12,128); x.lineTo(116,128); x.stroke();
+  const media = (n,oy) => {
+    if(!PIP_HEX[n]) return;
+    x.fillStyle = PIP_HEX[n];
+    PIPMAP_TEX[n].forEach(i => {
+      x.beginPath(); x.arc(30+(i%3)*34, oy+30+Math.floor(i/3)*34, 9, 0, Math.PI*2); x.fill();
+    });
+  };
+  media(a,4); media(b,132);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  texCache.set(k,t); return t;
+}
+function mallaFicha(a,b){
+  const lados = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.55});
+  const cara  = new THREE.MeshStandardMaterial({map:texFicha(a,b), roughness:.42});
+  const m = new THREE.Mesh(new THREE.BoxGeometry(TW,TH,TL), [lados,lados,cara,lados,lados,lados]);
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function dorsoFicha(){
+  const mat  = new THREE.MeshStandardMaterial({color:0x7E3F30, roughness:.6});
+  const lado = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.6});
+  const m = new THREE.Mesh(new THREE.BoxGeometry(TW,TH,TL), [lado,lado,mat,lado,lado,lado]);
+  m.castShadow = true; return m;
+}
+function figura(seat){
+  const p = [{p:0x9A6B45,c:0x2E7D50},{p:0x8A5A3B,c:0xC4362B},
+             {p:0x6E4529,c:0xE0A526},{p:0xA8764E,c:0x2F5FA0}][seat];
+  const g = new THREE.Group();
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.36,.44,4,12),
+    new THREE.MeshStandardMaterial({color:p.c, roughness:.85}));
+  torso.position.y = .62; torso.castShadow = true;
+  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(.26,20,16),
+    new THREE.MeshStandardMaterial({color:p.p, roughness:.8}));
+  cabeza.position.y = 1.28; cabeza.castShadow = true;
+  const pelo = new THREE.Mesh(new THREE.SphereGeometry(.268,18,14,0,Math.PI*2,0,Math.PI*0.55),
+    new THREE.MeshStandardMaterial({color:0x1E1510, roughness:.95}));
+  pelo.position.y = 1.29;
+  const brazo = l => {
+    const b = new THREE.Mesh(new THREE.CapsuleGeometry(.1,.46,4,8),
+      new THREE.MeshStandardMaterial({color:p.c, roughness:.85}));
+    b.position.set(l*.36,.68,.2); b.rotation.x = -0.85; b.rotation.z = l*0.22;
+    b.castShadow = true; return b;
+  };
+  g.add(torso,cabeza,pelo,brazo(-1),brazo(1));
+  return g;
+}
+function init3D(){
+  renderer = new THREE.WebGLRenderer({canvas:$('lienzo'), antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0A1116);
+  scene.fog = new THREE.Fog(0x0A1116, 11, 26);
+  camera = new THREE.PerspectiveCamera(45,1,.1,120);
+
+  const suelo = new THREE.Mesh(new THREE.CircleGeometry(16,48),
+    new THREE.MeshStandardMaterial({color:0x2A201A, roughness:.96}));
+  suelo.rotation.x = -Math.PI/2; suelo.position.y = -1.04; suelo.receiveShadow = true;
+  scene.add(suelo);
+
+  const paño = new THREE.Mesh(new THREE.BoxGeometry(MESA,.16,MESA),
+    new THREE.MeshStandardMaterial({color:0x0F4A3C, roughness:.98}));
+  paño.position.y = -.08; paño.receiveShadow = true; scene.add(paño);
+  const madera = new THREE.MeshStandardMaterial({color:0x5A3A24, roughness:.62, metalness:.06});
+  const r = MESA/2 + .16;
+  [[0,r],[0,-r],[r,0],[-r,0]].forEach(([x,z],i) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(i<2?MESA+.64:.32, .3, i<2?.32:MESA+.64), madera);
+    b.position.set(x,-.08,z); b.castShadow = true; b.receiveShadow = true; scene.add(b);
+  });
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.11,.09,1.0,10), madera);
+    p.position.set(sx*(MESA/2-.34), -.62, sz*(MESA/2-.34)); p.castShadow = true; scene.add(p);
+  });
+
+  cadenaGrupo = new THREE.Group(); scene.add(cadenaGrupo);
+
+  const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
+  for(let s=0; s<4; s++){
+    const g = figura(s), d = MESA/2 + 1.02;
+    g.position.set(Math.sin(ang[s])*d, -1.04, Math.cos(ang[s])*d);
+    g.rotation.y = ang[s] + Math.PI;
+    g.userData = { y0:-1.04, fase:s*1.7 };
+    scene.add(g); figuras.push(g);
+    const fan = new THREE.Group(); scene.add(fan); manosFan.push(fan);
+  }
+
+  scene.add(new THREE.AmbientLight(0x4A6070,.5));
+  const bombillo = new THREE.PointLight(0xFFD9A0, 52, 16, 2);
+  bombillo.position.set(0,3.5,0); bombillo.castShadow = true;
+  bombillo.shadow.mapSize.set(1024,1024); bombillo.shadow.bias = -0.004;
+  scene.add(bombillo);
+  const vidrio = new THREE.Mesh(new THREE.SphereGeometry(.12,14,12),
+    new THREE.MeshBasicMaterial({color:0xFFE6B8}));
+  vidrio.position.copy(bombillo.position); scene.add(vidrio);
+  const cable = new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,3.4,6),
+    new THREE.MeshBasicMaterial({color:0x17100C}));
+  cable.position.set(0,5.2,0); scene.add(cable);
+  const luna = new THREE.DirectionalLight(0x8FB6D8,.55);
+  luna.position.set(-7,9,-6); scene.add(luna);
+
+  for(let i=0;i<=26;i++){
+    const t = i/26, a = -Math.PI*0.15 + t*Math.PI*1.3;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),
+      new THREE.MeshBasicMaterial({color:0xFFCE84}));
+    b.position.set(Math.cos(a)*9.5, 4.6+Math.sin(t*Math.PI)*1.5, Math.sin(a)*9.5-2);
+    scene.add(b);
+  }
+  [[-8.5,-7],[8.2,-6.5],[-9.5,2]].forEach(([x,z]) => {
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(.16,.24,6,7),
+      new THREE.MeshStandardMaterial({color:0x14211D, roughness:1}));
+    tr.position.set(x,1.9,z); scene.add(tr);
+    for(let k=0;k<6;k++){
+      const h = new THREE.Mesh(new THREE.ConeGeometry(.28,2.3,4),
+        new THREE.MeshStandardMaterial({color:0x10201B, roughness:1}));
+      const a = k/6*Math.PI*2;
+      h.position.set(x+Math.cos(a)*1.0, 5.1, z+Math.sin(a)*1.0);
+      h.rotation.set(Math.cos(a)*.9, -a, Math.sin(a)*.9); scene.add(h);
+    }
+  });
+
+  redimensionar(); addEventListener('resize', redimensionar);
+  animar();
+}
+function redimensionar(){
+  const w = innerWidth, h = innerHeight, a = w/h;
+  renderer.setSize(w,h,false); camera.aspect = a;
+  if(a < 1.1){ camera.fov = 52; baseRad = 5.0; baseAlt = 7.6; }
+  else       { camera.fov = 45; baseRad = 6.8; baseAlt = 5.0; }
+  camera.updateProjectionMatrix();
+  apuntarCamara();
+}
+function colocarCadena(board){
+  cadenaGrupo.clear();
+  if(!board || !board.length) return;
+  const util = MESA - 0.7, sepZ = TL*1.35;
+  const filas = []; let fila = [], w = 0;
+  board.forEach(e => {
+    const largo = (e.a === e.b) ? TW : TL;
+    if(w + largo > util && fila.length){ filas.push(fila); fila = []; w = 0; }
+    fila.push(e); w += largo;
+  });
+  if(fila.length) filas.push(fila);
+  const z0 = -((filas.length-1)*sepZ)/2;
+  filas.forEach((f,fi) => {
+    const total = f.reduce((s,e) => s + (e.a===e.b ? TW : TL), 0);
+    const der = fi % 2 === 0;
+    let x = der ? -total/2 : total/2;
+    f.forEach(e => {
+      const doble = e.a === e.b, largo = doble ? TW : TL;
+      const m = mallaFicha(der ? e.a : e.b, der ? e.b : e.a);
+      m.rotation.y = doble ? 0 : Math.PI/2;
+      if(!der) m.rotation.y += Math.PI;
+      x += der ? largo/2 : -largo/2;
+      m.position.set(x, TH/2, z0 + fi*sepZ);
+      x += der ? largo/2 : -largo/2;
+      cadenaGrupo.add(m);
+    });
+  });
+}
+function colocarManos(conteos){
+  const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
+  manosFan.forEach((fan,s) => {
+    fan.clear();
+    const n = conteos ? conteos[s] : 0, d = MESA/2 - 0.42;
+    for(let i=0;i<n;i++){
+      const m = dorsoFicha();
+      const off = (i - (n-1)/2) * (TW + 0.045);
+      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.20,
+                     Math.cos(ang[s])*d - Math.sin(ang[s])*off);
+      m.rotation.set(-1.15, ang[s], 0, 'YXZ');
+      fan.add(m);
+    }
+  });
+}
+const SUTIL = [0, 0.55, 0.22, -0.55], DRAMA = [0, 1.50, 2.90, -1.50];
+function apuntarCamara(){
+  const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
+  camAngGoal = (dramatica ? DRAMA : SUTIL)[s];
+  camRadGoal = baseRad * (dramatica ? 1.14 : 1);
+  camAltGoal = baseAlt * (dramatica ? 0.78 : 1);
+}
+function planoCenital(){ camAngGoal = 0; camRadGoal = baseRad*0.18; camAltGoal = baseAlt*1.2; }
+function animar(){
+  requestAnimationFrame(animar);
+  const t = performance.now()/1000, k = reduce ? 1 : 0.055;
+  camAng += (camAngGoal-camAng)*k; camRad += (camRadGoal-camRad)*k; camAlt += (camAltGoal-camAlt)*k;
+  const deriva = reduce ? 0 : Math.sin(t*0.22)*0.035;
+  let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
+  if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
+  camera.position.set(sx, camAlt, sz);
+  camera.lookAt(0,-0.1,0);
+  figuras.forEach((g,i) => {
+    const activo = S && S.fase === 'jugando' && S.turno === i;
+    const bob = reduce ? 0 : Math.sin(t*1.5 + g.userData.fase)*0.022;
+    const meta = g.userData.y0 + bob + (activo ? 0.07 : 0);
+    g.position.y += (meta - g.position.y)*0.1;
+    const esc = activo ? 1.045 : 1;
+    g.scale.x += (esc - g.scale.x)*0.1; g.scale.y = g.scale.x; g.scale.z = g.scale.x;
+  });
+  renderer.render(scene,camera);
+}
+
+/* ================= interfaz ================= */
+function pipGrid(n){
+  const p = document.createElement('div'); p.className = 'pips'; p.dataset.n = n;
+  for(let c=1;c<=9;c++){
+    const cell = document.createElement('div');
+    cell.style.gridArea = `${Math.ceil(c/3)} / ${((c-1)%3)+1}`;
+    if(PIPMAP_DOM[n].includes(c)) cell.appendChild(document.createElement('i'));
+    p.appendChild(cell);
+  }
+  return p;
+}
+function escapar(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function decir(html){ $('locucion').innerHTML = html; }
+
+function pintar(){
+  if(esc.abierto) return;      // manda la lección, no el servidor
+  if(!S) return;
+  $('pts0').textContent = S.scores[0];
+  $('pts1').textContent = S.scores[1];
+  $('barra0').style.width = Math.min(100, S.scores[0]/S.rules.target*100) + '%';
+  $('barra1').style.width = Math.min(100, S.scores[1]/S.rules.target*100) + '%';
+  $('objetivo').textContent = 'a ' + S.rules.target;
+  $('manoNo').textContent = S.fase === 'lobby' ? 'Mesa ' + S.codigo : 'Mano ' + S.manoNo;
+
+  colocarCadena(S.board);
+  colocarManos(S.fase === 'lobby' ? [0,0,0,0] : S.conteos);
+  apuntarCamara();
+
+  $('extremos').hidden = !S.ends;
+  if(S.ends){
+    $('extIzq').innerHTML = ''; $('extIzq').appendChild(pipGrid(S.ends[0]));
+    $('extDer').innerHTML = ''; $('extDer').appendChild(pipGrid(S.ends[1]));
+  }
+
+  // lobby
+  $('capaLobby').hidden = S.fase !== 'lobby';
+  if(S.fase === 'lobby'){
+    $('codigo').textContent = S.codigo;
+    const c = $('sillas'); c.innerHTML = '';
+    S.nombres.forEach((n,i) => {
+      const d = document.createElement('div');
+      d.className = 'silla eq' + (i%2) + (S.ocupados[i] ? '' : ' libre');
+      d.innerHTML = `<span>${S.ocupados[i] ? escapar(n) : 'Libre'}${S.bots[i] ? ' · bot' : ''}</span>` +
+                    `<span class="eq">${i%2 ? 'Ellos' : 'Nosotros'}</span>`;
+      c.appendChild(d);
+    });
+    const listos = S.ocupados.every(Boolean);
+    $('empezarBtn').disabled = !listos;
+    $('empezarBtn').textContent = listos ? 'Empezar' :
+      ('Faltan ' + S.ocupados.filter(o=>!o).length + ' jugadores');
+  }
+
+  // locución
+  if(S.fase === 'jugando'){
+    const desc = S.conectados.map((ok,i) => (!ok && !S.bots[i]) ? S.nombres[i] : null).filter(Boolean);
+    if(desc.length) decir('<b>' + escapar(desc.join(', ')) + '</b> se desconectó — juega el bot');
+    else if(S.turno !== null) decir('Juega <b>' + escapar(S.nombres[S.turno]) + '</b>');
+  }
+
+  // resultado
+  const cerrada = S.fase === 'manoCerrada' || S.fase === 'serieCerrada';
+  if(cerrada && $('capaResultado').hidden){ planoCenital(); setTimeout(mostrarResultado, 1200); }
+  if(!cerrada) $('capaResultado').hidden = true;
+
+  pintarReglas();
+}
+
+function mostrarResultado(){
+  if(!S || !S.resultado) return;
+  const r = S.resultado, fin = S.fase === 'serieCerrada';
+  const t = $('resTitulo'), s = $('resSub'), d = $('resDesglose');
+  t.className = r.winnerTeam === null ? '' : (r.winnerTeam === 0 ? 'gana' : 'pierde');
+  if(fin){
+    t.textContent = S.campeon === 0 ? '¡Ganó Nosotros!' : '¡Ganó Ellos!';
+    t.className = S.campeon === 0 ? 'gana' : 'pierde';
+    s.textContent = S.zapato ? 'Zapato. Los dejaron en cero.'
+      : S.scores[0] + ' – ' + S.scores[1] + ' en ' + S.manoNo + ' manos';
+  } else if(r.kind === 'domino'){
+    t.textContent = 'Dominó de ' + S.nombres[r.seat];
+    s.textContent = (r.note === 'capicua' ? 'Capicúa: cerró por ambos extremos. ' : '') +
+      'Punto para ' + (r.winnerTeam === 0 ? 'Nosotros' : 'Ellos') + '.';
+  } else {
+    t.textContent = 'Tranque';
+    s.textContent = r.winnerTeam === null ? 'Empate en puntos. Nadie anota.'
+      : (r.note === 'tie-last' ? 'Empate en puntos: anota quien trancó.' : 'Se cuentan las fichas.');
+  }
+  d.innerHTML = '';
+  const fila = (k,v,cls) => { const e = document.createElement('div'); if(cls) e.className = cls;
+    e.innerHTML = '<span>'+k+'</span><span>'+v+'</span>'; d.appendChild(e); };
+  fila('Fichas de Nosotros', r.teamPips[0] + ' pts');
+  fila('Fichas de Ellos',    r.teamPips[1] + ' pts');
+  if(r.winnerTeam !== null && r.winnerTeam !== undefined){
+    fila('Anota ' + (r.winnerTeam === 0 ? 'Nosotros' : 'Ellos'), '+' + r.base);
+    if(r.bonus) fila('Capicúa', '+' + r.bonus, 'bono');
+  }
+  fila('Serie', S.scores[0] + ' – ' + S.scores[1]);
+  $('seguirBtn').textContent = fin ? 'Nueva serie' : 'Repartir la próxima';
+  $('capaResultado').hidden = false;
+}
+
+function pintarReglas(){
+  if(!S) return;
+  document.querySelectorAll('.seg').forEach(seg => {
+    const k = seg.dataset.regla; let v;
+    if(k === 'capicua') v = String(S.rules.capicua ? S.rules.capicuaBonus : 0);
+    else if(k === 'countAllTiles') v = S.rules.countAllTiles ? '1' : '0';
+    else v = String(S.rules[k]);
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  });
+}
+document.querySelectorAll('.seg').forEach(seg => {
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    const k = seg.dataset.regla, v = b.dataset.v, m = { t:'reglas' };
+    if(k === 'target') m.target = v;
+    else if(k === 'capicua') m.capicua = v;
+    else if(k === 'countAllTiles') m.countAllTiles = v === '1';
+    else m.tranqueTie = v;
+    manda(m);
+  });
+});
+
+$('camBtn').onclick = e => {
+  dramatica = !dramatica;
+  e.currentTarget.textContent = dramatica ? 'Cámara dramática' : 'Cámara sutil';
+  e.currentTarget.setAttribute('aria-pressed', String(dramatica));
+  apuntarCamara();
+};
+$('reglasBtn').onclick = () => { pintarReglas(); $('capaReglas').hidden = false; };
+$('cerrarReglas').onclick = () => { $('capaReglas').hidden = true; };
+$('empezarBtn').onclick = () => manda({ t:'empezar' });
+$('botsBtn').onclick = () => manda({ t:'bots' });
+$('seguirBtn').onclick = () => { $('capaResultado').hidden = true; manda({ t:'siguiente' }); };
+
+
+/* ================= La escuelita en la pantalla grande =================
+ * La versión del teléfono se toca; ésta se mira. Uno explica señalando la
+ * mesa en 3D — que es lo que de verdad pasa en una sala — y los cuatro
+ * aprenden a la vez en vez de cada quien peleando con su pantallita.
+ */
+const esc = { abierto:false, i:0 };
+
+const LECCIONES = [
+  {
+    titulo: 'Cada quien ve su mano en su teléfono',
+    texto: 'Aquí arriba nunca aparecen las fichas de nadie. En la pantalla grande solo se ve la mesa y cuántas fichas le quedan a cada quien, igual que sentados de verdad.',
+    board: [], conteos: [7,7,7,7]
+  },
+  {
+    titulo: 'La mesa vive aquí',
+    texto: 'Lo que se juega sale en el paño. Los atriles de cada lado son las fichas que le quedan a cada quien: se ven bajar sin que nadie enseñe nada.',
+    board: [{a:6,b:6},{a:6,b:3},{a:3,b:5}], conteos: [6,7,6,7]
+  },
+  {
+    titulo: 'Solo se juega por las dos puntas',
+    texto: 'Ahora están abiertos el 6 y el 5. En el teléfono se encienden solas las fichas que pegan; las que no, quedan apagadas. Nadie tiene que pensar si una jugada vale.',
+    board: [{a:6,b:6},{a:6,b:3},{a:3,b:5}], conteos: [6,7,6,7],
+    ends: [6,5], mano: [[6,4],[5,1],[2,2],[4,0]]
+  },
+  {
+    titulo: 'Si pega por los dos lados, tú escoges',
+    texto: 'El 6|4 sirve en el 6 y en el 4. Al tocarlo, el teléfono pregunta por cuál punta va. Es la única cosa del juego que no existe en una mesa de madera.',
+    board: [{a:6,b:6},{a:6,b:3},{a:3,b:4}], conteos: [5,6,6,7],
+    ends: [6,4], mano: [[6,4],[5,1],[2,2]], solo: [6,4]
+  },
+  {
+    titulo: 'Si no tienes, pasas',
+    texto: 'Las dos puntas son seis y en esa mano no hay ningún seis. El botón Paso solo se enciende cuando de verdad no puedes jugar, así que nadie pasa teniendo ficha.',
+    board: [{a:6,b:6}], conteos: [7,6,7,7],
+    ends: [6,6], mano: [[5,1],[2,2],[4,0]]
+  },
+  {
+    titulo: 'Parejas cruzadas, a 200',
+    texto: 'Juegas con el que tienes al frente. Cuando alguien se queda sin fichas canta dominó y su pareja suma lo que quedó en manos de los contrarios. Si nadie puede jugar es tranque, y gana la pareja que menos puntos tenga en la mano.',
+    board: [{a:6,b:6},{a:6,b:3},{a:3,b:5},{a:5,b:5},{a:5,b:1},{a:1,b:4},{a:4,b:2}],
+    conteos: [3,4,3,4]
+  }
+];
+
+function escMini(a,b,clase){
+  const d = document.createElement('div');
+  d.className = 'mini ' + (clase || '');
+  [a,b].forEach(n => { const m = document.createElement('div'); m.className = 'mitad';
+    m.appendChild(pipGrid(n)); d.appendChild(m); });
+  return d;
+}
+function escPega(t,e){ return !!e && (t[0]===e[0]||t[1]===e[0]||t[0]===e[1]||t[1]===e[1]); }
+
+function escPintar(){
+  const L = LECCIONES[esc.i];
+
+  const ps = $('escuelaPasos'); ps.innerHTML = '';
+  LECCIONES.forEach((_,k) => {
+    const i = document.createElement('i');
+    i.className = k < esc.i ? 'hecho' : (k === esc.i ? 'ahora' : '');
+    ps.appendChild(i);
+  });
+
+  $('escuelaTitulo').textContent = L.titulo;
+  $('escuelaTexto').textContent  = L.texto;
+
+  // la mesa en 3D es la pizarra: se mueve con la lección
+  colocarCadena(L.board);
+  colocarManos(L.conteos);
+
+  $('escuelaPuntas').hidden = !L.ends;
+  if(L.ends){
+    const f = $('escuelaEnds'); f.innerHTML = '';
+    L.ends.forEach(n => {
+      const c = document.createElement('div'); c.className = 'cara';
+      c.appendChild(pipGrid(n)); f.appendChild(c);
+    });
+  }
+
+  const m = $('escuelaMuestra');
+  m.hidden = !L.mano;
+  if(L.mano){
+    const f = $('escuelaMano'); f.innerHTML = '';
+    L.mano.forEach(t => {
+      const viva = L.solo ? (L.solo[0]===t[0] && L.solo[1]===t[1]) : escPega(t, L.ends);
+      f.appendChild(escMini(t[0], t[1], viva ? 'si' : 'no'));
+    });
+  }
+
+  $('escuelaAtras').disabled = esc.i === 0;
+  $('escuelaAtras').style.opacity = esc.i === 0 ? .35 : 1;
+  $('escuelaSig').textContent = esc.i === LECCIONES.length - 1 ? 'Listo' : 'Siguiente';
+}
+
+function escAbrir(){
+  esc.abierto = true; esc.i = 0;
+  $('capaLobby').hidden = true;
+  $('escuela').hidden = false;
+  document.querySelector('.pie').hidden = true;
+  dramatica = false; apuntarCamara();
+  escPintar();
+}
+function escCerrar(){
+  esc.abierto = false;
+  $('escuela').hidden = true;
+  document.querySelector('.pie').hidden = false;
+  pintar();                                  // la mesa vuelve a lo que diga el servidor
+}
+function escIr(d){
+  const n = esc.i + d;
+  if(n < 0) return;
+  if(n >= LECCIONES.length){ escCerrar(); return; }
+  esc.i = n; escPintar();
+}
+$('escuelaBtn').onclick   = escAbrir;
+$('escuelaSig').onclick   = () => escIr(1);
+$('escuelaAtras').onclick = () => escIr(-1);
+$('escuelaSalir').onclick = escCerrar;
+addEventListener('keydown', e => {
+  if(!esc.abierto) return;
+  if(e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); escIr(1); }
+  else if(e.key === 'ArrowLeft'){ e.preventDefault(); escIr(-1); }
+  else if(e.key === 'Escape'){ escCerrar(); }
+});
+
+/* ================= conexión ================= */
+let codigoSala = null, reintento = 0;
+function manda(o){ if(ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function conectar(){
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => { reintento = 0; $('desconectado').hidden = true; manda({ t:'mesa', codigo: codigoSala }); };
+  ws.onmessage = ev => {
+    let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
+    if(m.t === 'sala'){ codigoSala = m.codigo; $('url').textContent = m.url; history.replaceState(null,'','?s='+m.codigo); }
+    else if(m.t === 'state'){
+      const antes = S;
+      S = m;
+      if(antes && antes.board && m.board && m.board.length > antes.board.length) sacudida = 0.1;
+      pintar();
+    }
+  };
+  ws.onclose = () => {
+    $('desconectado').hidden = false;
+    setTimeout(conectar, Math.min(700*Math.pow(1.6, reintento++), 8000));
+  };
+}
+codigoSala = new URL(location.href).searchParams.get('s');
+init3D();
+conectar();
+</script>
+</body>
+</html>

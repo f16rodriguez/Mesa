@@ -1,5 +1,15 @@
 # Arte — dirección visual y brief
 
+## La mesa, según las fotos reales — 18 sep, noche
+
+Cuatro fotos de mesas dominicanas de verdad (stock del dueño; por derechos no se
+guardan en el repo) fijaron la mesa: **pino claro, paño rojo, borde ancho con
+huecos de vaso en las esquinas, atriles integrados donde se para la mano de cada
+quien, patas plegables en X, sillas plásticas verdes**, y la pared del colmado
+con afiches pegados y su letrero de PARE. Todo eso ya está modelado en
+`arte/blender/set.py`. Las manos escondidas viven en los atriles del borde, no
+flotando en el paño.
+
 Decisiones tomadas el 18 sep 2026, ajustadas tras el primer pase de imágenes.
 Esto alimenta el hito 3 del `ROADMAP.md` y el brief que se manda a los artistas
 esta semana.

@@ -308,8 +308,8 @@ function mallaFicha(a,b){
   m.castShadow = true; m.receiveShadow = true; return m;
 }
 function dorsoFicha(){
-  const mat  = new THREE.MeshStandardMaterial({color:0x7E3F30, roughness:.6});
-  const lado = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.6});
+  const mat  = new THREE.MeshStandardMaterial({color:0xE8DDC8, roughness:.5});
+  const lado = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.5});
   const m = new THREE.Mesh(new THREE.BoxGeometry(TW,TH,TL), [lado,lado,mat,lado,lado,lado]);
   m.castShadow = true; return m;
 }
@@ -611,10 +611,10 @@ function init3D(){
   bombillo.position.set(0,1.95,0); bombillo.castShadow = true;
   bombillo.shadow.mapSize.set(1024,1024); bombillo.shadow.bias = -0.004;
   scene.add(bombillo);
-  const vidrio = new THREE.Mesh(new THREE.SphereGeometry(.035,14,12),
+  const vidrio = new THREE.Mesh(new THREE.SphereGeometry(.028,14,12),
     new THREE.MeshBasicMaterial({color:0xFFE6B8}));
   vidrio.position.copy(bombillo.position); scene.add(vidrio);
-  const brillo = spriteGlow(.55); brillo.position.copy(bombillo.position); scene.add(brillo);
+  const brillo = spriteGlow(.38); brillo.position.copy(bombillo.position); scene.add(brillo);
   const luna = new THREE.DirectionalLight(0x8FB6D8,.4);
   luna.position.set(-5,6,-4); scene.add(luna);
 
@@ -661,13 +661,13 @@ function colocarManos(conteos){
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
   manosFan.forEach((fan,s) => {
     fan.clear();
-    const n = conteos ? conteos[s] : 0, d = MESA/2 - 0.12;
+    const n = conteos ? conteos[s] : 0, d = MESA/2 + 0.055;
     for(let i=0;i<n;i++){
       const m = dorsoFicha();
-      const off = (i - (n-1)/2) * (TW + 0.012);
-      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.042,
+      const off = (i - (n-1)/2) * (TW + 0.008);
+      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.085,
                      Math.cos(ang[s])*d - Math.sin(ang[s])*off);
-      m.rotation.set(-1.15, ang[s], 0, 'YXZ');
+      m.rotation.set(-1.28, ang[s], 0, 'YXZ');
       fan.add(m);
     }
   });

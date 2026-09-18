@@ -241,37 +241,82 @@ def colmado():
           hexlin('#8A8478'), rough=.4, metal=.6)
     pieza(cilindro(.013,.013,1.2,(CX+3.45, CY-0.25, PISO+.6), seg=6,
                    rot=(math.radians(10),0,0)), 'paloEscoba', MAD, rough=.8)
+    # afiches y calcomanías pegados en la pared
+    random.seed(11)
+    for i in range(9):
+        px = CX + (-2.3 + random.random()*4.2)
+        if abs(px-(CX+2.85)) < .55: continue
+        pz = 0.6 + random.random()*1.6
+        w = .16+random.random()*.22; hgt = .2+random.random()*.3
+        c = hexlin(random.choice(PALETA+['#F0EAD8','#F0EAD8']))
+        pieza(caja((w,.015,hgt),(px, CY-.12, pz)), 'afiche', c, rough=.85)
+    # el letrero de PARE en la esquina
+    pieza(cilindro(.018,.022,2.9,(CX+4.35, CY-1.7, PISO+1.45), seg=8), 'paloPare',
+          hexlin('#5A5A5A'), rough=.5, metal=.4)
+    bm = cilindro(.21,.21,.015,(0,0,0), seg=8, rot=(math.radians(90),0,0))
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(CX+4.35, CY-1.72, 2.35))
+    pieza(bm, 'pare', hexlin('#A81E14'), rough=.5)
+    pieza(caja((.26,.008,.055),(CX+4.35, CY-1.735, 2.35)), 'parePalabra',
+          hexlin('#E8E2D2'), rough=.5)
     pieza(caja((.1,.07,.2),(CX+3.43, CY-0.14, PISO+.1)), 'escoba',
           hexlin('#C9A96A'), rough=1)
 
-# ---------------- la mesa: 1.15 m con borde alzado ----------------
+# ---------------- la mesa de dominó real: pino, paño rojo, atriles ----------------
 def mesa():
     M = 1.15
-    def fieltro(co):
+    PINO = hexlin('#C9A05C'); PINOSC = hexlin('#A87E42')
+    ROJO = hexlin('#A83228')
+    def panio_rojo(co):
         n = noise.noise(Vector((co.x*9, co.y*9, 0)))
-        return tuple(c*(.9+.1*n) for c in FIELTRO)
-    pieza(caja((M,M,.045),(0,0,-.0225)), 'panio', fieltro, rough=.98, lit=1,
-          cuts=8, bevel=.008)
-    # el borde alzado: los rieles suben sobre el paño, como una mesa de dominó real
-    r = M/2+.045
+        return tuple(c*(.88+.12*n) for c in ROJO)
+    pieza(caja((M,M,.045),(0,0,-.0225)), 'panio', panio_rojo, rough=.96, lit=1,
+          cuts=8, bevel=.006)
+    # el borde ancho de pino con su lomo
+    r = M/2+.06
     marcos = []
     for i,(px,py) in enumerate([(0,r),(0,-r),(r,0),(-r,0)]):
-        dim = (M+.19,.09,.075) if i<2 else (.09,M+.19,.075)
-        marcos.append(pieza(caja(dim,(px,py,-.012)), 'marco', MAD, rough=.55, lit=1,
-                            bevel=.012))
-    unir(marcos,'marcoMesa', lit=1)
-    perfil = [(.030,0),(.040,.06),(.026,.16),(.036,.30),(.023,.44),
-              (.033,.56),(.020,.66),(.030,.70)]
+        dim = (M+.24,.12,.07) if i<2 else (.12,M+.24,.07)
+        marcos.append(pieza(caja(dim,(px,py,-.014)), 'marco', PINO, rough=.5, lit=1,
+                            bevel=.014))
+    # los huecos del vaso en las esquinas
     for sx,sy in [(1,1),(1,-1),(-1,1),(-1,-1)]:
-        parts = []
-        bx, by = sx*(M/2-.09), sy*(M/2-.09)
-        for k in range(len(perfil)-1):
-            r1,z1 = perfil[k]; r2,z2 = perfil[k+1]
-            parts.append(pieza(cilindro(r1,r2,(z2-z1),(bx,by,PISO+(z1+z2)/2), seg=12),
-                               'pt', MADOSC, rough=.55, lit=1))
-        unir(parts,'pata', lit=1)
-    for d in [(.9,.05,.04),(.05,.9,.04)]:
-        pieza(caja(d,(0,0,PISO+.24)), 'trav', MADOSC, rough=.6, lit=1)
+        marcos.append(pieza(cilindro(.042,.042,.012,(sx*r,sy*r,.018), seg=14),
+                            'hueco', hexlin('#1A140E'), rough=.9, lit=1))
+    # los atriles: la tablita inclinada donde se para la mano de cada quien
+    for si in range(4):
+        a = [0, math.pi/2, math.pi, -math.pi/2][si]
+        bx, by = math.sin(a)*r, -math.cos(a)*r
+        for (dz, dd, dimy, dimz) in [(.052, -.022, .016, .075), (.028, .028, .014, .04)]:
+            bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1)
+            bmesh.ops.scale(bm, verts=bm.verts, vec=(.44, dimy, dimz))
+            bmesh.ops.transform(bm, verts=bm.verts,
+                matrix=Euler((math.radians(-16),0,0)).to_matrix().to_4x4())
+            bmesh.ops.transform(bm, verts=bm.verts,
+                matrix=Euler((0,0,a+math.pi)).to_matrix().to_4x4())
+            ox, oy = math.sin(a)*(r+dd), -math.cos(a)*(r+dd)
+            bmesh.ops.translate(bm, verts=bm.verts, vec=(ox, oy, dz))
+            marcos.append(pieza(bm, 'atril', PINOSC, rough=.55, lit=1, bevel=.006))
+    unir(marcos, 'marcoMesa', lit=1)
+    # vasos y una botella en el borde, como en el patio
+    for (sx,sy) in [(1,1),(-1,-1)]:
+        pieza(cilindro(.032,.028,.09,(sx*r, sy*r, .06), seg=12), 'vaso',
+              hexlin('#E8E4DC'), rough=.35, lit=1)
+    pieza(cilindro(.026,.026,.14,(-r, r, .085), seg=12), 'botella',
+          hexlin('#4A2A10'), rough=.2, lit=1)
+    pieza(cilindro(.011,.009,.05,(-r, r, .18), seg=10), 'cuello',
+          hexlin('#4A2A10'), rough=.2, lit=1)
+    # patas en X plegables, de lado a lado
+    for sy in (-1,1):
+        for lado in (-1,1):
+            bm = caja((.045,.03,1.02),(0,0,0), rot=(0, lado*.5, 0))
+            bmesh.ops.translate(bm, verts=bm.verts, vec=(0, sy*(M/2-.14), PISO+.37))
+            pieza(bm, 'pataX', PINO, rough=.55, lit=1, bevel=.008)
+        pieza(cilindro(.014,.014,.05,(0, sy*(M/2-.14), PISO+.37), seg=8,
+                       rot=(math.radians(90),0,0)), 'perno', hexlin('#6A6258'),
+              rough=.4, metal=.6, lit=1)
+    for sy in (-1,1):
+        pieza(caja((.72,.045,.03),(0, sy*(M/2-.14), PISO+.015)), 'pie',
+              PINO, rough=.6, lit=1, bevel=.006)
 
 # ---------------- la silla plástica real (45 cm de asiento) ----------------
 def silla(nombre, color, px, py, rotz):
@@ -389,9 +434,9 @@ def personaje(idx, piel, pantalon, tipo, patron):
                            patron,rough=.85,lit=1,subsurf=1))
         unir(parts, P+'bru'+lado, lit=1, meta=dict(pv(l*.185,0,1.0), pa=P+'torso'))
         parts = []
-        parts.append(pieza(tubo((l*.215,-.06,.755),(l*.17,-.37,.77),.04,.033),'ant',
+        parts.append(pieza(tubo((l*.215,-.06,.755),(l*.17,-.31,.77),.04,.033),'ant',
                            manga,rough=.8,lit=1,subsurf=1))
-        parts.append(pieza(esfera(.038,(l*.165,-.40,.775), seg=10, esc=(1,1.25,.7)),'ma',
+        parts.append(pieza(esfera(.038,(l*.165,-.34,.775), seg=10, esc=(1,1.25,.7)),'ma',
                            piel,rough=.7,lit=1,subsurf=1))
         unir(parts, P+'ant'+lado, lit=1,
              meta=dict(pv(l*.215,-.058,.758), pa=P+'bru'+lado))
@@ -422,7 +467,7 @@ colmado()
 mesa()
 ANG = [0, math.pi/2, math.pi, -math.pi/2]
 D = 1.15/2 + .28
-SILLA_COL = [CREMA, hexlin('#3F7E72'), hexlin('#D9D3C5'), hexlin('#2F5566')]
+SILLA_COL = [hexlin('#2E8B4F'), CREMA, hexlin('#2F9556'), hexlin('#237A44')]
 for s in range(4):
     silla('Silla%d' % s, SILLA_COL[s], math.sin(ANG[s])*D, -math.cos(ANG[s])*D,
           ANG[s] + math.pi)

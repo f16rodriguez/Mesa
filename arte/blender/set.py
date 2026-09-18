@@ -191,6 +191,40 @@ def generar_texturas():
 
 generar_texturas()
 
+# recortes del ancla: la foto del dueño vestida sobre el 3D
+def texturas_del_ancla():
+    ruta = '/home/user/Mesa/arte/ancla-colmado-v1.png'
+    if not os.path.exists(ruta): return
+    img = bpy.data.images.load(ruta)
+    W, H = img.size
+    a = np.empty(W*H*4, dtype=np.float32)
+    img.pixels.foreach_get(a)
+    a = a.reshape(H, W, 4)[::-1]
+    def recorte(fx0, fy0, fx1, fy1):
+        c = a[int(fy0*H):int(fy1*H), int(fx0*W):int(fx1*W)].copy()
+        c = np.concatenate([c, c[:, ::-1]], axis=1)
+        c = np.concatenate([c, c[::-1, :]], axis=0)
+        return c
+    def guardar_np(nombre, c):
+        out = bpy.data.images.new(nombre, c.shape[1], c.shape[0], alpha=False)
+        out.pixels.foreach_set(c[::-1].ravel())
+        out.filepath_raw = os.path.join(TEXDIR, nombre + '.png')
+        out.file_format = 'PNG'; out.save()
+    # detalle de pared: el desgaste de la foto, neutralizado para multiplicar
+    c = recorte(.345, .545, .50, .625)
+    for k in range(3):
+        c[:,:,k] = np.clip(c[:,:,k] / max(c[:,:,k].mean(), 1e-4) * .92, .5, 1.35)
+    guardar_np('pared_det', c)
+    # detalle del asfalto mojado
+    c = recorte(.70, .84, .92, .97)
+    for k in range(3):
+        c[:,:,k] = np.clip(c[:,:,k] / max(c[:,:,k].mean(), 1e-4) * .92, .5, 1.4)
+    guardar_np('calle_det', c)
+    # el zinc, con su color de verdad
+    guardar_np('zinc_foto', recorte(.37, .095, .54, .185))
+
+texturas_del_ancla()
+
 # los mapas de normales del pack, reescalados y vendorizados
 def vendor_normal(src, nombre):
     destino = os.path.join(TEXDIR, nombre + '.png')
@@ -225,7 +259,7 @@ def colmado():
     AB0, AB1, ABW = 0.20, 1.55, 2.6           # la boca del mostrador
     for (w,px,z0,z1) in [(2.45,-2.6,H0,H1),(2.45,2.6,H0,H1),(ABW,0,AB1,H1)]:
         bm = caja((w,.22,z1-z0),(CX+px, CY, (z0+z1)/2))
-        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012, tx='estuco', txs=.8)
+        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012, tx='pared_det', txs=1.5)
     bm = caja((ABW,.06,AB1-AB0),(CX, CY+.7, (AB0+AB1)/2))
     pieza(bm, 'fondoInt', hexlin('#4A2A14'), rough=.95, cuts=6)
     for sz in (0.5, 0.86, 1.22):
@@ -241,7 +275,7 @@ def colmado():
         pieza(caja((.11,.03,.15),(CX-1.05+i*.3, CY+.32, 1.42)),
               'funda', hexlin(random.choice(PALETA)), rough=.7)
     bm = caja((2.75,.4,AB0-H0),(CX, CY-.12, (H0+AB0)/2))
-    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015, tx='estuco', txs=.8)
+    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015, tx='pared_det', txs=1.0)
     pieza(caja((2.9,.48,.04),(CX, CY-.12, AB0+.02)), 'tope', hexlin('#C9BFA6'),
           rough=.6, bevel=.01)
     # zinc corrugado
@@ -255,11 +289,11 @@ def colmado():
         c = ZINC if n > -0.25 else OXIDO
         k = .8+.2*math.sin((co.x-CX)*2*math.pi/0.24)
         return (c[0]*k, c[1]*k, c[2]*k)
-    pieza(bm, 'zinc', zc, rough=.5, metal=.35, solidify=.012)
+    pieza(bm, 'zinc', hexlin('#E8E8E8'), rough=.5, metal=.35, solidify=.012, tx='zinc_foto', txs=1.0)
     for px in (-3.7, 3.7):
         pieza(cilindro(.035,.05,3.25,(CX+px, CY-1.3, PISO+1.62), seg=10),'puntal',MAD,rough=.8)
     bm = caja((.25,3.6,3.5),(CX-3.85, CY-0.8, PISO+1.75))
-    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015, tx='estuco', txs=.8)
+    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015, tx='pared_det', txs=1.3)
     pieza(caja((.95,.1,2.05),(CX-3.0, CY-.13, PISO+1.02)), 'puerta', MADOSC,
           rough=.85, bevel=.015)
     def calada(co):
@@ -428,11 +462,11 @@ def _dedos(l):
 
 PARTES_ORDEN = ['torso','cabeza','bruL','antL','bruR','antR','piernas']
 GRUPOS = {
-  'torso':   {'spine_01','spine_02','spine_03'},
+  'torso':   {'spine_01','spine_02','spine_03','clavicle_l','clavicle_r'},
   'cabeza':  {'Head','neck_01'},
-  'bruL':    {'clavicle_l','upperarm_l'},
+  'bruL':    {'upperarm_l'},
   'antL':    _dedos('l'),
-  'bruR':    {'clavicle_r','upperarm_r'},
+  'bruR':    {'upperarm_r'},
   'antR':    _dedos('r'),
   'piernas': {'root','pelvis','thigh_l','thigh_r','calf_l','calf_r',
               'foot_l','foot_r','ball_l','ball_r'},

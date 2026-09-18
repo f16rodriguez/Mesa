@@ -505,9 +505,11 @@ async function cargarSet(){
     g.setAttribute('normal', new THREE.BufferAttribute(nor,3));
     g.setAttribute('color', new THREE.BufferAttribute(col,3));
     g.setIndex(new THREE.BufferAttribute(idx,1));
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-      vertexColors:true, roughness:o.r, metalness:o.m }));
-    m.castShadow = true; m.receiveShadow = true;
+    // l=1: convive con las fichas y lo ilumina el juego. l=0: luz horneada en Cycles
+    const m = new THREE.Mesh(g, o.l
+      ? new THREE.MeshStandardMaterial({vertexColors:true, roughness:o.r, metalness:o.m})
+      : new THREE.MeshBasicMaterial({vertexColors:true}));
+    m.castShadow = !!o.l; m.receiveShadow = !!o.l;
     if(o.n.startsWith('Personaje')) figuras[+o.n.slice(9)].add(m);
     else scene.add(m);
   }
@@ -546,15 +548,7 @@ function init3D(){
   armarVista();
 
   // la calle y la acera del colmado
-  // la calle mojada de un aguacero de la tarde: brilla bajo los bombillos
-  const suelo = new THREE.Mesh(new THREE.CircleGeometry(22,48),
-    new THREE.MeshStandardMaterial({map:texSuelo(), roughness:.4, metalness:.08}));
-  suelo.rotation.x = -Math.PI/2; suelo.position.y = -1.04; suelo.receiveShadow = true;
-  scene.add(suelo);
-  const acera = new THREE.Mesh(new THREE.CircleGeometry(5.6,36),
-    new THREE.MeshStandardMaterial({map:texSuelo(), color:0xCFC8BC, roughness:.94}));
-  acera.rotation.x = -Math.PI/2; acera.position.y = -1.032; acera.receiveShadow = true;
-  scene.add(acera);
+  // la calle viene horneada dentro del set de Blender
 
   cadenaGrupo = new THREE.Group(); scene.add(cadenaGrupo);
 
@@ -603,7 +597,7 @@ function redimensionar(){
   const w = innerWidth, h = innerHeight, a = w/h;
   renderer.setSize(w,h,false); camera.aspect = a;
   if(a < 1.1){ camera.fov = 52; baseRad = 5.4; baseAlt = 6.6; }
-  else       { camera.fov = 46; baseRad = 7.5; baseAlt = 3.35; }
+  else       { camera.fov = 46; baseRad = 7.1; baseAlt = 3.05; }
   camera.updateProjectionMatrix();
   apuntarCamara();
 }

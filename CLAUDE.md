@@ -68,8 +68,11 @@ test/fourseats.js  integración: 4 teléfonos + mesa contra el servidor real
 - Interfaz en español rioplatense no: **español dominicano** natural ("te toca",
   "sale", "trancó", "paso"). Nada de "usted". Sin emojis.
 - Componentes de ficha (DOM y textura 3D) ya existen; reutilizar, no duplicar.
-- El arte v1 es procedural y vive en el código (decisión del 18 sep: sin comisión
-  para v1): texturas de canvas y geometría en `table.html`, comparadas contra el
-  ancla visual de `arte/` con capturas reales. Mejorar el arte = mejorar ese código.
+- El arte v1 se modela por script en Blender (decisión del 18 sep, noche):
+  `arte/blender/set.py` construye el set completo, hornea oclusión ambiental en
+  colores de vértice y exporta `public/set.bin`; se regenera con
+  `blender -b -P arte/blender/set.py`. `table.html` lo carga sin dependencias
+  (cargarSet) y pone cielo, vista, guirnaldas y luces por código. Mejorar el
+  arte = mejorar ese script, comparando capturas reales contra el ancla de `arte/`.
 - Sin dependencias nuevas sin motivo. Hoy solo `ws`.
 - Commits pequeños, en español, imperativo: "Añade reparto animado en 3D".

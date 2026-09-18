@@ -331,57 +331,6 @@ function moteado(x,w,h,n,colores,rMin,rMax,alfa){
   }
   x.globalAlpha = 1;
 }
-function texPared(base, viejo){
-  return lienzoTex(512,256,(x,w,h) => {
-    x.fillStyle = base; x.fillRect(0,0,w,h);
-    moteado(x,w,h,26,[viejo,'#C9C0A8'],8,46,.32);      // pintura descascarada y repello
-    moteado(x,w,h,60,['#00000022'],2,10,.5);
-    const g = x.createLinearGradient(0,h*.6,0,h);
-    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(30,20,10,.3)');
-    x.fillStyle = g; x.fillRect(0,0,w,h);              // zócalo sucio
-    x.globalAlpha = .18; x.fillStyle = '#5A3A22';
-    for(let i=0;i<7;i++){ const px = Math.random()*w; x.fillRect(px,0,2+Math.random()*3,h*(.3+Math.random()*.7)); }
-    x.globalAlpha = 1;
-  });
-}
-function texZinc(){
-  return lienzoTex(512,128,(x,w,h) => {
-    x.fillStyle = '#8E8674'; x.fillRect(0,0,w,h);
-    for(let px=0;px<w;px+=8){
-      x.fillStyle = (px/8)%2 ? 'rgba(255,250,235,.16)' : 'rgba(20,15,10,.22)';
-      x.fillRect(px,0,4,h);
-    }
-    for(let i=0;i<22;i++){
-      const px = Math.random()*w;
-      const g = x.createLinearGradient(0,0,0,h);
-      g.addColorStop(0,'rgba(122,66,38,.7)'); g.addColorStop(1,'rgba(122,66,38,0)');
-      x.fillStyle = g; x.fillRect(px,0,3+Math.random()*8,h);
-    }
-  });
-}
-function texEstantes(){
-  return lienzoTex(512,320,(x,w,h) => {
-    const g = x.createRadialGradient(w/2,h*.45,30,w/2,h*.55,w*.7);
-    g.addColorStop(0,'#7A4A22'); g.addColorStop(1,'#2A180C');
-    x.fillStyle = g; x.fillRect(0,0,w,h);
-    const paleta = ['#C8552F','#D9A238','#4F8A3D','#B03A2E','#3E6FA0','#D8C79A'];
-    for(let px=30;px<w-30;px+=34){                     // fundas colgando
-      x.fillStyle = paleta[(Math.random()*paleta.length)|0];
-      x.fillRect(px, 18, 22, 30);
-      x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect(px,18,22,6);
-    }
-    [96,170,244].forEach(sy => {                       // tablillas con botellas
-      x.fillStyle = '#8A5C30'; x.fillRect(14,sy+34,w-28,8);
-      for(let px=22;px<w-40;px+=26){
-        x.fillStyle = paleta[(Math.random()*paleta.length)|0];
-        const alto = 22+Math.random()*12;
-        x.fillRect(px, sy+34-alto, 14, alto);
-        x.fillStyle = 'rgba(255,240,210,.30)'; x.fillRect(px+2, sy+34-alto+3, 3, alto-6);
-      }
-    });
-    x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(0,h-14,w,14);
-  });
-}
 function texSuelo(){
   return lienzoTex(512,512,(x,w,h) => {
     x.fillStyle = '#41382F'; x.fillRect(0,0,w,h);
@@ -406,15 +355,6 @@ function texMadera(){
       x.bezierCurveTo(w*.3, i*10+(Math.random()-.5)*14, w*.7, i*10+(Math.random()-.5)*14, w, i*10+Math.random()*6);
       x.stroke();
     }
-  });
-}
-function texFieltro(){
-  return lienzoTex(256,256,(x,w,h) => {
-    x.fillStyle = '#0F4A3C'; x.fillRect(0,0,w,h);
-    moteado(x,w,h,700,['#0C4234','#136050','#0A382E'],1,2,.5);
-    const g = x.createRadialGradient(w/2,h/2,40,w/2,h/2,w*.72);
-    g.addColorStop(0,'rgba(255,240,200,.05)'); g.addColorStop(1,'rgba(0,0,0,.34)');
-    x.fillStyle = g; x.fillRect(0,0,w,h);
   });
 }
 function texCielo(){
@@ -451,24 +391,6 @@ function texCielo(){
       x.fillRect(Math.random()*w, py, 1.8, 1.8);
     }
     x.globalAlpha = 1;
-  });
-}
-function texCaja(){
-  return lienzoTex(128,128,(x,w,h) => {
-    x.fillStyle = '#3E7A38'; x.fillRect(0,0,w,h);
-    x.fillStyle = 'rgba(10,25,10,.55)';
-    [22,54,86].forEach(py => x.fillRect(10,py,w-20,16));
-    x.strokeStyle = 'rgba(180,220,170,.25)'; x.lineWidth = 3; x.strokeRect(4,4,w-8,h-8);
-  });
-}
-function texCalada(){
-  return lienzoTex(128,128,(x,w,h) => {
-    x.fillStyle = '#CFC8B4'; x.fillRect(0,0,w,h);
-    x.fillStyle = '#241B2E';
-    for(let i=0;i<2;i++) for(let k=0;k<2;k++){
-      x.beginPath(); x.arc(32+i*64, 32+k*64, 20, 0, Math.PI*2); x.fill();
-    }
-    moteado(x,w,h,14,['#9A9484'],3,10,.4);
   });
 }
 let glowTex = null;
@@ -562,114 +484,33 @@ function armarPalma(px,pz,esc){
   g.position.set(px,-1.04,pz); g.scale.setScalar(esc*1.5);
   scene.add(g);
 }
-function armarColmado(){
-  const g = new THREE.Group();
-  const turquesa = new THREE.MeshStandardMaterial({map:texPared('#8FD0C2','#63988B'), roughness:.94});
-  const coral    = new THREE.MeshStandardMaterial({map:texPared('#C9765C','#9A5440'), roughness:.94});
-  const pieza = (mat,wx,hy,dz,px,py,pz) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(wx,hy,dz), mat);
-    m.position.set(px,py,pz); m.receiveShadow = true; m.castShadow = true; g.add(m); return m;
-  };
-  // la pared con la boca del mostrador recortada por piezas
-  pieza(turquesa, 2.9, 4.44, .3, -3.75, 1.18, 0);
-  pieza(turquesa, 2.9, 4.44, .3,  3.75, 1.18, 0);
-  pieza(turquesa, 4.6, 1.1, .3, 0, 2.85, 0);
-  // el interior que brilla
-  const fondo = new THREE.Mesh(new THREE.PlaneGeometry(4.6,2.5),
-    new THREE.MeshBasicMaterial({map:texEstantes()}));
-  fondo.position.set(0, 1.1, -1.15); g.add(fondo);
-  const oscuro = new THREE.MeshStandardMaterial({color:0x2A1A10, roughness:1});
-  pieza(oscuro, 4.6,.1,1.2, 0,2.32,-.6);
-  pieza(oscuro, .1, 2.5, 1.2, -2.3, 1.1, -.6);
-  pieza(oscuro, .1, 2.5, 1.2, 2.3, 1.1, -.6);
-  const calor = new THREE.PointLight(0xFFB068, 38, 13, 2);
-  calor.position.set(0, 1.0, 0.4); g.add(calor);
-  const porche = new THREE.PointLight(0xFFC090, 14, 9, 2);
-  porche.position.set(0, 2.75, 1.3); g.add(porche);
-  // mostrador
-  pieza(coral, 4.9, .92, .55, 0, -.58, .18);
-  pieza(new THREE.MeshStandardMaterial({color:0xC9BFA6, roughness:.7}), 5.1,.07,.65, 0,-.10,.18);
-  // techo de zinc con vuelo y sus puntales
-  const zinc = new THREE.Mesh(new THREE.BoxGeometry(11.6,.1,3.1),
-    new THREE.MeshStandardMaterial({map:texZinc(), roughness:.55, metalness:.35}));
-  zinc.position.set(0, 3.62, .75); zinc.rotation.x = -0.09; zinc.castShadow = true; g.add(zinc);
-  const palo = new THREE.MeshStandardMaterial({map:texMadera(), roughness:.8});
-  [-5.1, 5.1].forEach(px => {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,4.5,8), palo);
-    p.position.set(px, 1.2, 1.9); p.castShadow = true; g.add(p);
-  });
-  // la casa coral vecina y la puerta
-  pieza(coral, .35, 4.9, 5.4, -5.45, 1.4, 1.2);
-  pieza(new THREE.MeshStandardMaterial({map:texMadera(), roughness:.85}), 1.1, 2.7, .14, -4.3, .27, .2);
-  // bloque calado
-  pieza(new THREE.MeshStandardMaterial({map:texCalada(), roughness:.9}), 1.25,1.25,.34, 4.1, 2.0, .02);
-  // cajas verdes apiladas
-  const caja = new THREE.MeshStandardMaterial({map:texCaja(), roughness:.8});
-  [[2.6,.9,3],[3.3,1.15,2],[-2.9,1.05,2]].forEach(([px,pz,n]) => {
-    for(let i=0;i<n;i++){
-      const cx = new THREE.Mesh(new THREE.BoxGeometry(.64,.5,.64), caja);
-      cx.position.set(px+(Math.random()-.5)*.06, -1.04+.25+i*.52, pz);
-      cx.rotation.y = (Math.random()-.5)*.3; cx.castShadow = true; g.add(cx);
-    }
-  });
-  // matas en potes
-  [[-4.6,1.6],[4.7,1.5]].forEach(([px,pz]) => {
-    const pote = new THREE.Mesh(new THREE.CylinderGeometry(.3,.24,.5,10),
-      new THREE.MeshStandardMaterial({color:0xD5CDBB, roughness:.9}));
-    pote.position.set(px,-.79,pz); pote.castShadow = true; g.add(pote);
-    for(let i=0;i<4;i++){
-      const hoja = new THREE.Mesh(new THREE.SphereGeometry(.3,8,6),
-        new THREE.MeshStandardMaterial({color:0x1E4A34, roughness:1}));
-      hoja.scale.set(1,.75,1);
-      hoja.position.set(px+(Math.random()-.5)*.4, -.32+Math.random()*.35, pz+(Math.random()-.5)*.4);
-      g.add(hoja);
-    }
-  });
-  // la balanza colgada
-  const hilo = new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,.5,4),
-    new THREE.MeshBasicMaterial({color:0x111111}));
-  hilo.position.set(1.7,2.6,.2); g.add(hilo);
-  const plato = new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.04,12),
-    new THREE.MeshStandardMaterial({color:0x8A8478, metalness:.6, roughness:.4}));
-  plato.position.set(1.7,2.32,.2); g.add(plato);
-  // el racimo de guineos colgado en la boca, a contraluz del interior
-  const guineo = new THREE.MeshStandardMaterial({color:0xC9B03E, roughness:.75});
-  for(let i=0;i<10;i++){
-    const b = new THREE.Mesh(new THREE.CapsuleGeometry(.06,.2,3,6), guineo);
-    b.position.set(-1.65+(i%3)*.13-.13, 2.0-(Math.floor(i/3))*.17, .05);
-    b.rotation.z = .4+(i%3)*.14; b.castShadow = true; g.add(b);
+/* ---------- el set modelado en Blender: arte/blender/set.py ---------- */
+async function cargarSet(){
+  const r = await fetch('set.bin');
+  const buf = await r.arrayBuffer();
+  const dv = new DataView(buf);
+  const jl = dv.getUint32(4, true);
+  const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jl)));
+  let off = (8 + jl + 3) & ~3;
+  for(const o of meta.objects){
+    const pos = new Float32Array(buf, off, o.v*3); off += o.v*12;
+    const nor = new Float32Array(buf, off, o.v*3); off += o.v*12;
+    const colU = new Uint8Array(buf, off, o.v*3); off += o.v*3; off = (off+3)&~3;
+    const idx = new Uint32Array(buf, off, o.t*3); off += o.t*12;
+    // los bytes vienen en sRGB; three espera colores de vértice lineales
+    const col = new Float32Array(o.v*3);
+    for(let i=0;i<col.length;i++) col[i] = Math.pow(colU[i]/255, 2.2);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor,3));
+    g.setAttribute('color', new THREE.BufferAttribute(col,3));
+    g.setIndex(new THREE.BufferAttribute(idx,1));
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+      vertexColors:true, roughness:o.r, metalness:o.m }));
+    m.castShadow = true; m.receiveShadow = true;
+    if(o.n.startsWith('Personaje')) figuras[+o.n.slice(9)].add(m);
+    else scene.add(m);
   }
-  const hiloG = new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.28,4),
-    new THREE.MeshBasicMaterial({color:0x111111}));
-  hiloG.position.set(-1.65,2.24,.05); g.add(hiloG);
-  // el bombillo de adentro
-  const focoIn = new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),
-    new THREE.MeshBasicMaterial({color:0xFFE9BE}));
-  focoIn.position.set(.4,2.15,-.5); g.add(focoIn);
-  const glIn = spriteGlow(.8); glIn.position.copy(focoIn.position); g.add(glIn);
-  // la neverita oscura junto al mostrador
-  const nevera = new THREE.Mesh(new THREE.BoxGeometry(.85,1.1,.65),
-    new THREE.MeshStandardMaterial({color:0x22262A, roughness:.35, metalness:.3}));
-  nevera.position.set(-1.95,-.49,.5); nevera.castShadow = true; g.add(nevera);
-  // la mata alta al lado del mostrador
-  const potaza = new THREE.Mesh(new THREE.CylinderGeometry(.34,.28,.6,10),
-    new THREE.MeshStandardMaterial({color:0xCFC5B0, roughness:.9}));
-  potaza.position.set(3.55,-.74,1.0); potaza.castShadow = true; g.add(potaza);
-  const fronda = new THREE.MeshStandardMaterial({color:0x2E6B44, roughness:1});
-  for(let i=0;i<6;i++){
-    const hoja = new THREE.Mesh(new THREE.SphereGeometry(.3+Math.random()*.14,8,6), fronda);
-    hoja.scale.set(1,.7,1);
-    hoja.position.set(3.55+(Math.random()-.5)*.5, -.05+Math.random()*.75, 1.0+(Math.random()-.5)*.5);
-    g.add(hoja);
-  }
-  // copas de árboles detrás del techo, a contraluz
-  const copa = new THREE.MeshBasicMaterial({color:0x152A1E});
-  [[3.6,4.6,-1.4,2.0],[5.4,4.3,-1.8,1.5],[-6.6,4.9,-.8,1.7]].forEach(([px,py,pz,r]) => {
-    const c = new THREE.Mesh(new THREE.SphereGeometry(r,10,8), copa);
-    c.scale.y = .7; c.position.set(px,py,pz); g.add(c);
-  });
-  g.position.set(-1.3, 0, -7.6);
-  scene.add(g);
 }
 function armarGuirnalda(a, b, sag, n){
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
@@ -689,101 +530,6 @@ function armarGuirnalda(a, b, sag, n){
   luz.position.copy(curva.getPoint(.5)); luz.position.y += .1; scene.add(luz);
 }
 
-/* ---------- sillas plásticas y la gente ---------- */
-function silla(color){
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({color, roughness:.62});
-  const s = new THREE.Mesh(new THREE.BoxGeometry(.62,.06,.56), mat);
-  s.position.y = .62; s.castShadow = true; g.add(s);
-  [[-.26,-.24],[.26,-.24],[-.28,.22],[.28,.22]].forEach(([px,pz]) => {
-    const l = new THREE.Mesh(new THREE.BoxGeometry(.05,.62,.05), mat);
-    l.position.set(px*1.08,.31,pz*1.08);
-    l.rotation.z = px>0?.06:-.06; l.rotation.x = pz>0?-.06:.06;
-    l.castShadow = true; g.add(l);
-  });
-  const resp = new THREE.Group();
-  for(let i=0;i<5;i++){
-    const b = new THREE.Mesh(new THREE.BoxGeometry(.07,.5,.028), mat);
-    b.position.set(-.22+i*.11, .25, 0); b.castShadow = true; resp.add(b);
-  }
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(.6,.07,.05), mat);
-  rail.position.set(0,.52,0); rail.castShadow = true; resp.add(rail);
-  resp.position.set(0,.62,-.27); resp.rotation.x = .16; g.add(resp);
-  [-.31,.31].forEach(px => {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(.05,.04,.5), mat);
-    b.position.set(px,.86,-.02); b.castShadow = true; g.add(b);
-    const sop = new THREE.Mesh(new THREE.BoxGeometry(.05,.24,.04), mat);
-    sop.position.set(px,.74,.2); g.add(sop);
-  });
-  return g;
-}
-function figura(seat){
-  const V = [
-    {piel:0x8A5A3B, ropa:0xE6DCC2, tipo:'sombrero'},   // el viejo de la guayabera
-    {piel:0xA8764E, ropa:0x4A86C8, tipo:'gorra'},      // el joven
-    {piel:0x6E4529, ropa:0xB84A62, tipo:'panuelo'},    // la doña
-    {piel:0x5C3A26, ropa:0xD4622A, tipo:'afro'}        // el del afro
-  ][seat];
-  const g = new THREE.Group();
-  const ropa = new THREE.MeshStandardMaterial({color:V.ropa, roughness:.88});
-  const piel = new THREE.MeshStandardMaterial({color:V.piel, roughness:.75});
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.33,.36,4,12), ropa);
-  torso.position.y = .95; torso.castShadow = true; g.add(torso);
-  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(.235,20,16), piel);
-  cabeza.position.y = 1.52; cabeza.castShadow = true; g.add(cabeza);
-  if(V.tipo === 'afro'){
-    const p = new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),
-      new THREE.MeshStandardMaterial({color:0x171008, roughness:1}));
-    p.position.y = 1.58; g.add(p);
-  } else {
-    const p = new THREE.Mesh(new THREE.SphereGeometry(.242,18,14,0,Math.PI*2,0,Math.PI*.5),
-      new THREE.MeshStandardMaterial({color:V.tipo==='panuelo'?0xD8A03A:0x201812, roughness:.95}));
-    p.position.y = 1.53; g.add(p);
-  }
-  if(V.tipo === 'sombrero'){
-    const paja = new THREE.MeshStandardMaterial({color:0xC9A96A, roughness:.9});
-    const ala = new THREE.Mesh(new THREE.CylinderGeometry(.4,.42,.03,18), paja);
-    ala.position.y = 1.66; g.add(ala);
-    const copa = new THREE.Mesh(new THREE.CylinderGeometry(.17,.19,.16,14), paja);
-    copa.position.y = 1.74; g.add(copa);
-  }
-  if(V.tipo === 'gorra'){
-    const go = new THREE.MeshStandardMaterial({color:0x22303A, roughness:.85});
-    const copa = new THREE.Mesh(new THREE.SphereGeometry(.245,14,10,0,Math.PI*2,0,Math.PI*.42), go);
-    copa.position.y = 1.55; g.add(copa);
-    const visera = new THREE.Mesh(new THREE.BoxGeometry(.3,.02,.2), go);
-    visera.position.set(0,1.62,.3); visera.rotation.x = .12; g.add(visera);
-  }
-  if(V.tipo === 'panuelo'){
-    const nudo = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),
-      new THREE.MeshStandardMaterial({color:0xD8A03A, roughness:.95}));
-    nudo.position.set(.14,1.71,-.05); g.add(nudo);
-    const oro = new THREE.MeshStandardMaterial({color:0xD9B23A, metalness:.8, roughness:.3});
-    [-1,1].forEach(l => {
-      const a = new THREE.Mesh(new THREE.TorusGeometry(.045,.011,6,12), oro);
-      a.position.set(l*.235,1.44,0); g.add(a);
-    });
-    const delantal = new THREE.Mesh(new THREE.BoxGeometry(.4,.4,.04),
-      new THREE.MeshStandardMaterial({color:0xEDE6D6, roughness:.9}));
-    delantal.position.set(0,.9,.31); g.add(delantal);
-  }
-  const brazo = l => {
-    const b = new THREE.Mesh(new THREE.CapsuleGeometry(.09,.42,4,8), ropa);
-    b.position.set(l*.34,.96,.22); b.rotation.x = -1.15; b.rotation.z = l*.3;
-    b.castShadow = true; return b;
-  };
-  const mano = l => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(.075,10,8), piel);
-    m.position.set(l*.26,1.02,.5); return m;
-  };
-  const muslo = l => {
-    const m = new THREE.Mesh(new THREE.CapsuleGeometry(.115,.3,4,8),
-      new THREE.MeshStandardMaterial({color:0x2E2A33, roughness:.9}));
-    m.position.set(l*.17,.5,.24); m.rotation.x = 1.5; return m;
-  };
-  g.add(brazo(-1),brazo(1),mano(-1),mano(1),muslo(-1),muslo(1));
-  return g;
-}
 function init3D(){
   renderer = new THREE.WebGLRenderer({canvas:$('lienzo'), antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -810,24 +556,9 @@ function init3D(){
   acera.rotation.x = -Math.PI/2; acera.position.y = -1.032; acera.receiveShadow = true;
   scene.add(acera);
 
-  // la mesa: madera de verdad y paño con uso
-  const paño = new THREE.Mesh(new THREE.BoxGeometry(MESA,.16,MESA),
-    new THREE.MeshStandardMaterial({map:texFieltro(), roughness:.98}));
-  paño.position.y = -.08; paño.receiveShadow = true; scene.add(paño);
-  const madera = new THREE.MeshStandardMaterial({map:texMadera(), roughness:.62, metalness:.04});
-  const r = MESA/2 + .16;
-  [[0,r],[0,-r],[r,0],[-r,0]].forEach(([x,z],i) => {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(i<2?MESA+.64:.32, .3, i<2?.32:MESA+.64), madera);
-    b.position.set(x,-.08,z); b.castShadow = true; b.receiveShadow = true; scene.add(b);
-  });
-  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz]) => {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(.11,.09,1.0,10), madera);
-    p.position.set(sx*(MESA/2-.34), -.62, sz*(MESA/2-.34)); p.castShadow = true; scene.add(p);
-  });
-
   cadenaGrupo = new THREE.Group(); scene.add(cadenaGrupo);
 
-  armarColmado();
+  cargarSet();      // el colmado, la mesa, las sillas y la gente, desde Blender
 
   // los postes que aguantan la guirnalda
   const palo = new THREE.MeshStandardMaterial({map:texMadera(), roughness:.85});
@@ -840,15 +571,11 @@ function init3D(){
   armarGuirnalda([-6,3.9,3],[6,3.9,3], .55, 12);
   armarGuirnalda([-6.4,3.44,-5.3],[3.85,3.44,-5.3], .3, 12);   // la del alero del zinc
 
-  // sillas plásticas y la gente sentada
+  // la gente llega con el set de Blender; aquí solo sus grupos animables
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
-  const colores = [0xDCD6C8, 0x3F7E72, 0xD9D3C5, 0x2F5566];
   for(let s=0; s<4; s++){
+    const g = new THREE.Group();
     const d = MESA/2 + .68;
-    const ch = silla(colores[s]);
-    ch.position.set(Math.sin(ang[s])*(d+.12), -1.04, Math.cos(ang[s])*(d+.12));
-    ch.rotation.y = ang[s] + Math.PI; scene.add(ch);
-    const g = figura(s);
     g.position.set(Math.sin(ang[s])*d, -1.04, Math.cos(ang[s])*d);
     g.rotation.y = ang[s] + Math.PI;
     g.userData = { y0:-1.04, fase:s*1.7 };

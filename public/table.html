@@ -426,9 +426,23 @@ function texCielo(){
     g.addColorStop(.49,'#E8935A'); g.addColorStop(.56,'#B0584E');
     g.addColorStop(.64,'#4A3450'); g.addColorStop(1,'#241B2E');
     x.fillStyle = g; x.fillRect(0,0,w,h);
-    x.globalAlpha = .45; x.fillStyle = '#41284A';      // nubes finas contra el dorado
-    for(let i=0;i<26;i++)
-      x.fillRect(Math.random()*w, h*(.42+Math.random()*.12), 40+Math.random()*130, 2+Math.random()*5);
+    // cúmulos del atardecer: panza violeta, borde encendido por abajo
+    for(let i=0;i<34;i++){
+      const cy = h*(.40+Math.random()*.11), cw = 26+Math.random()*70, ch = 7+Math.random()*13;
+      const cx = Math.random()*w;
+      x.globalAlpha = .75;
+      x.fillStyle = ['#4A2E4E','#5A3452','#3E2846'][(Math.random()*3)|0];
+      for(let k=0;k<3;k++){
+        x.beginPath();
+        x.ellipse(cx+(k-1)*cw*.5, cy+(Math.random()-.5)*4, cw*.6, ch, 0, 0, Math.PI*2);
+        x.fill();
+      }
+      x.globalAlpha = .4; x.fillStyle = '#F09A5E';
+      x.beginPath(); x.ellipse(cx, cy+ch*.55, cw*.8, ch*.4, 0, 0, Math.PI*2); x.fill();
+    }
+    x.globalAlpha = .45; x.fillStyle = '#41284A';      // velos finos
+    for(let i=0;i<20;i++)
+      x.fillRect(Math.random()*w, h*(.42+Math.random()*.12), 40+Math.random()*130, 2+Math.random()*4);
     x.globalAlpha = 1;
     for(let i=0;i<160;i++){                            // estrellas
       const py = Math.random()*h*.3;
@@ -510,6 +524,24 @@ function armarVista(){
     vent.position.set(px-.45, -0.7+dy, pz+1.02); scene.add(vent);
   });
   armarPalma(13,-15,1.1); armarPalma(-15,-11,1); armarPalma(18,7,.85);
+  // postes de luz calle abajo, con sus cables
+  const posteMat = new THREE.MeshBasicMaterial({color:0x0E0C0A});
+  const tops = [];
+  [[12,-5,-.4],[18,-10,-.9]].forEach(([px,pz,dy]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.06,.09,4.6,6), posteMat);
+    p.position.set(px, 1.2+dy, pz); scene.add(p);
+    const cruz = new THREE.Mesh(new THREE.BoxGeometry(1.1,.06,.06), posteMat);
+    cruz.position.set(px, 3.2+dy, pz); scene.add(cruz);
+    tops.push([px, 3.2+dy, pz]);
+    const foco = new THREE.Mesh(new THREE.SphereGeometry(.07,6,5),
+      new THREE.MeshBasicMaterial({color:0xFFD9A0, fog:false}));
+    foco.position.set(px, 2.6+dy, pz); scene.add(foco);
+    const gl = spriteGlow(1.1); gl.position.copy(foco.position); scene.add(gl);
+  });
+  const cA = new THREE.Vector3(...tops[0]), cB = new THREE.Vector3(...tops[1]);
+  const cM = cA.clone().lerp(cB,.5); cM.y -= .5;
+  scene.add(new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(cA,cM,cB), 16, .012, 4), posteMat));
 }
 function armarPalma(px,pz,esc){
   const g = new THREE.Group();
@@ -600,6 +632,42 @@ function armarColmado(){
   const plato = new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.04,12),
     new THREE.MeshStandardMaterial({color:0x8A8478, metalness:.6, roughness:.4}));
   plato.position.set(1.7,2.32,.2); g.add(plato);
+  // el racimo de guineos colgado en la boca, a contraluz del interior
+  const guineo = new THREE.MeshStandardMaterial({color:0xC9B03E, roughness:.75});
+  for(let i=0;i<10;i++){
+    const b = new THREE.Mesh(new THREE.CapsuleGeometry(.06,.2,3,6), guineo);
+    b.position.set(-1.65+(i%3)*.13-.13, 2.0-(Math.floor(i/3))*.17, .05);
+    b.rotation.z = .4+(i%3)*.14; b.castShadow = true; g.add(b);
+  }
+  const hiloG = new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.28,4),
+    new THREE.MeshBasicMaterial({color:0x111111}));
+  hiloG.position.set(-1.65,2.24,.05); g.add(hiloG);
+  // el bombillo de adentro
+  const focoIn = new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),
+    new THREE.MeshBasicMaterial({color:0xFFE9BE}));
+  focoIn.position.set(.4,2.15,-.5); g.add(focoIn);
+  const glIn = spriteGlow(.8); glIn.position.copy(focoIn.position); g.add(glIn);
+  // la neverita oscura junto al mostrador
+  const nevera = new THREE.Mesh(new THREE.BoxGeometry(.85,1.1,.65),
+    new THREE.MeshStandardMaterial({color:0x22262A, roughness:.35, metalness:.3}));
+  nevera.position.set(-1.95,-.49,.5); nevera.castShadow = true; g.add(nevera);
+  // la mata alta al lado del mostrador
+  const potaza = new THREE.Mesh(new THREE.CylinderGeometry(.34,.28,.6,10),
+    new THREE.MeshStandardMaterial({color:0xCFC5B0, roughness:.9}));
+  potaza.position.set(3.55,-.74,1.0); potaza.castShadow = true; g.add(potaza);
+  const fronda = new THREE.MeshStandardMaterial({color:0x2E6B44, roughness:1});
+  for(let i=0;i<6;i++){
+    const hoja = new THREE.Mesh(new THREE.SphereGeometry(.3+Math.random()*.14,8,6), fronda);
+    hoja.scale.set(1,.7,1);
+    hoja.position.set(3.55+(Math.random()-.5)*.5, -.05+Math.random()*.75, 1.0+(Math.random()-.5)*.5);
+    g.add(hoja);
+  }
+  // copas de árboles detrás del techo, a contraluz
+  const copa = new THREE.MeshBasicMaterial({color:0x152A1E});
+  [[3.6,4.6,-1.4,2.0],[5.4,4.3,-1.8,1.5],[-6.6,4.9,-.8,1.7]].forEach(([px,py,pz,r]) => {
+    const c = new THREE.Mesh(new THREE.SphereGeometry(r,10,8), copa);
+    c.scale.y = .7; c.position.set(px,py,pz); g.add(c);
+  });
   g.position.set(-1.3, 0, -7.6);
   scene.add(g);
 }
@@ -721,7 +789,7 @@ function init3D(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.3;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.4;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2A2036);
@@ -732,8 +800,9 @@ function init3D(){
   armarVista();
 
   // la calle y la acera del colmado
+  // la calle mojada de un aguacero de la tarde: brilla bajo los bombillos
   const suelo = new THREE.Mesh(new THREE.CircleGeometry(22,48),
-    new THREE.MeshStandardMaterial({map:texSuelo(), roughness:.96}));
+    new THREE.MeshStandardMaterial({map:texSuelo(), roughness:.4, metalness:.08}));
   suelo.rotation.x = -Math.PI/2; suelo.position.y = -1.04; suelo.receiveShadow = true;
   scene.add(suelo);
   const acera = new THREE.Mesh(new THREE.CircleGeometry(5.6,36),
@@ -769,6 +838,7 @@ function init3D(){
   armarGuirnalda([-6.3,3.55,-6.4],[6,3.9,3], .8, 14);
   armarGuirnalda([3.7,3.55,-6.4],[-6,3.9,3], .8, 14);
   armarGuirnalda([-6,3.9,3],[6,3.9,3], .55, 12);
+  armarGuirnalda([-6.4,3.44,-5.3],[3.85,3.44,-5.3], .3, 12);   // la del alero del zinc
 
   // sillas plásticas y la gente sentada
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
@@ -787,7 +857,7 @@ function init3D(){
   }
 
   // luz: el bombillo de la mesa manda; el cielo y el colmado acompañan
-  scene.add(new THREE.HemisphereLight(0x6A6088, 0x3A2818, .8));
+  scene.add(new THREE.HemisphereLight(0x7A6890, 0x3A2818, .9));
   const bombillo = new THREE.PointLight(0xFFD9A0, 46, 16, 2);
   bombillo.position.set(0,3.15,0); bombillo.castShadow = true;
   bombillo.shadow.mapSize.set(1024,1024); bombillo.shadow.bias = -0.004;

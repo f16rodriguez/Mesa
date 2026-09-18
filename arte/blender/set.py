@@ -538,18 +538,69 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
             if mod.type == 'ARMATURE':
                 bpy.ops.object.modifier_apply(modifier=mod.name)
 
-    # grupo dominante por vértice + color por región, sobre el cuerpo entero
+    manga_larga = (tipo == 'sombrero')
+
+    def dom_verts(ob):
+        nom = [g.name for g in ob.vertex_groups]
+        out = []
+        for v in ob.data.vertices:
+            best, bw = 'root', -1.0
+            for ge in v.groups:
+                if ge.weight > bw: bw, best = ge.weight, nom[ge.group]
+            out.append(best)
+        return out
+
+    def pintar(ob, color):
+        at = ob.data.color_attributes.get('Base') or ob.data.color_attributes.new(
+            name='Base', type='FLOAT_COLOR', domain='POINT')
+        for i, v in enumerate(ob.data.vertices):
+            c = color(v.co) if callable(color) else color
+            at.data[i].color = (c[0], c[1], c[2], 1.0)
+
+    # ---- ropa de verdad ----
+    # El cuerpo base viene desnudo y musculoso: una camisa pintada encima deja
+    # ver pectorales y abdominales, y eso es lo que delata al muñeco. La prenda
+    # se MODELA: se copia la región del cuerpo, se suaviza (mata el músculo), se
+    # empuja hacia afuera y se le da grosor — así el cuello y el borde de la
+    # manga se ven como tela, no como piel pintada.
+    def prenda(nombre, grupos, fuera=.023, grosor=.011, suave=7):
+        ob = cuerpo.copy(); ob.data = cuerpo.data.copy(); ob.name = nombre
+        bpy.context.collection.objects.link(ob)
+        doms = dom_verts(ob)
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        quitar = [f for f in bm.faces
+                  if any(doms[v.index] not in grupos for v in f.verts)]
+        bmesh.ops.delete(bm, geom=quitar, context='FACES')
+        sueltos = [v for v in bm.verts if not v.link_faces]
+        if sueltos: bmesh.ops.delete(bm, geom=sueltos, context='VERTS')
+        bm.to_mesh(ob.data); bm.free()
+        if len(ob.data.vertices) < 12:
+            bpy.data.objects.remove(ob); return None
+        bpy.context.view_layer.objects.active = ob
+        m = ob.modifiers.new('sm','SMOOTH'); m.factor = .8; m.iterations = suave
+        bpy.ops.object.modifier_apply(modifier='sm')
+        m = ob.modifiers.new('di','DISPLACE'); m.mid_level = 0.0; m.strength = fuera
+        bpy.ops.object.modifier_apply(modifier='di')
+        m = ob.modifiers.new('so','SOLIDIFY'); m.thickness = grosor; m.offset = 0
+        bpy.ops.object.modifier_apply(modifier='so')
+        for pg in ob.data.polygons: pg.use_smooth = True
+        return ob
+
+    TRONCO = {'spine_01','spine_02','spine_03','clavicle_l','clavicle_r'}
+    MANGA  = {'upperarm_l','upperarm_r'}
+    MANGAL = {'lowerarm_l','lowerarm_r'}
+    CADERA = {'pelvis'}
+    MUSLO  = {'thigh_l','thigh_r'}
+    PANTO  = {'calf_l','calf_r'}
+
+    # pintar el cuerpo (lo que asoma: cara, cuello, manos, antebrazos)
     nombres_vg = [g.name for g in cuerpo.vertex_groups]
     me = cuerpo.data
-    dom_at = me.attributes.new('dom', 'INT', 'POINT')
     base_at = me.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
-    manga_larga = (tipo == 'sombrero')
     for i, v in enumerate(me.vertices):
         best, bw = 'root', -1.0
         for ge in v.groups:
             if ge.weight > bw: bw, best = ge.weight, nombres_vg[ge.group]
-        k = next((j for j, p in enumerate(PARTES_ORDEN) if best in GRUPOS[p]), 6)
-        dom_at.data[i].value = k
         if best in PIEL_G: c = piel
         elif best in ('lowerarm_l','lowerarm_r'):
             c = camisa_fn(v.co) if manga_larga else piel
@@ -557,6 +608,54 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         elif best in ZAP_G: c = hexlin('#26201A')
         else: c = camisa_fn(v.co)
         base_at.data[i].color = (c[0], c[1], c[2], 1.0)
+
+    prendas = []
+    if tipo == 'panuelo':
+        d = prenda(P+'vestido', TRONCO|MANGA|CADERA|MUSLO, fuera=.030, suave=9)
+        if d: pintar(d, camisa_fn); prendas.append(d)
+        me_ = prenda(P+'medias', MUSLO|PANTO, fuera=.013, grosor=.006, suave=4)
+        if me_: pintar(me_, pantalon); prendas.append(me_)
+    else:
+        reg = TRONCO | MANGA | (MANGAL if manga_larga else set())
+        ca = prenda(P+'camisa', reg, fuera=.024, suave=8)
+        if ca: pintar(ca, camisa_fn); prendas.append(ca)
+        pa = prenda(P+'pantalon', CADERA|MUSLO|PANTO, fuera=.020, suave=6)
+        if pa: pintar(pa, pantalon); prendas.append(pa)
+
+    # el cuerpo desnudo asomaba por los hombros. Recortarlo abre huecos donde la
+    # tela encoge, así que se hunde: los vértices bajo la ropa se meten hacia
+    # adentro y la tela queda sola por fuera.
+    if prendas:
+        cubierto = TRONCO | MANGA | CADERA | MUSLO | PANTO
+        if manga_larga: cubierto |= MANGAL
+        dc = dom_verts(cuerpo)
+        vg = cuerpo.vertex_groups.new(name='bajo_ropa')
+        vg.add([i for i, d in enumerate(dc) if d in cubierto], 1.0, 'REPLACE')
+        bpy.context.view_layer.objects.active = cuerpo
+        m = cuerpo.modifiers.new('enc','DISPLACE')
+        m.mid_level = 0.0; m.strength = -0.014; m.vertex_group = 'bajo_ropa'
+        bpy.ops.object.modifier_apply(modifier='enc')
+        # el puntero muere al aplicar el modificador: buscarlo por nombre
+        cuerpo.vertex_groups.remove(cuerpo.vertex_groups['bajo_ropa'])
+
+    # unir la ropa al cuerpo: el corte por partes la reparte sola
+    if prendas:
+        bpy.ops.object.select_all(action='DESELECT')
+        for pr in prendas: pr.select_set(True)
+        cuerpo.select_set(True)
+        bpy.context.view_layer.objects.active = cuerpo
+        bpy.ops.object.join()
+
+    # grupo dominante por vértice, ya vestido
+    nombres_vg = [g.name for g in cuerpo.vertex_groups]
+    me = cuerpo.data
+    dom_at = me.attributes.new('dom', 'INT', 'POINT')
+    for i, v in enumerate(me.vertices):
+        best, bw = 'root', -1.0
+        for ge in v.groups:
+            if ge.weight > bw: bw, best = ge.weight, nombres_vg[ge.group]
+        dom_at.data[i].value = next(
+            (j for j, pn in enumerate(PARTES_ORDEN) if best in GRUPOS[pn]), 6)
 
     # partir el cuerpo en las piezas de la marioneta
     partes_obj = {}
@@ -601,6 +700,44 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         todos.append((m, 1, {}))
         extras_cabeza.append(m)
 
+    # pelo, cejas y barba: mallas del mismo pack, llevadas a la cabeza poseada
+    Mhead = (arm.matrix_world @ pb['Head'].matrix
+             @ arm.data.bones['Head'].matrix_local.inverted())
+    def postizo(archivo, color):
+        antes2 = set(bpy.context.scene.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(RUTA_UBC, archivo))
+        out = []
+        for o in [x for x in bpy.context.scene.objects if x not in antes2]:
+            if o.type != 'MESH':
+                bpy.data.objects.remove(o); continue
+            o.matrix_world = Mhead @ o.matrix_world
+            bpy.context.view_layer.objects.active = o
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            o.data.materials.clear(); o.data.materials.append(material_unico())
+            at = o.data.color_attributes.new(name='Base', type='FLOAT_COLOR',
+                                             domain='POINT')
+            for i in range(len(o.data.vertices)):
+                at.data[i].color = (color[0], color[1], color[2], 1.0)
+            o['rough'] = .95
+            for pg in o.data.polygons: pg.use_smooth = True
+            todos.append((o, 1, {}))
+            out.append(o)
+        return out
+
+    CANA  = hexlin('#B8B2A8')
+    NEGRO = hexlin('#1A1208')
+    PELOS = {
+        'sombrero': [('Hair_Buzzed.gltf', CANA), ('Hair_Beard.gltf', CANA),
+                     ('Eyebrows_Regular.gltf', CANA)],
+        'gorra':    [('Hair_SimpleParted.gltf', NEGRO),
+                     ('Eyebrows_Regular.gltf', NEGRO)],
+        'panuelo':  [('Hair_Buns.gltf', NEGRO), ('Eyebrows_Female.gltf', NEGRO)],
+        'afro':     [('Hair_Buzzed.gltf', NEGRO),
+                     ('Eyebrows_Regular.gltf', NEGRO)],
+    }
+    for archivo, color in PELOS.get(tipo, []):
+        extras_cabeza += postizo(archivo, color)
+
     # lo que corona a cada quien, puesto sobre la cabeza ya poseada
     hx, hy, hz = hw.x, hw.y, hw.z
     if tipo == 'sombrero':
@@ -621,10 +758,8 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
                              rot=(math.radians(12),0,0)),'vis',hexlin('#22303A'),
                              rough=.85,lit=1,bevel=.006,subsurf=1))
     elif tipo == 'panuelo':
-        extras_cabeza.append(pieza(esfera(.112,(hx,hy+.005,hz+.12), seg=14,
-                             esc=(1,1,.9)),'pan',hexlin('#D8A03A'),rough=.9,lit=1,subsurf=1))
-        extras_cabeza.append(pieza(esfera(.035,(hx+.07,hy+.06,hz+.19), seg=8),'nudo',
-                             hexlin('#D8A03A'),rough=.9,lit=1))
+        # el pelo recogido del pack le queda mejor que el pañuelo: se le ve la
+        # cara y los moños. Solo los aros de oro.
         for sx in (-.105,.105):
             extras_cabeza.append(pieza(cilindro(.022,.022,.008,(hx+sx,hy,hz+.01), seg=10,
                                  rot=(0,math.radians(90),0)),'arete',

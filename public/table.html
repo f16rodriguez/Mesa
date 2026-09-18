@@ -633,6 +633,9 @@ function init3D(){
     new THREE.MeshBasicMaterial({color:0xFFE6B8}));
   vidrio.position.copy(bombillo.position); scene.add(vidrio);
   const brillo = spriteGlow(.38); brillo.position.copy(bombillo.position); scene.add(brillo);
+  // el rebote del paño: sin esto las caras quedan en sombra bajo el bombillo
+  const rebote = new THREE.PointLight(0xFFB284, 1.5, 2.4, 2);
+  rebote.position.set(0, 0.22, 0); scene.add(rebote);
   const luna = new THREE.DirectionalLight(0x8FB6D8,.4);
   luna.position.set(-5,6,-4); scene.add(luna);
 

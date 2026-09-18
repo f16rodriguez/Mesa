@@ -69,7 +69,9 @@ test/fourseats.js  integración: 4 teléfonos + mesa contra el servidor real
   "sale", "trancó", "paso"). Nada de "usted". Sin emojis.
 - Componentes de ficha (DOM y textura 3D) ya existen; reutilizar, no duplicar.
 - El arte v1 se construye por script en Blender: `arte/blender/set.py` arma el
-  set a escala real (metros), sienta cuerpos humanos CC0 de Quaternius
+  set a escala real (metros), sienta cuerpos humanos CC0 de Quaternius, les
+  MODELA la ropa (cáscara de tela suavizada, desplazada y con grosor, con el
+  cuerpo hundido debajo) y les pone pelo, cejas y barba del mismo pack
   (`arte/blender/ubc/`, dominio público) con su esqueleto, los parte en piezas
   de marioneta (torso, cabeza, brazos, antebrazos), hornea iluminación global
   Cycles en colores de vértice y exporta `public/set.bin`. Regenerar:

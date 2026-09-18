@@ -266,11 +266,14 @@ const $ = id => document.getElementById(id);
 const PIPMAP_DOM = {0:[],1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 const PIPMAP_TEX = {0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 const PIP_HEX = {0:null,1:'#2F5FA0',2:'#2E7D50',3:'#C4362B',4:'#6B4A9E',5:'#D4622A',6:'#2B2724'};
-const TL = 0.44, TW = 0.22, TH = 0.068, MESA = 3.8;
+/* Escala real, en metros. Las fichas son "jumbo" de 12 cm: en una mesa de
+   1.15 m siguen siendo creíbles y se leen desde el sofá. */
+const TL = 0.12, TW = 0.06, TH = 0.018, MESA = 1.15;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let ws = null, S = null, previo = null, dramatica = false;
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
+let rigs = [null,null,null,null], gestos = [null,null,null,null];
 let camAng = 0, camAngGoal = 0, camRad = 6.8, camRadGoal = 6.8, camAlt = 5, camAltGoal = 5;
 let baseRad = 6.8, baseAlt = 5, sacudida = 0;
 const texCache = new Map();
@@ -417,16 +420,16 @@ function armarVista(){
   // el pueblo bajando hacia el mar: lomas a contraluz y puntitos de luz
   const mar = new THREE.Mesh(new THREE.CircleGeometry(64,40),
     new THREE.MeshStandardMaterial({color:0x16233A, roughness:.32, metalness:.55}));
-  mar.rotation.x = -Math.PI/2; mar.position.y = -1.5; scene.add(mar);
+  mar.rotation.x = -Math.PI/2; mar.position.y = -.85; scene.add(mar);
   [[-24,-30,9],[26,-26,7],[0,-42,12]].forEach(([px,pz,r]) => {
     const loma = new THREE.Mesh(new THREE.SphereGeometry(r,14,10),
       new THREE.MeshBasicMaterial({color:0x131C2A}));
-    loma.scale.y = .35; loma.position.set(px,-1.5,pz); scene.add(loma);
+    loma.scale.y = .35; loma.position.set(px,-1.2,pz); scene.add(loma);
   });
   const pos = [];
   for(let i=0;i<120;i++){
-    const a = Math.random()*Math.PI*2, r = 20 + Math.random()*34;
-    pos.push(Math.sin(a)*r, -1.2 + Math.random()*2.4, Math.cos(a)*r);
+    const a = Math.random()*Math.PI*2, r = 18 + Math.random()*34;
+    pos.push(Math.sin(a)*r, -0.9 + Math.random()*2.4, Math.cos(a)*r);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
@@ -437,27 +440,27 @@ function armarVista(){
   const techoMat = new THREE.MeshStandardMaterial({color:0x10151C, roughness:1});
   const ventMat = new THREE.MeshBasicMaterial({color:0xFFC97A, fog:false,
     transparent:true, opacity:.85});
-  [[13,-11,-.2],[16.5,-8.5,-.35],[19,-13,-.5],[14,-17,-.3],[23,-8,-.7]].forEach(([px,pz,dy]) => {
+  [[11,-9,-.2],[14,-7,-.35],[16,-11,-.5],[12,-14,-.3],[19,-6.5,-.7]].forEach(([px,pz,dy]) => {
     const casa = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.5,2), casaMat);
-    casa.position.set(px, -0.8+dy, pz); scene.add(casa);
+    casa.position.set(px, 0.0+dy, pz); scene.add(casa);
     const techo = new THREE.Mesh(new THREE.BoxGeometry(2.5,.08,2.3), techoMat);
-    techo.position.set(px, -0.02+dy, pz); scene.add(techo);
+    techo.position.set(px, 0.79+dy, pz); scene.add(techo);
     const vent = new THREE.Mesh(new THREE.PlaneGeometry(.3,.38), ventMat);
-    vent.position.set(px-.45, -0.7+dy, pz+1.02); scene.add(vent);
+    vent.position.set(px-.45, 0.1+dy, pz+1.02); scene.add(vent);
   });
   armarPalma(13,-15,1.1); armarPalma(-15,-11,1); armarPalma(18,7,.85);
   // postes de luz calle abajo, con sus cables
   const posteMat = new THREE.MeshBasicMaterial({color:0x0E0C0A});
   const tops = [];
-  [[12,-5,-.4],[18,-10,-.9]].forEach(([px,pz,dy]) => {
+  [[10,-4.5,-.3],[15,-8.5,-.7]].forEach(([px,pz,dy]) => {
     const p = new THREE.Mesh(new THREE.CylinderGeometry(.06,.09,4.6,6), posteMat);
-    p.position.set(px, 1.2+dy, pz); scene.add(p);
+    p.position.set(px, 1.5+dy, pz); scene.add(p);
     const cruz = new THREE.Mesh(new THREE.BoxGeometry(1.1,.06,.06), posteMat);
-    cruz.position.set(px, 3.2+dy, pz); scene.add(cruz);
-    tops.push([px, 3.2+dy, pz]);
+    cruz.position.set(px, 3.55+dy, pz); scene.add(cruz);
+    tops.push([px, 3.55+dy, pz]);
     const foco = new THREE.Mesh(new THREE.SphereGeometry(.07,6,5),
       new THREE.MeshBasicMaterial({color:0xFFD9A0, fog:false}));
-    foco.position.set(px, 2.6+dy, pz); scene.add(foco);
+    foco.position.set(px, 2.95+dy, pz); scene.add(foco);
     const gl = spriteGlow(1.1); gl.position.copy(foco.position); scene.add(gl);
   });
   const cA = new THREE.Vector3(...tops[0]), cB = new THREE.Vector3(...tops[1]);
@@ -481,7 +484,7 @@ function armarPalma(px,pz,esc){
     f.rotation.set(Math.sin(a)*.7, -a, -0.5 - Math.random()*.3);
     g.add(f);
   }
-  g.position.set(px,-1.04,pz); g.scale.setScalar(esc*1.5);
+  g.position.set(px,-0.75,pz); g.scale.setScalar(esc*1.5);
   scene.add(g);
 }
 /* ---------- el set modelado en Blender: arte/blender/set.py ---------- */
@@ -492,6 +495,7 @@ async function cargarSet(){
   const jl = dv.getUint32(4, true);
   const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jl)));
   let off = (8 + jl + 3) & ~3;
+  const partes = [{},{},{},{}];        // P{s}_{parte} → {mesh, o}
   for(const o of meta.objects){
     const pos = new Float32Array(buf, off, o.v*3); off += o.v*12;
     const nor = new Float32Array(buf, off, o.v*3); off += o.v*12;
@@ -510,26 +514,50 @@ async function cargarSet(){
       ? new THREE.MeshStandardMaterial({vertexColors:true, roughness:o.r, metalness:o.m})
       : new THREE.MeshBasicMaterial({vertexColors:true}));
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
-    if(o.n.startsWith('Personaje')) figuras[+o.n.slice(9)].add(m);
+    const p = o.n.match(/^P(\d)_(\w+)$/);
+    if(p) partes[+p[1]][p[2]] = { mesh: m, o };
     else scene.add(m);
   }
+  for(let s=0;s<4;s++) armarMarioneta(s, partes[s]);
 }
+
+/* La marioneta: cada parte gira sobre su pivote, anidada en su padre.
+   torso (cadera) > cabeza (cuello) y brazos (hombro) > antebrazos (codo). */
+function armarMarioneta(s, partes){
+  const f = figuras[s], g = {};
+  if(partes.piernas) f.add(partes.piernas.mesh);
+  for(const nom of ['torso','cabeza','bruL','antL','bruR','antR']){
+    const p = partes[nom]; if(!p) continue;
+    const pv = p.o.pv || [0,0,0];
+    const paNom = (p.o.pa || '').replace(/^P\d_/, '');
+    const padre = g[paNom] || f;
+    const pvPa = g[paNom] ? g[paNom].userData.pv : [0,0,0];
+    const grp = new THREE.Group();
+    grp.position.set(pv[0]-pvPa[0], pv[1]-pvPa[1], pv[2]-pvPa[2]);
+    grp.userData.pv = pv;
+    p.mesh.position.set(-pv[0], -pv[1], -pv[2]);
+    grp.add(p.mesh); padre.add(grp);
+    g[nom] = grp;
+  }
+  rigs[s] = g;
+}
+function gesto(s, tipo){ gestos[s] = { tipo, t0: performance.now()/1000 }; }
 function armarGuirnalda(a, b, sag, n){
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
   const M = A.clone().lerp(B,.5); M.y -= sag;
   const curva = new THREE.QuadraticBezierCurve3(A,M,B);
-  const cable = new THREE.Mesh(new THREE.TubeGeometry(curva, 24, .015, 5),
+  const cable = new THREE.Mesh(new THREE.TubeGeometry(curva, 24, .006, 5),
     new THREE.MeshBasicMaterial({color:0x14100C}));
   scene.add(cable);
   const foco = new THREE.MeshBasicMaterial({color:0xFFDCA2});
   for(let i=1;i<n;i++){
     const p = curva.getPoint(i/n);
-    const bmb = new THREE.Mesh(new THREE.SphereGeometry(.05,8,6), foco);
-    bmb.position.copy(p); bmb.position.y -= .07; scene.add(bmb);
-    const gl = spriteGlow(.5); gl.position.copy(bmb.position); scene.add(gl);
+    const bmb = new THREE.Mesh(new THREE.SphereGeometry(.022,8,6), foco);
+    bmb.position.copy(p); bmb.position.y -= .03; scene.add(bmb);
+    const gl = spriteGlow(.22); gl.position.copy(bmb.position); scene.add(gl);
   }
-  const luz = new THREE.PointLight(0xFFC98C, 11, 8, 2);
-  luz.position.copy(curva.getPoint(.5)); luz.position.y += .1; scene.add(luz);
+  const luz = new THREE.PointLight(0xFFC98C, 1.2, 3.5, 2);
+  luz.position.copy(curva.getPoint(.5)); luz.position.y += .05; scene.add(luz);
 }
 
 function init3D(){
@@ -541,7 +569,7 @@ function init3D(){
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2A2036);
-  scene.fog = new THREE.Fog(0x2A2036, 14, 46);
+  scene.fog = new THREE.Fog(0x2A2036, 6, 30);
   camera = new THREE.PerspectiveCamera(45,1,.1,160);
 
   armarCielo();
@@ -556,39 +584,39 @@ function init3D(){
 
   // los postes que aguantan la guirnalda
   const palo = new THREE.MeshStandardMaterial({map:texMadera(), roughness:.85});
-  [-6, 6].forEach(px => {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(.08,.11,5,8), palo);
-    p.position.set(px, 1.46, 3); p.castShadow = true; scene.add(p);
+  [-4.3, 4.3].forEach(px => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.035,.05,2.95,8), palo);
+    p.position.set(px, 0.72, 2.2); p.castShadow = true; scene.add(p);
   });
-  armarGuirnalda([-6.3,3.55,-6.4],[6,3.9,3], .8, 14);
-  armarGuirnalda([3.7,3.55,-6.4],[-6,3.9,3], .8, 14);
-  armarGuirnalda([-6,3.9,3],[6,3.9,3], .55, 12);
-  armarGuirnalda([-6.4,3.44,-5.3],[3.85,3.44,-5.3], .3, 12);   // la del alero del zinc
+  armarGuirnalda([-4.5,2.08,-3.75],[4.3,2.18,2.2], .32, 14);
+  armarGuirnalda([2.9,2.08,-3.75],[-4.3,2.18,2.2], .32, 14);
+  armarGuirnalda([-4.3,2.18,2.2],[4.3,2.18,2.2], .22, 12);
+  armarGuirnalda([-4.4,2.24,-3.05],[2.8,2.24,-3.05], .14, 12);  // la del alero del zinc
 
   // la gente llega con el set de Blender; aquí solo sus grupos animables
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
   for(let s=0; s<4; s++){
     const g = new THREE.Group();
-    const d = MESA/2 + .68;
-    g.position.set(Math.sin(ang[s])*d, -1.04, Math.cos(ang[s])*d);
+    const d = MESA/2 + .28;
+    g.position.set(Math.sin(ang[s])*d, -0.75, Math.cos(ang[s])*d);
     g.rotation.y = ang[s] + Math.PI;
-    g.userData = { y0:-1.04, fase:s*1.7 };
+    g.userData = { y0:-0.75, fase:s*1.7 };
     scene.add(g); figuras.push(g);
     const fan = new THREE.Group(); scene.add(fan); manosFan.push(fan);
   }
 
   // luz: el bombillo de la mesa manda; el cielo y el colmado acompañan
   scene.add(new THREE.HemisphereLight(0x7A6890, 0x3A2818, .9));
-  const bombillo = new THREE.PointLight(0xFFD9A0, 46, 16, 2);
-  bombillo.position.set(0,3.15,0); bombillo.castShadow = true;
+  const bombillo = new THREE.PointLight(0xFFD9A0, 4.2, 7, 2);
+  bombillo.position.set(0,1.95,0); bombillo.castShadow = true;
   bombillo.shadow.mapSize.set(1024,1024); bombillo.shadow.bias = -0.004;
   scene.add(bombillo);
-  const vidrio = new THREE.Mesh(new THREE.SphereGeometry(.09,14,12),
+  const vidrio = new THREE.Mesh(new THREE.SphereGeometry(.035,14,12),
     new THREE.MeshBasicMaterial({color:0xFFE6B8}));
   vidrio.position.copy(bombillo.position); scene.add(vidrio);
-  const brillo = spriteGlow(1.4); brillo.position.copy(bombillo.position); scene.add(brillo);
+  const brillo = spriteGlow(.55); brillo.position.copy(bombillo.position); scene.add(brillo);
   const luna = new THREE.DirectionalLight(0x8FB6D8,.4);
-  luna.position.set(-7,9,-6); scene.add(luna);
+  luna.position.set(-5,6,-4); scene.add(luna);
 
   redimensionar(); addEventListener('resize', redimensionar);
   animar();
@@ -596,15 +624,15 @@ function init3D(){
 function redimensionar(){
   const w = innerWidth, h = innerHeight, a = w/h;
   renderer.setSize(w,h,false); camera.aspect = a;
-  if(a < 1.1){ camera.fov = 52; baseRad = 5.4; baseAlt = 6.6; }
-  else       { camera.fov = 46; baseRad = 7.1; baseAlt = 3.05; }
+  if(a < 1.1){ camera.fov = 52; baseRad = 1.5; baseAlt = 2.3; }
+  else       { camera.fov = 44; baseRad = 1.9; baseAlt = 1.5; }
   camera.updateProjectionMatrix();
   apuntarCamara();
 }
 function colocarCadena(board){
   cadenaGrupo.clear();
   if(!board || !board.length) return;
-  const util = MESA - 0.7, sepZ = TL*1.35;
+  const util = MESA - 0.18, sepZ = TL*1.35;
   const filas = []; let fila = [], w = 0;
   board.forEach(e => {
     const largo = (e.a === e.b) ? TW : TL;
@@ -633,20 +661,18 @@ function colocarManos(conteos){
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
   manosFan.forEach((fan,s) => {
     fan.clear();
-    const n = conteos ? conteos[s] : 0, d = MESA/2 - 0.42;
+    const n = conteos ? conteos[s] : 0, d = MESA/2 - 0.12;
     for(let i=0;i<n;i++){
       const m = dorsoFicha();
-      const off = (i - (n-1)/2) * (TW + 0.045);
-      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.20,
+      const off = (i - (n-1)/2) * (TW + 0.012);
+      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.042,
                      Math.cos(ang[s])*d - Math.sin(ang[s])*off);
       m.rotation.set(-1.15, ang[s], 0, 'YXZ');
       fan.add(m);
     }
   });
 }
-/* El colmado vive detrás del asiento 2: la dramática de ese asiento no puede
-   meterse en la pared, por eso 2.30 y no 2.90. */
-const SUTIL = [0, 0.55, 0.22, -0.55], DRAMA = [0, 1.50, 2.30, -1.50];
+const SUTIL = [0, 0.55, 0.22, -0.55], DRAMA = [0, 1.50, 2.90, -1.50];
 function apuntarCamara(){
   const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
   camAngGoal = (dramatica ? DRAMA : SUTIL)[s];
@@ -662,16 +688,60 @@ function animar(){
   let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
   if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
   camera.position.set(sx, camAlt, sz);
-  camera.lookAt(0,0.42,0);
-  figuras.forEach((g,i) => {
-    const activo = S && S.fase === 'jugando' && S.turno === i;
-    const bob = reduce ? 0 : Math.sin(t*1.5 + g.userData.fase)*0.022;
-    const meta = g.userData.y0 + bob + (activo ? 0.07 : 0);
-    g.position.y += (meta - g.position.y)*0.1;
-    const esc = activo ? 1.045 : 1;
-    g.scale.x += (esc - g.scale.x)*0.1; g.scale.y = g.scale.x; g.scale.z = g.scale.x;
-  });
+  camera.lookAt(0,0.3,0);
+  animarGente(t);
   renderer.render(scene,camera);
+}
+
+/* La gente vive: respira, mira al que le toca, alcanza la ficha al jugar,
+   se abre de brazos en el paso, celebra el dominó. Todo sobre la marioneta. */
+const easo = x => x<0?0:x>1?1:x*x*(3-2*x);
+function animarGente(t){
+  figuras.forEach((f,s) => {
+    const r = rigs[s]; if(!r || !r.torso) return;
+    const fase = f.userData.fase;
+    let torX = reduce ? 0 : Math.sin(t*0.9+fase)*0.02;
+    let cabX = 0, cabY = reduce ? 0 : Math.sin(t*0.21+fase*2.1)*0.22;
+    let bruLX=0, bruLZ=0, bruRX=0, bruRZ=0, antLX=0, antRX=0;
+    if(S && S.fase === 'jugando' && S.turno !== null && S.turno !== s){
+      const d = Math.atan2(Math.sin((S.turno-s)*Math.PI/2), Math.cos((S.turno-s)*Math.PI/2));
+      cabY += Math.max(-0.7, Math.min(0.7, d*0.5));
+    }
+    const ge = gestos[s];
+    if(ge){
+      const u = (t - ge.t0)/1.1;
+      if(u >= 1){ gestos[s] = null; }
+      else if(ge.tipo === 'jugar'){
+        const k = u<0.4 ? easo(u/0.4) : u<0.55 ? 1 : easo((1-u)/0.45);
+        bruRX = -1.05*k; antRX = 0.55*k; torX += 0.14*k;
+        if(u>0.4 && u<0.55) bruRX -= 0.12;                    // el golpecito
+      } else if(ge.tipo === 'paso'){
+        const k = Math.sin(Math.min(1,u)*Math.PI);
+        bruLZ = 0.5*k; bruRZ = -0.5*k; antLX = -0.5*k; antRX = -0.5*k;
+        cabY += Math.sin(u*12)*0.14*k;
+      } else if(ge.tipo === 'celebra'){
+        const k = Math.sin(Math.min(1,u)*Math.PI);
+        bruLX = -2.3*k; bruRX = -2.3*k; torX -= 0.1*k;
+        f.position.y = f.userData.y0 + 0.03*Math.abs(Math.sin(u*6.28))*k;
+      } else if(ge.tipo === 'lamenta'){
+        const k = Math.sin(Math.min(1,u)*Math.PI);
+        cabX = 0.4*k; torX += 0.12*k;
+      }
+    }
+    r.torso.rotation.x = torX;
+    if(r.cabeza){ r.cabeza.rotation.x = cabX; r.cabeza.rotation.y = cabY; }
+    if(r.bruL){ r.bruL.rotation.x = bruLX; r.bruL.rotation.z = bruLZ; }
+    if(r.bruR){ r.bruR.rotation.x = bruRX; r.bruR.rotation.z = bruRZ; }
+    if(r.antL) r.antL.rotation.x = antLX;
+    if(r.antR) r.antR.rotation.x = antRX;
+    const activo = S && S.fase === 'jugando' && S.turno === s;
+    const esc = activo ? 1.02 : 1;
+    f.scale.x += (esc - f.scale.x)*0.1; f.scale.y = f.scale.x; f.scale.z = f.scale.x;
+    if(!ge || ge.tipo !== 'celebra'){
+      const bob = reduce ? 0 : Math.sin(t*1.4+fase)*0.004;
+      f.position.y += (f.userData.y0 + bob - f.position.y)*0.1;
+    }
+  });
 }
 
 /* ================= interfaz ================= */
@@ -946,7 +1016,17 @@ function conectar(){
     else if(m.t === 'state'){
       const antes = S;
       S = m;
-      if(antes && antes.board && m.board && m.board.length > antes.board.length) sacudida = 0.1;
+      if(antes && antes.board && m.board && m.board.length > antes.board.length) sacudida = 0.02;
+      // la vida de la mesa: quién jugó alcanza, quién pasó se encoge
+      if(antes && antes.fase === 'jugando' && m.fase !== 'lobby' && antes.turno !== null){
+        if(m.board.length > antes.board.length) gesto(antes.turno, 'jugar');
+        else if(m.fase === 'jugando' && m.board.length === antes.board.length &&
+                m.turno !== antes.turno) gesto(antes.turno, 'paso');
+      }
+      if(m.resultado && (!antes || !antes.resultado) && m.resultado.winnerTeam !== null){
+        for(let s=0;s<4;s++)
+          gesto(s, (s%2) === m.resultado.winnerTeam ? 'celebra' : 'lamenta');
+      }
       pintar();
     }
   };

@@ -316,21 +316,18 @@ def colmado():
         return hexlin('#CFC8B4')
     pieza(caja((.8,.24,.8),(CX+2.85, CY-0.01, 1.65)), 'calada', calada, rough=.9, cuts=14)
     # cajas plásticas
-    def torre_cajas(px, py, n, nombre):
-        parts = []
-        for i in range(n):
-            b = Vector((px+(random.random()-.5)*.04, py, PISO+.17+i*.35))
-            for k in range(3):
-                parts.append(pieza(caja((.36,.36,.055),(b.x,b.y,b.z-.11+k*.11)),
-                                   'cs', VERDE, rough=.8))
-            for sx,sy in [(-.16,-.16),(.16,-.16),(-.16,.16),(.16,.16)]:
-                parts.append(pieza(caja((.04,.04,.32),(b.x+sx,b.y+sy,b.z)),
-                                   'cp', hexlin('#2E5C2A'), rough=.8))
-        return unir(parts, nombre)
-    torre_cajas(CX+1.75, CY-.55, 3, 'caja1')
-    torre_cajas(CX+2.25, CY-.75, 2, 'caja2')
-    torre_cajas(CX-1.9,  CY-.65, 2, 'caja3')
-    torre_cajas(-2.5, -1.5, 2, 'cajaSuelta')
+    # El cajón plástico moldeado, con su reja de huecos, en vez de la plancha
+    # de antes. Se apilan de verdad: cada uno encaja sobre el de abajo.
+    ALTO_CAJA = .30
+    def torre(px, py, n, etq, giro=0.0):
+        for k in range(n):
+            traste('cajon.glb', '%s_%d' % (etq, k),
+                   (px, py, PISO + k*ALTO_CAJA*.92),
+                   giro + math.radians(4*k), tri=2200, alto=ALTO_CAJA, lit=0)
+    torre(CX+1.75, CY-.55, 3, 'caja1', math.radians(-8))
+    torre(CX+2.25, CY-.75, 2, 'caja2', math.radians(12))
+    torre(CX-1.9,  CY-.65, 2, 'caja3', math.radians(3))
+    torre(-2.5, -1.5, 2, 'cajaSuelta', math.radians(-22))
     pieza(caja((.5,.45,.85),(CX-1.35, CY-.35, PISO+.43)), 'nevera',
           hexlin('#22262A'), rough=.35, metal=.3, bevel=.02)
     for i in range(9):
@@ -406,18 +403,16 @@ def mesa():
     unir(marcos, 'marcoMesa', lit=1)
     # una bebida por jugador, en su hueco de vaso. El juego las mueve: cada
     # tanto alguien agarra la suya y le da un trago.
-    VIDRIO = [hexlin('#3E6B2A'), hexlin('#4A2A10'), hexlin('#3E6B2A'), hexlin('#5A4A12')]
     huecos = [(1,1), (1,-1), (-1,-1), (-1,1)]     # three (x,z) por asiento
+    BEB = ['botella.glb', 'ron.glb', 'botella.glb', 'refresco.glb']
     for si in range(4):
         hx_, hz_ = huecos[si]
         bx, by = hx_*r, -hz_*r
-        ps = [pieza(cilindro(.030,.026,.115,(bx,by,.078), seg=14), 'cuerpoBeb',
-                    VIDRIO[si], rough=.18, lit=1),
-              pieza(cilindro(.012,.010,.055,(bx,by,.162), seg=10), 'cuelloBeb',
-                    VIDRIO[si], rough=.18, lit=1),
-              pieza(cilindro(.0135,.0135,.012,(bx,by,.193), seg=10), 'tapaBeb',
-                    hexlin('#C9B24A'), rough=.35, metal=.5, lit=1)]
-        unir(ps, 'Bebida%d' % si, lit=1)
+        traste(BEB[si], 'Bebida%d' % si, (bx, by, .02),
+               math.radians(37*si), tri=900, alto=.215, rough=.22)
+    # el cafecito, que en una mesa dominicana nunca falta
+    traste('cafe.glb', 'cafecito', (-r*.78, r*.30, .02), math.radians(-25),
+           tri=800, alto=.075, rough=.45)
     # patas en X plegables, de lado a lado
     for sy in (-1,1):
         for lado in (-1,1):
@@ -468,21 +463,19 @@ def silla(nombre, color, px, py, rotz):
 def vecindario():
     # una silla vacía como si alguien se paró, un banquito con radio, la
     # neverita de las cervezas y botellas en el piso: la mesa deja de flotar
-    pieza(caja((.42,.42,.44),(1.55,1.9,PISO+.22)), 'nevera2',
-          hexlin('#C4453A'), rough=.45, bevel=.02, lit=1)
-    pieza(caja((.44,.44,.04),(1.55,1.9,PISO+.46)), 'tapa2',
-          hexlin('#E8E2D4'), rough=.5, bevel=.012, lit=1)
+    traste('nevera.glb', 'neverita', (1.55, 1.9, PISO), math.radians(-24),
+           tri=1600, alto=.46, rough=.45)
     pieza(cilindro(.17,.19,.42,(-1.7,1.75,PISO+.21), seg=12), 'banquito',
           MADOSC, rough=.7, lit=1, bevel=.015)
-    pieza(caja((.24,.16,.14),(-1.7,1.75,PISO+.49)), 'radio',
-          hexlin('#2A2622'), rough=.4, lit=1, bevel=.02)
-    pieza(cilindro(.055,.05,.02,(-1.7,1.66,PISO+.49), seg=12, rot=(math.radians(90),0,0)),
-          'bocina', hexlin('#15120F'), rough=.6, lit=1)
-    for (px,py,c) in [(1.15,1.62,'#3A6B2A'),(1.28,1.72,'#4A2A10'),(-1.35,2.05,'#3A6B2A')]:
-        pieza(cilindro(.036,.036,.19,(px,py,PISO+.095), seg=10), 'botellaSuelo',
-              hexlin(c), rough=.25, lit=1)
-        pieza(cilindro(.014,.012,.06,(px,py,PISO+.22), seg=8), 'cuelloSuelo',
-              hexlin(c), rough=.25, lit=1)
+    traste('radio.glb', 'radioViejo', (-1.7, 1.75, PISO+.42), math.radians(18),
+           tri=1400, alto=.20, rough=.45)
+    traste('botella.glb', 'botSuelo1', (1.15, 1.62, PISO), math.radians(30), tri=700)
+    traste('ron.glb',     'botSuelo2', (1.28, 1.74, PISO), math.radians(-50), tri=800)
+    traste('refresco.glb','botSuelo3', (-1.35, 2.05, PISO), math.radians(75), tri=700)
+    # matas en potes de pintura, que es lo que hay en toda acera
+    traste('mata.glb', 'mata1', (-2.25, 1.35, PISO), math.radians(20), tri=1500)
+    traste('mata.glb', 'mata2', (2.35, 1.15, PISO), math.radians(-65), tri=1200,
+           escala=.82)
 
 # ---------------- la gente: cuerpos CC0 de Quaternius, poseados y partidos ----------------
 # Cuerpos base profesionales (arte/blender/ubc, licencia CC0). Se sientan con su
@@ -535,11 +528,114 @@ def pegar_a_hueso(ob, hueso):
     vg.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
 
 
+RUTA_PROPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          '..', 'props')
+
+def traste(archivo, nombre, pos, rotz=0.0, tri=1400, escala=1.0, lit=1,
+           rough=.75, alto=None):
+    """Un trasto generado (Tripo H3.1) metido en el set como una pieza más.
+
+    Llega con textura y con demasiados triángulos. Aquí se SUELDA (el glTF parte
+    los vértices en las costuras de UV y el diezmado por colapso rompe la malla
+    justo ahí — sale hecha trizas), se baja al presupuesto del juego, se hornea
+    la textura a colores de vértice y se planta de pie donde toque. De ahí en
+    adelante es igual que lo modelado a mano: el horneado Cycles le pone la luz
+    encima y sale en set.bin."""
+    antes = set(bpy.context.scene.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(RUTA_PROPS, archivo))
+    nuevos = [o for o in bpy.context.scene.objects if o not in antes]
+    mallas = [o for o in nuevos if o.type == 'MESH']
+    if not mallas: return None
+    bpy.ops.object.select_all(action='DESELECT')
+    for m in mallas: m.select_set(True)
+    bpy.context.view_layer.objects.active = mallas[0]
+    if len(mallas) > 1: bpy.ops.object.join()
+    ob = bpy.context.view_layer.objects.active
+    for o in nuevos:
+        if o.type != 'MESH' and vivo(o): bpy.data.objects.remove(o)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    try: bpy.ops.mesh.customdata_custom_splitnormals_clear()
+    except Exception: pass
+    if hasattr(ob.data, 'use_auto_smooth'): ob.data.use_auto_smooth = False
+    bm = bmesh.new(); bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(ob.data); bm.free()
+
+    ob.data.calc_loop_triangles()
+    n = len(ob.data.loop_triangles)
+    if n > tri:
+        m = ob.modifiers.new('dec', 'DECIMATE')
+        m.decimate_type = 'COLLAPSE'; m.use_collapse_triangulate = True
+        m.ratio = tri / n
+        bpy.ops.object.modifier_apply(modifier='dec')
+
+    # hornear la textura al atributo Base: el motor no lee mapas en la gente ni
+    # en los trastos, lee color por vértice
+    sc_ = bpy.context.scene
+    motor, disp, muestras = sc_.render.engine, sc_.cycles.device, sc_.cycles.samples
+    dest = sc_.render.bake.target
+    sc_.render.engine = 'CYCLES'; sc_.cycles.device = 'CPU'; sc_.cycles.samples = 16
+    sc_.render.bake.target = 'VERTEX_COLORS'
+    at = ob.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
+    ob.data.color_attributes.active_color = at
+    bpy.ops.object.select_all(action='DESELECT')
+    ob.select_set(True); bpy.context.view_layer.objects.active = ob
+    try:
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'})
+    except Exception as e:
+        print('albedo falló en', nombre, e)
+    sc_.render.engine, sc_.cycles.device, sc_.cycles.samples = motor, disp, muestras
+    sc_.render.bake.target = dest
+
+    # de pie, centrado, a escala y en su sitio
+    lo = Vector((1e9,)*3); hi = Vector((-1e9,)*3)
+    for v in ob.data.vertices:
+        for i in range(3):
+            lo[i] = min(lo[i], v.co[i]); hi[i] = max(hi[i], v.co[i])
+    if alto: escala = escala * (alto / max(1e-6, hi.z - lo.z))
+    M = (Matrix.Scale(escala, 4)
+         @ Matrix.Translation((-(lo.x+hi.x)/2, -(lo.y+hi.y)/2, -lo.z)))
+    ob.data.transform(M)
+    ob.name = nombre
+    ob.location = pos
+    ob.rotation_euler = (0, 0, rotz)
+    ob['rough'] = rough; ob['metal'] = 0.0
+    for p in ob.data.polygons: p.use_smooth = True
+    todos.append((ob, lit, {}))
+    return ob
+
+
 def rotar(pb, nombre, eje, grados):
     b = pb.get(nombre)
     if not b: return
     b.rotation_mode = 'XYZ'
     b.rotation_euler.rotate_axis(eje, math.radians(grados))
+
+_MEDIA_TEX = {}
+def media_textura(nombre):
+    """Color medio (lineal) de una textura. Sirve para calcular el tinte: el
+    motor multiplica textura x color de vértice, así que para que a alguien le
+    salga la piel que le toca hay que dividir el tono buscado entre esta media.
+    Sin esto, teñir encima de una textura clara deja a todo el mundo pálido."""
+    if nombre in _MEDIA_TEX: return _MEDIA_TEX[nombre]
+    ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        '..', '..', 'public', 'tex', nombre + '.png')
+    im = bpy.data.images.load(ruta, check_existing=True)
+    px = im.pixels[:]                      # RGBA lineal
+    n = len(px) // 4
+    paso = max(1, n // 20000)
+    r = g = b = 0.0; c = 0
+    for i in range(0, n, paso):
+        j = i * 4
+        if px[j+3] < .5: continue
+        r += px[j]; g += px[j+1]; b += px[j+2]; c += 1
+    out = (r/c, g/c, b/c) if c else (1.0, 1.0, 1.0)
+    _MEDIA_TEX[nombre] = out
+    print('media de %s = %.3f %.3f %.3f' % ((nombre,) + out))
+    return out
+
 
 def personaje(idx, piel, pantalon, tipo, camisa_fn):
     P = 'P%d_' % idx
@@ -694,6 +790,14 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
     PANTO  = {'calf_l','calf_r'}
 
     # pintar el cuerpo (lo que asoma: cara, cuello, manos, antebrazos)
+    # La piel ya no es un color plano. La malla trae sus UV y el pack trae la
+    # textura de la cara — ojos, nariz, labios, barba — que hasta ahora no
+    # estábamos usando: se importó la geometría y se dejaron los mapas atrás.
+    # Por eso la gente parecía plástico pintado. Ahora el color de vértice es
+    # un TINTE que multiplica esa textura, y así cada quien conserva su tono.
+    TEX_PIEL = 'piel_f' if sexo == 'Female' else 'piel_m'
+    mtex = media_textura(TEX_PIEL)
+    tinte = tuple(min(1.0, piel[k] / max(1e-4, mtex[k])) for k in range(3))
     nombres_vg = [g.name for g in cuerpo.vertex_groups]
     me = cuerpo.data
     base_at = me.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
@@ -701,9 +805,9 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         best, bw = 'root', -1.0
         for ge in v.groups:
             if ge.weight > bw: bw, best = ge.weight, nombres_vg[ge.group]
-        if best in PIEL_G: c = piel
+        if best in PIEL_G: c = tinte
         elif best in ('lowerarm_l','lowerarm_r'):
-            c = camisa_fn(v.co) if manga_larga else piel
+            c = camisa_fn(v.co) if manga_larga else tinte
         elif best in PANT_G: c = pantalon
         elif best in ZAP_G: c = hexlin('#26201A')
         else: c = camisa_fn(v.co)
@@ -797,27 +901,22 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         if parte == 'ropa':
             ob['tx'] = 'tela'; ob['txs'] = .22      # grano de tela, no plástico
         else:
-            # el mapa de normales solo donde hay piel: cara, antebrazos, manos
+            # la cara y las manos: textura de piel del pack (que trae ojos,
+            # labios y barba pintados) más el mapa de normales
+            ob['tx'] = TEX_PIEL
             ob['nm'] = 'nm_f' if sexo == 'Female' else 'nm_m'
         partes_obj[parte] = ob
     # ojos y cejas van con la cabeza, oscuros
     extras_cabeza = []
-    BLANCO = hexlin('#D8D2C8'); IRIS = hexlin('#3A2414'); PUPILA = hexlin('#0A0806')
+    # El ojo trae su propia textura en el pack (iris marrón, esclerótica con su
+    # sombra) y sus UV. Pintarlo a mano por posición dejaba dos rendijas blancas
+    # encendidas sobre la cara, ahora que la piel también lleva textura. Se
+    # deja la textura y el color de vértice queda en blanco: solo multiplica.
     for m in ojos:
-        m.data.materials.clear(); m.data.materials.append(material_unico())
         at = m.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
-        # El ojo es una bolita: lo que mira al frente (-Y) es iris y pupila; el
-        # resto, blanco. Pintarlo todo oscuro dejaba la cara con dos huecos.
-        vs = m.data.vertices
-        c = Vector((0,0,0))
-        for v in vs: c += v.co
-        c /= max(1, len(vs))
-        for i, v in enumerate(vs):
-            d = (v.co - c)
-            d.normalize()
-            col = PUPILA if d.y < -.88 else (IRIS if d.y < -.62 else BLANCO)
-            at.data[i].color = (col[0], col[1], col[2], 1.0)
-        m['rough'] = .25
+        for i in range(len(m.data.vertices)):
+            at.data[i].color = (1.0, 1.0, 1.0, 1.0)
+        m['rough'] = .22; m['tx'] = 'ojo'; m['nm'] = 'ojo_nm'
         todos.append((m, 1, {}))
         extras_cabeza.append(m)
 
@@ -988,13 +1087,17 @@ mesa()
 vecindario()
 ANG = [0, math.pi/2, math.pi, -math.pi/2]
 D = 1.15/2 + .28
+# Hacia dónde mira la silla generada respecto a su eje Z. Se ajusta MIRANDO una
+# vista cenital: la vez pasada el espaldar quedó de frente al jugador.
+GIRO_SILLA = 0.0
 SILLA_COL = [hexlin('#2E8B4F'), CREMA, hexlin('#2F9556'), hexlin('#237A44')]
 for s in range(4):
     # el respaldo va en -Y y el personaje mira a -Y: la silla va media vuelta
     # girada respecto a quien se sienta, o el espaldar le queda de frente
-    silla('Silla%d' % s, SILLA_COL[s], math.sin(ANG[s])*D, -math.cos(ANG[s])*D,
-          ANG[s])
-silla('SillaVacia', hexlin('#2E8B4F'), -0.15, 2.15, math.radians(20))
+    traste('silla.glb', 'Silla%d' % s, (math.sin(ANG[s])*D, -math.cos(ANG[s])*D, PISO),
+           ANG[s] + GIRO_SILLA, tri=2400, alto=.86, rough=.62)
+traste('silla.glb', 'SillaVacia', (-0.15, 2.15, PISO),
+       math.radians(20) + GIRO_SILLA, tri=2000, alto=.86, rough=.62)
 # Tonos del Caribe de verdad: del indio claro al prieto, todos cálidos.
 PIELES = [hexlin('#8D5A32'), hexlin('#C1855A'), hexlin('#9E6238'), hexlin('#5A3618')]
 TIPOS  = ['sombrero','gorra','panuelo','afro']

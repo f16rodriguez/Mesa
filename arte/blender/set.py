@@ -283,7 +283,7 @@ def calle():
             c = mezcla(c, hexlin('#241E1A'), .25)
         return c
     bm = rejilla(140, 140, 30, 30, (0,0,PISO))
-    pieza(bm, 'sueloCalle', suelo_color, rough=.45, metal=.06, tx='concreto', txs=.35)
+    pieza(bm, 'sueloCalle', suelo_color, rough=.45, metal=.06, tx='concreto', txs=2.4)
 
 # ---------------- el colmado ----------------
 def colmado():
@@ -292,7 +292,7 @@ def colmado():
     AB0, AB1, ABW = 0.20, 1.55, 2.6           # la boca del mostrador
     for (w,px,z0,z1) in [(2.45,-2.6,H0,H1),(2.45,2.6,H0,H1),(ABW,0,AB1,H1)]:
         bm = caja((w,.22,z1-z0),(CX+px, CY, (z0+z1)/2))
-        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012, tx='pared_det', txs=1.5)
+        pieza(bm, 'pared', pared_color(TURQ,TURQV), rough=.95, cuts=18, bevel=.012, tx='pared_det', txs=3.1)
     bm = caja((ABW,.06,AB1-AB0),(CX, CY+.7, (AB0+AB1)/2))
     pieza(bm, 'fondoInt', hexlin('#4A2A14'), rough=.95, cuts=6)
     for sz in (0.5, 0.86, 1.22):
@@ -308,7 +308,7 @@ def colmado():
         pieza(caja((.11,.03,.15),(CX-1.05+i*.3, CY+.32, 1.42)),
               'funda', hexlin(random.choice(PALETA)), rough=.7)
     bm = caja((2.75,.4,AB0-H0),(CX, CY-.12, (H0+AB0)/2))
-    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015, tx='pared_det', txs=1.0)
+    pieza(bm, 'mostrador', pared_color(CORAL,CORALV), rough=.9, cuts=8, bevel=.015, tx='pared_det', txs=2.3)
     pieza(caja((2.9,.48,.04),(CX, CY-.12, AB0+.02)), 'tope', hexlin('#C9BFA6'),
           rough=.6, bevel=.01)
     # zinc corrugado
@@ -327,7 +327,7 @@ def colmado():
     for px in (-3.7, 3.7):
         pieza(cilindro(.035,.05,3.25,(CX+px, CY-1.3, PISO+1.62), seg=10),'puntal',MAD,rough=.8)
     bm = caja((.25,3.6,3.5),(CX-3.85, CY-0.8, PISO+1.75))
-    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015, tx='pared_det', txs=1.3)
+    pieza(bm, 'casaCoral', pared_color(CORAL,CORALV), rough=.95, cuts=16, bevel=.015, tx='pared_det', txs=2.7)
     pieza(caja((.95,.1,2.05),(CX-3.0, CY-.13, PISO+1.02)), 'puerta', MADOSC,
           rough=.85, bevel=.015)
     def calada(co):
@@ -673,6 +673,16 @@ def tenir(color, nombre):
     return conv(color)
 
 
+# Cuánto se cierra el pulgar. Se afinan MIRANDO un primer plano de la mano:
+# a ojo desde el código no se sabe hacia dónde mira el eje del hueso.
+CURVA_DEDO = float(os.environ.get('CURVA_DEDO', 31))
+ADUCCION = {'index': 7.0, 'middle': 1.0, 'ring': -6.0, 'pinky': -13.0}
+TH_Z1 = float(os.environ.get('TH_Z1', -34))
+TH_X1 = float(os.environ.get('TH_X1', 14))
+TH_Z2 = float(os.environ.get('TH_Z2', -26))
+TH_Z3 = float(os.environ.get('TH_Z3', -20))
+
+
 def personaje(idx, piel, pantalon, tipo, camisa_fn):
     P = 'P%d_' % idx
     sexo = 'Female' if tipo == 'panuelo' else 'Male'
@@ -714,9 +724,19 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         # por fuera del atril, como se sienta uno de verdad.
         apuntar('upperarm_'+l, (sg*.31, -.17, .62))    # codo abajo y afuera
         apuntar('lowerarm_'+l, (sg*.30, -.42, .80))    # mano al borde, al lado
+        # Los dedos solo se doblaban, nunca se juntaban: la mano quedaba
+        # abierta en estrella, que es la pose de reposo del rig y no la de
+        # alguien con la mano puesta en la mesa. Se cierran hacia el medio.
         for d in ('index','middle','pinky','ring'):
+            rotar(pb,'%s_01_%s' % (d,l), 'Z', sg*ADUCCION[d])
             for n in ('01','02','03'):
-                rotar(pb,'%s_%s_%s' % (d,n,l), 'X', 24)
+                rotar(pb,'%s_%s_%s' % (d,n,l), 'X', CURVA_DEDO)
+        # El pulgar se quedaba FUERA de este bucle y por eso salía tieso y
+        # abierto, apuntando al frente como un dedo de más. No curva como los
+        # otros: primero se mete cruzando la palma y luego se dobla.
+        rotar(pb,'thumb_01_'+l, 'Z', sg*TH_Z1); rotar(pb,'thumb_01_'+l, 'X', TH_X1)
+        rotar(pb,'thumb_02_'+l, 'Z', sg*TH_Z2)
+        rotar(pb,'thumb_03_'+l, 'Z', sg*TH_Z3)
     # Los DAMPED_TRACK dejan la pose en el resultado evaluado, no en los canales
     # del hueso. Para convertir esta pose en la pose de REPOSO -- que es el
     # esqueleto que three.js va a mover -- hay que hornearla primero y soltar

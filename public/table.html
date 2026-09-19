@@ -632,7 +632,21 @@ async function cargarSet(){
     } else {
       scene.add(m);
       const bb = o.n.match(/^Bebida(\d)$/);
-      if(bb) bebidas[+bb[1]] = m;
+      if(bb){
+        // La geometría viene horneada en coordenadas de MUNDO con el objeto en
+        // el origen: bot.position valía (0,0,0), o sea el centro de la mesa. El
+        // trago mandaba la mano al centro y la botella salía volando. Se recentra
+        // sobre su BASE, así position es donde está de verdad y rota sobre el
+        // culo de la botella, no sobre un punto a metro y medio.
+        g.computeBoundingBox();
+        const c = new THREE.Vector3();
+        g.boundingBox.getCenter(c);
+        c.y = g.boundingBox.min.y;
+        g.translate(-c.x, -c.y, -c.z);
+        g.computeBoundingSphere();
+        m.position.copy(c);
+        bebidas[+bb[1]] = m;
+      }
     }
   }
   for(let s=0;s<4;s++){
@@ -825,7 +839,7 @@ function aplicarTrago(s, t){
     nivelarMano(mano, figuras[s], ref, tr.vuelca ? -tr.vuelca*w : 0, 0);
     if(tr.enMano){                 // la botella va agarrada, no flotando
       marca.getWorldPosition(_v1);
-      bot.position.copy(_v1); bot.position.y -= .055;
+      bot.position.copy(_v1); bot.position.y -= .105;   // se agarra por el cuello
     }
   }
 }
@@ -1008,10 +1022,14 @@ function colocarCadena(board){
      del paño dobla la esquina con una ficha atravesada y sigue de vuelta,
      igual que en una mesa de verdad. */
   const A = MESA/2 - 0.115;              // hasta dónde llega el paño
+  // Pegadas sin holgura, las fichas se funden en UNA barra blanca y no se
+  // distingue una de otra. Milímetro y medio entre canto y canto: es lo que
+  // deja ver el bisel y que se lean como piezas sueltas.
+  const HUECO = 0.0016;
   const puestas = [];
   let x = 0, z = 0, sentido = 1;
   board.forEach((e, i) => {
-    const doble = e.a === e.b, largo = doble ? TW : TL;
+    const doble = e.a === e.b, largo = (doble ? TW : TL) + HUECO;
     if(Math.abs(x + sentido*largo) > A){          // esta ficha hace la esquina
       z += largo/2;
       puestas.push({ e, i, x, z, rotY: doble ? Math.PI/2 : 0, der: true });
@@ -1065,7 +1083,12 @@ function colocarManos(conteos){
 }
 /* La sutil mira desde una esquina, como un mirón parado en la mesa:
    nunca hay una espalda tapando el centro. */
-const SUTIL = [0.79, 1.06, 0.79, 0.52], DRAMA = [0, 1.50, 2.90, -1.50];
+/* Los ángulos de antes caían todos en 30 grados: la cámara no se movía y no
+   se notaba de quién era el turno. Ahora salen del ASIENTO: la sutil se pone
+   al otro lado de la mesa y un poco de lado, para verle la cara al que juega;
+   la dramática se le va al hombro. */
+const SUTIL = ASIENTO_ANG.map(a => a + Math.PI + 0.55);
+const DRAMA = ASIENTO_ANG.map(a => a + 0.42);
 function apuntarCamara(){
   const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
   camAngGoal = (dramatica ? DRAMA : SUTIL)[s];
@@ -1076,7 +1099,10 @@ function planoCenital(){ camAngGoal = 0; camRadGoal = baseRad*0.18; camAltGoal =
 function animar(){
   requestAnimationFrame(animar);
   const t = performance.now()/1000, k = reduce ? 1 : 0.055;
-  camAng += (camAngGoal-camAng)*k; camRad += (camRadGoal-camRad)*k; camAlt += (camAltGoal-camAlt)*k;
+  let dAng = camAngGoal - camAng;          // por el camino corto, no dando la vuelta
+  while(dAng >  Math.PI) dAng -= 2*Math.PI;
+  while(dAng < -Math.PI) dAng += 2*Math.PI;
+  camAng += dAng*k; camRad += (camRadGoal-camRad)*k; camAlt += (camAltGoal-camAlt)*k;
   const deriva = reduce ? 0 : Math.sin(t*0.22)*0.035;
   let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
   if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
@@ -1089,16 +1115,24 @@ function animar(){
 /* La gente vive: respira, mira al que le toca, alcanza la ficha al jugar,
    se abre de brazos en el paso, celebra el dominó. Todo sobre la marioneta. */
 const easo = x => x<0?0:x>1?1:x*x*(3-2*x);
+let tCambioTurno = -9, turnoPrevio = null;
 function animarGente(t){
+  if(S && S.turno !== turnoPrevio){ turnoPrevio = S.turno; tCambioTurno = t; }
   figuras.forEach((f,s) => {
     const r = rigs[s]; if(!r || !r.torso) return;
     const fase = f.userData.fase;
     let torX = reduce ? 0 : Math.sin(t*0.9+fase)*0.02;
     let cabX = 0, cabY = reduce ? 0 : Math.sin(t*0.21+fase*2.1)*0.22;
     let bruLX=0, bruLZ=0, bruRX=0, bruRZ=0, antLX=0, antRX=0;
+    // Antes todos se quedaban CLAVADOS mirando al que le toca, todo el rato.
+    // En una mesa de verdad uno echa un vistazo cuando alguien mueve y vuelve a
+    // lo suyo. El vistazo dura y se apaga solo.
     if(S && S.fase === 'jugando' && S.turno !== null && S.turno !== s){
-      const d = Math.atan2(Math.sin((S.turno-s)*Math.PI/2), Math.cos((S.turno-s)*Math.PI/2));
-      cabY += Math.max(-0.7, Math.min(0.7, d*0.5));
+      const ojeada = Math.max(0, 1 - (t - tCambioTurno) / 2.4);
+      if(ojeada > 0){
+        const d = Math.atan2(Math.sin((S.turno-s)*Math.PI/2), Math.cos((S.turno-s)*Math.PI/2));
+        cabY += Math.max(-0.5, Math.min(0.5, d*0.38)) * easo(ojeada);
+      }
     }
     if(S && S.pensando === s){            // se queda mirando la mesa
       cabX += .14 + Math.sin(t*1.2 + fase)*.04;

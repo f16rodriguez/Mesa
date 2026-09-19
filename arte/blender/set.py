@@ -1049,14 +1049,16 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         # parecía una venda. Sube al nacimiento del pelo, más ancha y menos
         # larga, y el azul sube de tono para que se lea como tela.
         PANO = hexlin('#3E5670')
-        bm = esfera(.116,(hx,hy+.004,hz+.135), seg=16)
-        for v in bm.verts: v.co.z = hz+.135 + (v.co.z-(hz+.135))*.82
+        # Media esfera = bombín, no gorra. La copa va MUCHO más baja y tirada
+        # hacia atrás, que es lo que hace que se lea como pelotera.
+        bm = esfera(.118,(hx,hy+.016,hz+.118), seg=16)
+        for v in bm.verts: v.co.z = hz+.118 + (v.co.z-(hz+.118))*.52
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:]+bm.edges[:]+bm.faces[:],
-            plane_co=(hx,hy,hz+.140), plane_no=(0,0,-1), clear_inner=True)
+            plane_co=(hx,hy,hz+.122), plane_no=(0,0,-1), clear_inner=True)
         extras_cabeza.append(pieza(bm,'gc',PANO,rough=.85,lit=1,
                              solidify=.012,subsurf=1))
-        vb = caja((.185,.088,.010),(hx,hy-.145,hz+.150),
-                  rot=(math.radians(20),0,0))
+        vb = caja((.178,.095,.009),(hx,hy-.150,hz+.128),
+                  rot=(math.radians(26),0,0))
         for v in vb.verts:                       # las puntas caen, como la real
             t = abs(v.co.x-hx)/.0925
             v.co.z -= .020*t*t

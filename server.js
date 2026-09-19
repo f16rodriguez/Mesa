@@ -19,7 +19,10 @@ const PORT = process.env.PORT || 3000;
 // enseña a los teléfonos. Sin ella, seguimos en modo portátil con la IP local.
 const URL_PUBLICA = process.env.URL_PUBLICA || null;
 const GRACIA_MS = 20000;     // cuánto esperamos a un teléfono dormido antes de que juegue el bot
-const PAUSA_BOT_MS = 900;    // para que una jugada de bot se vea, no aparezca
+// Un bot que juega al instante delata que es un bot. Se queda pensando un
+// rato, y más si tiene de dónde escoger. Las pruebas lo ponen en cero.
+const PIENSA_MIN = process.env.PIENSA_MIN !== undefined ? +process.env.PIENSA_MIN : 700;
+const PIENSA_VAR = process.env.PIENSA_VAR !== undefined ? +process.env.PIENSA_VAR : 1100;
 
 /* ---------------- archivos estáticos ---------------- */
 const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
@@ -98,6 +101,7 @@ function estadoComun(sala) {
     conectados: sala.asientos.map(a => a.bot || !!a.ws),
     bots: sala.asientos.map(a => a.bot),
     pasaron: (g.passedOn || []).map(s => [...(s || [])]),
+    pensando: sala.pensando ? sala.pensando.asiento : null,
     resultado: g.result || null,
     campeon: g.champion ?? null,
     zapato: !!g.zapato
@@ -152,25 +156,33 @@ function debeJugarElBot(sala, i) {
   return Date.now() - a.visto > GRACIA_MS;
 }
 
-let ultimoBot = 0;
 setInterval(() => {
   const ahora = Date.now();
-  if (ahora - ultimoBot < PAUSA_BOT_MS) return;
   for (const sala of salas.values()) {
     const g = sala.juego;
-    if (sala.fase !== 'jugando' || g.phase !== 'playing') continue;
+    if (sala.fase !== 'jugando' || g.phase !== 'playing') { sala.pensando = null; continue; }
     const i = g.turn;
-    if (!debeJugarElBot(sala, i)) continue;
-    ultimoBot = ahora;
+    if (!debeJugarElBot(sala, i)) {
+      if (sala.pensando) { sala.pensando = null; difundir(sala); }
+      continue;
+    }
+    if (!sala.pensando || sala.pensando.asiento !== i) {
+      const opciones = E.legalMoves(g, i).length;
+      const espera = PIENSA_MIN + Math.random()*PIENSA_VAR + (opciones > 3 ? 450 : 0);
+      sala.pensando = { asiento: i, hasta: ahora + espera };
+      difundir(sala);                         // la mesa lo muestra pensando
+      continue;
+    }
+    if (ahora < sala.pensando.hasta) continue;
     const m = E.botChoose(g, i);
     try {
       if (m) E.play(g, i, m.tile, m.side); else E.pass(g, i);
-    } catch (err) { continue; }
+    } catch (err) { sala.pensando = null; continue; }
+    sala.pensando = null;
     cerrarSiToca(sala);
     difundir(sala);
-    break;                                           // una jugada por vuelta: se ve como una mesa
   }
-}, 250);
+}, 120);
 
 /* Sala vacía y vieja se recoge sola: esto corre en un portátil, no en un servidor. */
 setInterval(() => {

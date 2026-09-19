@@ -275,6 +275,9 @@ let ws = null, S = null, previo = null, dramatica = false;
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
 let rigs = [null,null,null,null], gestos = [null,null,null,null];
 let manosMarca = [null,null,null,null];   // muñeca de cada brazo, para el IK
+let bebidas = [null,null,null,null];      // la botella de cada quien
+let tragos  = [null,null,null,null];
+let proxTrago = [9, 17, 25, 33];          // escalonados, que no beban a la vez
 let fichasMesh = [];                      // malla de la cadena por índice
 let vuelo = null;                         // la ficha que va de camino a la mesa
 const ASIENTO_ANG = [0, Math.PI/2, Math.PI, -Math.PI/2];
@@ -544,8 +547,9 @@ async function cargarSet(){
       : new THREE.MeshBasicMaterial(Object.assign({vertexColors:true}, extra)));
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
     const p = o.n.match(/^P(\d)_(\w+)$/);
+    const bb = o.n.match(/^Bebida(\d)$/);
     if(p) partes[+p[1]][p[2]] = { mesh: m, o };
-    else scene.add(m);
+    else { scene.add(m); if(bb) bebidas[+bb[1]] = m; }
   }
   for(let s=0;s<4;s++) armarMarioneta(s, partes[s]);
 }
@@ -621,6 +625,63 @@ function ikAlcanzar(bru, ant, marca, destino, polo){
   const E1 = ant.getWorldPosition(_v1);
   const H1 = marca.getWorldPosition(_v2);
   girarHacia(ant, E1, H1, T);
+}
+
+/* El trago: cada tanto alguien agarra su botella, se la lleva a la boca y la
+   devuelve. Usa el mismo IK que la jugada. */
+const B_TOMA=.55, B_SUBE=.70, B_BEBE=.80, B_BAJA=.70, B_SUELTA=.30;
+function aplicarTrago(s, t){
+  const tr = tragos[s], r = rigs[s], marcas = manosMarca[s], bot = bebidas[s];
+  if(!r || !marcas || !bot){ tragos[s] = null; return; }
+  if(!tr.P0){
+    tr.P0 = bot.position.clone(); tr.q0 = bot.quaternion.clone();
+    const dL = marcas.L ? marcas.L.getWorldPosition(_v1).distanceTo(tr.P0) : 9;
+    const dR = marcas.R ? marcas.R.getWorldPosition(_v2).distanceTo(tr.P0) : 9;
+    tr.lado = (dR <= dL && marcas.R) ? 'R' : 'L';
+    tr.boca = (r.cabeza ? r.cabeza.getWorldPosition(new THREE.Vector3())
+                        : figuras[s].position.clone());
+    tr.boca.y += .17;
+    tr.boca.addScaledVector(
+      new THREE.Vector3(0,0,1).applyQuaternion(figuras[s].quaternion), .10);
+  }
+  const u = t - tr.t0, P = _vP;
+  const T1=B_TOMA, T2=T1+B_SUBE, T3=T2+B_BEBE, T4=T3+B_BAJA;
+  let w = 1;
+  if(u < T1){                                   // la mano va a la botella
+    P.copy(tr.P0); P.y += .10; w = easo(u/.22);
+  } else if(u < T2){                            // la sube
+    const v = easo((u-T1)/B_SUBE);
+    P.copy(tr.P0).lerp(tr.boca, v); P.y += .04;
+    bot.position.copy(P); bot.position.y -= .055;
+    bot.rotation.set(-v*.5, 0, 0);
+  } else if(u < T3){                            // el trago
+    const v = (u-T2)/B_BEBE;
+    P.copy(tr.boca); P.y += .04;
+    bot.position.copy(tr.boca); bot.position.y -= .055;
+    bot.rotation.set(-(.5 + .5*Math.sin(v*Math.PI)), 0, 0);
+  } else if(u < T4){                            // la devuelve
+    const v = easo((u-T3)/B_BAJA);
+    P.copy(tr.boca).lerp(tr.P0, v); P.y += .04;
+    bot.position.copy(P); bot.position.y -= .055;
+    bot.rotation.set(-(1-v)*.5, 0, 0);
+  } else {
+    bot.position.copy(tr.P0); bot.quaternion.copy(tr.q0);
+    const v = (u-T4)/B_SUELTA;
+    if(v >= 1){ tragos[s] = null; proxTrago[s] = t + 24 + Math.random()*32; return; }
+    w = 1 - easo(v);
+    P.copy(tr.P0); P.y += .10;
+  }
+  const bru = r['bru'+tr.lado], ant = r['ant'+tr.lado], marca = marcas[tr.lado];
+  if(bru && ant && marca){
+    bru.quaternion.identity(); ant.quaternion.identity();
+    figuras[s].updateMatrixWorld(true);
+    _vpo.set(tr.lado === 'R' ? .62 : -.62, -1, .18).normalize()
+        .applyQuaternion(figuras[s].quaternion);
+    ikAlcanzar(bru, ant, marca, P, _vpo);
+    _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);
+    bru.quaternion.identity().slerp(_qb, w);
+    ant.quaternion.identity().slerp(_qa, w);
+  }
 }
 
 const V_TOMA = .32, V_LLEVA = .46, V_POSA = .16, V_VUELTA = .26;
@@ -869,6 +930,10 @@ function animarGente(t){
       const d = Math.atan2(Math.sin((S.turno-s)*Math.PI/2), Math.cos((S.turno-s)*Math.PI/2));
       cabY += Math.max(-0.7, Math.min(0.7, d*0.5));
     }
+    if(S && S.pensando === s){            // se queda mirando la mesa
+      cabX += .14 + Math.sin(t*1.2 + fase)*.04;
+      torX += .05;
+    }
     const ge = gestos[s];
     if(ge){
       const u = (t - ge.t0)/1.1;
@@ -896,6 +961,11 @@ function animarGente(t){
     if(r.bruR){ r.bruR.rotation.x = bruRX; r.bruR.rotation.z = bruRZ; }
     if(r.antL) r.antL.rotation.x = antLX;
     if(r.antR) r.antR.rotation.x = antRX;
+    if(!tragos[s] && !ge && !(vuelo && vuelo.s === s) && bebidas[s] &&
+       S && S.fase === 'jugando' && S.turno !== s && t > proxTrago[s]){
+      tragos[s] = { t0: t };
+    }
+    if(tragos[s]) aplicarTrago(s, t);
     if(vuelo && vuelo.s === s) aplicarVuelo(s, t);
     const activo = S && S.fase === 'jugando' && S.turno === s;
     const esc = activo ? 1.02 : 1;

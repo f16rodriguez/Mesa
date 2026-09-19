@@ -3,6 +3,8 @@
  * Todo lo demás (que la mano termine, que sumen los puntos) es higiene.
  */
 process.env.PORT = process.env.PORT || '3311';
+process.env.PIENSA_MIN = '0';   // sin pausa de "pensar": la prueba mide lógica
+process.env.PIENSA_VAR = '0';
 const { servidor } = require('../server.js');
 const WebSocket = require('ws');
 

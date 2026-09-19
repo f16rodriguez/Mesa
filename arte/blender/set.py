@@ -401,14 +401,20 @@ def mesa():
             bmesh.ops.translate(bm, verts=bm.verts, vec=(ox, oy, dz))
             marcos.append(pieza(bm, 'atril', PINOSC, rough=.55, lit=1, bevel=.006, tx='madera', txs=1.2))
     unir(marcos, 'marcoMesa', lit=1)
-    # vasos y una botella en el borde, como en el patio
-    for (sx,sy) in [(1,1),(-1,-1)]:
-        pieza(cilindro(.032,.028,.09,(sx*r, sy*r, .06), seg=12), 'vaso',
-              hexlin('#E8E4DC'), rough=.35, lit=1)
-    pieza(cilindro(.026,.026,.14,(-r, r, .085), seg=12), 'botella',
-          hexlin('#4A2A10'), rough=.2, lit=1)
-    pieza(cilindro(.011,.009,.05,(-r, r, .18), seg=10), 'cuello',
-          hexlin('#4A2A10'), rough=.2, lit=1)
+    # una bebida por jugador, en su hueco de vaso. El juego las mueve: cada
+    # tanto alguien agarra la suya y le da un trago.
+    VIDRIO = [hexlin('#3E6B2A'), hexlin('#4A2A10'), hexlin('#3E6B2A'), hexlin('#5A4A12')]
+    huecos = [(1,1), (1,-1), (-1,-1), (-1,1)]     # three (x,z) por asiento
+    for si in range(4):
+        hx_, hz_ = huecos[si]
+        bx, by = hx_*r, -hz_*r
+        ps = [pieza(cilindro(.030,.026,.115,(bx,by,.078), seg=14), 'cuerpoBeb',
+                    VIDRIO[si], rough=.18, lit=1),
+              pieza(cilindro(.012,.010,.055,(bx,by,.162), seg=10), 'cuelloBeb',
+                    VIDRIO[si], rough=.18, lit=1),
+              pieza(cilindro(.0135,.0135,.012,(bx,by,.193), seg=10), 'tapaBeb',
+                    hexlin('#C9B24A'), rough=.35, metal=.5, lit=1)]
+        unir(ps, 'Bebida%d' % si, lit=1)
     # patas en X plegables, de lado a lado
     for sy in (-1,1):
         for lado in (-1,1):

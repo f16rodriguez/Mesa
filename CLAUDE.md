@@ -72,12 +72,28 @@ test/fourseats.js  integración: 4 teléfonos + mesa contra el servidor real
   set a escala real (metros), sienta cuerpos humanos CC0 de Quaternius, les
   MODELA la ropa (cáscara de tela suavizada, desplazada y con grosor, con el
   cuerpo hundido debajo) y les pone pelo, cejas y barba del mismo pack
-  (`arte/blender/ubc/`, dominio público) con su esqueleto, los parte en piezas
-  de marioneta (torso, cabeza, brazos, antebrazos), hornea iluminación global
-  Cycles en colores de vértice y exporta `public/set.bin`. Regenerar:
+  (`arte/blender/ubc/`, dominio público), hornea iluminación global Cycles en
+  colores de vértice y exporta `public/set.bin`. Regenerar:
   `blender -b -P arte/blender/set.py` (con `RAPIDO=1` salta el horneado para
-  iterar pose). `table.html` lo carga (cargarSet), arma las marionetas y las
-  anima con el estado del juego (jugar, paso, celebrar, mirar al que le toca).
-  Mejorar el arte = mejorar ese script, con capturas del juego real.
+  iterar pose). Mejorar el arte = mejorar ese script, con capturas del juego
+  real.
+- **La gente va skinneada, no es una marioneta.** La pose sentada se hornea y
+  pasa a ser la pose de REPOSO del esqueleto, así el bind es la identidad y la
+  malla cae exactamente sobre los huesos. Se exportan 23 huesos por persona
+  (los 40 de los dedos mandan su peso a la mano) más `skinIndex`/`skinWeight`
+  por vértice. El cuerpo se parte en dos mallas, piel y ropa, y es SOLO porque
+  cada una necesita su material — no porque se muevan por separado.
+- En `table.html` la malla de una persona cuelga de la RAÍZ de la escena con
+  matriz identidad: quien la mueve es el esqueleto, que sí cuelga de
+  `figuras[s]`. Si colgara de la figura, el asiento se aplicaría dos veces.
+  Las mallas van con `frustumCulled = false` (su caja vive en el origen).
+- Las poses del juego se escriben en ejes de la PERSONA y `girarFig` las
+  convierte al espacio local del hueso: el hueso del brazo apunta a lo largo
+  del brazo, no al mundo. Para volver a la pose sentada, `reposo(hueso)` —
+  nunca `quaternion.identity()`.
+- La jugada es la animación que importa: IK de dos huesos con polo lleva la
+  muñeca, `nivelarMano` la mantiene nivelada (si hereda el giro del codo la
+  ficha sale de lado) y la ficha se cuelga de la MUÑECA de verdad, no de la
+  curva teórica, así nunca se despega de la palma.
 - Sin dependencias nuevas sin motivo. Hoy solo `ws`.
 - Commits pequeños, en español, imperativo: "Añade reparto animado en 3D".

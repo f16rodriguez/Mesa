@@ -275,7 +275,9 @@ const TL = 0.075, TW = 0.0375, TH = 0.012, MESA = 1.15;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let ws = null, S = null, previo = null, dramatica = false;
+let ocultoPOV = false;
 let modoCam = 'sutil', povAsiento = 0;   // sutil | dramatica | pov
+const mallasPersona = [[],[],[],[]];     // para esconderse a uno mismo en POV
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
 let rigs = [null,null,null,null], gestos = [null,null,null,null];
 let manoRef = [null,null,null,null];   // orientación de reposo de cada mano
@@ -742,6 +744,8 @@ async function cargarSet(){
     const eq = o.sk ? esqs[o.sk] : null;
     const m = eq ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
     m.name = o.n;                      // sin nombre no hay cómo depurar nada
+    const pm = o.n.match(/^P(\d)_/);
+    if(pm){ (mallasPersona[+pm[1]] = mallasPersona[+pm[1]] || []).push(m); }
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
     if(eq){
       // La malla se queda en la raíz de la escena con matriz identidad: quien
@@ -1233,6 +1237,10 @@ function apuntarCamara(){
 const POV_R = MESA/2 + 0.17, POV_Y = 0.405;
 function ponerCamaraPOV(t){
   const ang = ASIENTO_ANG[povAsiento];
+  /* Uno no se ve la cara ni los brazos desde sus propios ojos, y pegados al
+     lente es donde peor se ve cualquier malla. Se esconde el cuerpo del que
+     mira; los demás siguen enteros. */
+  mallasPersona.forEach((ms, i) => ms.forEach(m => { m.visible = i !== povAsiento; }));
   const resp = reduce ? 0 : Math.sin(t*0.8)*0.005;      // respiración, muy poca
   const lado = reduce ? 0 : Math.sin(t*0.31)*0.010;
   camera.position.set(Math.sin(ang)*POV_R + Math.cos(ang)*lado,
@@ -1249,12 +1257,15 @@ function animar(){
   while(dAng < -Math.PI) dAng += 2*Math.PI;
   camAng += dAng*k; camRad += (camRadGoal-camRad)*k; camAlt += (camAltGoal-camAlt)*k;
   if(modoCam === 'pov'){
+    ocultoPOV = true;
     ponerCamaraPOV(t);
     if(sacudida > 0.001){
       camera.position.x += (Math.random()-.5)*sacudida;
       camera.position.z += (Math.random()-.5)*sacudida; sacudida *= 0.86;
     }
   } else {
+    if(ocultoPOV){ ocultoPOV = false;
+      mallasPersona.forEach(ms => ms.forEach(m => { m.visible = true; })); }
     const deriva = reduce ? 0 : Math.sin(t*0.22)*0.035;
     let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
     if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }

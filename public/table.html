@@ -296,6 +296,117 @@ let camAng = 0, camAngGoal = 0, camRad = 6.8, camRadGoal = 6.8, camAlt = 5, camA
 let baseRad = 6.8, baseAlt = 5, sacudida = 0;
 const texCache = new Map();
 
+
+/* ================= sonido =================
+   Dos capas. La de la MESA se sintetiza aquí mismo: un golpe de ficha es ruido
+   filtrado más un cuerpo grave, y eso no necesita ningún archivo — funciona
+   desde el primer día y no pesa nada. La de AMBIENTE sale de archivos en
+   public/audio/, todos vendorizados: esto tiene que sonar en un patio sin datos.
+   Si un archivo no está, se salta sin quejarse y el juego sigue sonando. */
+const SFX = (() => {
+  let ctx = null, maestro = null, ruidoBuf = null;
+  let mudo = false, bucles = {}, proxSuelto = 0;
+  const buf = {};                       // nombre -> AudioBuffer, si existe
+  const OPCIONALES = ['musica','ambiente','moto','gente','perro','bachata'];
+
+  function arrancar(){                  // hay que llamarlo desde un clic real:
+    if(ctx) return;                     // el navegador no deja sonar antes
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    ctx = new AC();
+    maestro = ctx.createGain(); maestro.gain.value = .9;
+    maestro.connect(ctx.destination);
+    const n = ctx.sampleRate * 2;
+    ruidoBuf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = ruidoBuf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = Math.random()*2 - 1;
+    OPCIONALES.forEach(cargar);
+  }
+  async function cargar(nombre){
+    try{
+      const r = await fetch('audio/' + nombre + '.mp3');
+      if(!r.ok) return;                 // no está: no pasa nada
+      buf[nombre] = await ctx.decodeAudioData(await r.arrayBuffer());
+      if(nombre === 'musica')   bucle('musica', .34);
+      if(nombre === 'ambiente') bucle('ambiente', .30);
+    }catch(e){}
+  }
+  function bucle(nombre, vol){
+    if(!ctx || !buf[nombre] || bucles[nombre]) return;
+    const s = ctx.createBufferSource(); s.buffer = buf[nombre]; s.loop = true;
+    const g = ctx.createGain(); g.gain.value = vol;
+    s.connect(g); g.connect(maestro); s.start();
+    bucles[nombre] = { s, g };
+  }
+  function suelto(nombre, vol){         // un moto que pasa, un perro, voces
+    if(!ctx || mudo || !buf[nombre]) return;
+    const s = ctx.createBufferSource(); s.buffer = buf[nombre];
+    const g = ctx.createGain(); g.gain.value = vol;
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    s.connect(g);
+    if(pan){ pan.pan.value = Math.random()*1.6 - .8; g.connect(pan); pan.connect(maestro); }
+    else g.connect(maestro);
+    s.start();
+  }
+  function env(nodo, g, at, dec){
+    const t = ctx.currentTime, gn = ctx.createGain();
+    gn.gain.setValueAtTime(.0001, t);
+    gn.gain.exponentialRampToValueAtTime(g, t + at);
+    gn.gain.exponentialRampToValueAtTime(.0001, t + at + dec);
+    nodo.connect(gn); gn.connect(maestro);
+    return t + at + dec;
+  }
+  /* La ficha contra el paño: chasquido corto arriba y un golpe sordo abajo.
+     fuerza 0 = posarla con cuidado, 1 = la tabana. */
+  function golpe(fuerza){
+    if(!ctx || mudo) return;
+    const s = ctx.createBufferSource(); s.buffer = ruidoBuf; s.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 850 + 900*fuerza; f.Q.value = 1.2;
+    s.connect(f);
+    const fin = env(f, .07 + .34*fuerza, .002, .05 + .07*fuerza);
+    s.start(); s.stop(fin + .03);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(165 - 55*fuerza, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(52, ctx.currentTime + .10);
+    const fin2 = env(o, .05 + .26*fuerza, .003, .11);
+    o.start(); o.stop(fin2 + .03);
+  }
+  function vidrio(){                    // la botella que vuelve a la mesa
+    if(!ctx || mudo) return;
+    const o = ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(1750, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + .06);
+    const fin = env(o, .07, .002, .09);
+    o.start(); o.stop(fin + .02);
+  }
+  function revoltura(){                 // el reparto: fichas barajadas
+    if(!ctx || mudo) return;
+    const s = ctx.createBufferSource(); s.buffer = ruidoBuf; s.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = .7;
+    s.connect(f);
+    const fin = env(f, .12, .12, .85);
+    s.start(); s.stop(fin + .05);
+  }
+  /* Cada tanto pasa algo en la calle. Sin archivos no suena nada y ya. */
+  function calle(t){
+    if(!ctx || mudo || t < proxSuelto) return;
+    proxSuelto = t + 22 + Math.random()*38;
+    const r = Math.random();
+    if(r < .45)      suelto('moto',  .32 + Math.random()*.2);
+    else if(r < .78) suelto('gente', .16 + Math.random()*.1);
+    else             suelto('perro', .18);
+  }
+  function silenciar(v){
+    mudo = v;
+    if(maestro) maestro.gain.value = v ? 0 : .9;
+  }
+  return { arrancar, golpe, vidrio, revoltura, calle, silenciar,
+           get mudo(){ return mudo; },
+           get activo(){ return !!ctx; } };
+})();
+
 /* ================= 3D ================= */
 /* La cara de la ficha se dibuja en un canvas, pero el fondo ya no es un relleno
    plano: es hueso de verdad. La imagen llega después que las primeras fichas,
@@ -827,6 +938,7 @@ function aplicarTrago(s, t){
     tr.enMano = true; tr.vuelca = (1-v)*.5;
     bot.rotation.set(-tr.vuelca, 0, 0);
   } else {
+    if(!tr.sono){ tr.sono = true; SFX.vidrio(); }
     bot.position.copy(tr.P0); bot.quaternion.copy(tr.q0);
     const v = (u-T4)/B_SUELTA;
     if(v >= 1){ tragos[s] = null; proxTrago[s] = t + 24 + Math.random()*32; return; }
@@ -904,6 +1016,7 @@ function aplicarVuelo(s, t){
   } else {                                          // suelta y recoge el brazo
     if(vuelo.ficha.parent){
       scene.remove(vuelo.ficha); sacudida = Math.max(sacudida, .018);
+      SFX.golpe(vuelo.tabana ? 1 : .35);
     }
     fm.visible = true;
     const v = (u - V_TOMA-V_LLEVA-V_POSA)/V_VUELTA;
@@ -1019,8 +1132,11 @@ function init3D(){
 function redimensionar(){
   const w = innerWidth, h = innerHeight, a = w/h;
   renderer.setSize(w,h,false); camera.aspect = a;
-  if(a < 1.1){ camera.fov = 54; baseRad = 1.5; baseAlt = 2.15; }
-  else       { camera.fov = 46; baseRad = 1.85; baseAlt = 1.52; }
+  // Más atrás y más bajo que antes: así entra la esquina — el colmado detrás,
+  // los cajones, la calle — en vez de un plano cerrado que parecía un interior.
+  // Para LEER las fichas está la cámara 'En la silla'; esta es la de ambiente.
+  if(a < 1.1){ camera.fov = 56; baseRad = 2.05; baseAlt = 2.05; }
+  else       { camera.fov = 50; baseRad = 2.55; baseAlt = 1.38; }
   camera.updateProjectionMatrix();
   apuntarCamara();
 }
@@ -1097,8 +1213,12 @@ function colocarManos(conteos){
    se notaba de quién era el turno. Ahora salen del ASIENTO: la sutil se pone
    al otro lado de la mesa y un poco de lado, para verle la cara al que juega;
    la dramática se le va al hombro. */
-const SUTIL = ASIENTO_ANG.map(a => a + Math.PI + 0.55);
-const DRAMA = ASIENTO_ANG.map(a => a + 0.42);
+/* Los asientos están a 90 grados. Si la cámara cae EN un asiento, la espalda
+   de ese jugador tapa la mesa — que es lo que pasaba. Va a las ESQUINAS, a 45
+   grados entre dos sillas: se ve la mesa entera y la cara del que juega, y por
+   el hueco entra el cielo y la calle. */
+const SUTIL = ASIENTO_ANG.map(a => a + Math.PI + Math.PI/4);
+const DRAMA = ASIENTO_ANG.map(a => a + Math.PI - Math.PI/4);
 function apuntarCamara(){
   const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
   povAsiento = s;
@@ -1142,6 +1262,7 @@ function animar(){
     camera.lookAt(0,0.06,0);
   }
   animarGente(t);
+  SFX.calle(t);
   renderer.render(scene,camera);
 }
 
@@ -1352,8 +1473,8 @@ $('camBtn').onclick = e => {
 };
 $('reglasBtn').onclick = () => { pintarReglas(); $('capaReglas').hidden = false; };
 $('cerrarReglas').onclick = () => { $('capaReglas').hidden = true; };
-$('empezarBtn').onclick = () => manda({ t:'empezar' });
-$('botsBtn').onclick = () => manda({ t:'bots' });
+$('empezarBtn').onclick = () => { SFX.arrancar(); manda({ t:'empezar' }); };
+$('botsBtn').onclick = () => { SFX.arrancar(); manda({ t:'bots' }); };
 $('seguirBtn').onclick = () => { $('capaResultado').hidden = true; manda({ t:'siguiente' }); };
 
 

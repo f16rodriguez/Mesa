@@ -439,10 +439,14 @@ def mesa():
     # patas en X plegables, de lado a lado
     for sy in (-1,1):
         for lado in (-1,1):
-            bm = caja((.045,.03,1.02),(0,0,0), rot=(0, lado*.5, 0))
-            bmesh.ops.translate(bm, verts=bm.verts, vec=(0, sy*(M/2-.14), PISO+.37))
+            # La pata medía 1,02 m inclinada 28 grados: la punta salía 6,7 cm
+            # POR ENCIMA del tablero y aparecía como un taco de madera clavado
+            # en el paño, justo donde dos jugadores ponen la mano. Se acorta
+            # para que tape del piso al bajo del tablero y nada más.
+            bm = caja((.045,.03,.83),(0,0,0), rot=(0, lado*.5, 0))
+            bmesh.ops.translate(bm, verts=bm.verts, vec=(0, sy*(M/2-.14), PISO+.356))
             pieza(bm, 'pataX', PINO, rough=.55, lit=1, bevel=.008, tx='madera', txs=1.2)
-        pieza(cilindro(.014,.014,.05,(0, sy*(M/2-.14), PISO+.37), seg=8,
+        pieza(cilindro(.014,.014,.05,(0, sy*(M/2-.14), PISO+.356), seg=8,
                        rot=(math.radians(90),0,0)), 'perno', hexlin('#6A6258'),
               rough=.4, metal=.6, lit=1)
     for sy in (-1,1):

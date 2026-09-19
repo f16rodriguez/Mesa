@@ -582,22 +582,45 @@ function gesto(s, tipo){ gestos[s] = { tipo, t0: performance.now()/1000 }; }
 /* Dos huesos que alcanzan un punto (CCD): el codo y el hombro giran hasta que
    la muñeca cae donde debe. Sin esto la mano hace un gesto al aire y la ficha
    aparece sola en la mesa. */
-function ikAlcanzar(bru, ant, marca, destino, iter){
-  for(let k=0; k<iter; k++){
-    for(const j of [ant, bru]){
-      j.updateMatrixWorld(true);
-      j.getWorldPosition(_v1);
-      marca.getWorldPosition(_v2);
-      _v3.subVectors(_v2, _v1); _v4.subVectors(destino, _v1);
-      if(_v3.lengthSq() < 1e-9 || _v4.lengthSq() < 1e-9) continue;
-      _q1.setFromUnitVectors(_v3.normalize(), _v4.normalize());
-      j.getWorldQuaternion(_q2);
-      _q3.copy(_q1).multiply(_q2);
-      j.parent.getWorldQuaternion(_q4).invert();
-      j.quaternion.copy(_q4.multiply(_q3));
-      j.updateMatrixWorld(true);
-    }
-  }
+function girarHacia(j, origen, desde, hacia){
+  _v3.subVectors(desde, origen); _v4.subVectors(hacia, origen);
+  if(_v3.lengthSq() < 1e-9 || _v4.lengthSq() < 1e-9) return;
+  _q1.setFromUnitVectors(_v3.normalize(), _v4.normalize());
+  j.getWorldQuaternion(_q2);
+  _q3.copy(_q1).multiply(_q2);
+  j.parent.getWorldQuaternion(_q4).invert();
+  j.quaternion.copy(_q4.multiply(_q3));
+  j.updateMatrixWorld(true);
+}
+/* IK de dos huesos resuelto de una, con polo: el codo cae siempre abajo y
+   hacia afuera. Con CCD el codo se iba a cualquier parte y el brazo atravesaba
+   el atril y el propio cuerpo. */
+const _vu=new THREE.Vector3(), _vv=new THREE.Vector3(), _vE=new THREE.Vector3(),
+      _vS=new THREE.Vector3(), _vT=new THREE.Vector3(), _vpo=new THREE.Vector3();
+function ikAlcanzar(bru, ant, marca, destino, polo){
+  bru.updateMatrixWorld(true);
+  const S = bru.getWorldPosition(_vS);
+  const E0 = ant.getWorldPosition(_v1);
+  const H0 = marca.getWorldPosition(_v2);
+  const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0);
+  if(L1 < 1e-5 || L2 < 1e-5) return;
+  const T = _vT.copy(destino);
+  let d = S.distanceTo(T);
+  const tope = (L1+L2)*0.985;
+  if(d > tope){ T.sub(S).multiplyScalar(tope/d).add(S); d = tope; }
+  if(d < 1e-4) return;
+  const a = (L1*L1 - L2*L2 + d*d)/(2*d);
+  const alto = Math.sqrt(Math.max(0, L1*L1 - a*a));
+  const u = _vu.subVectors(T, S).divideScalar(d);
+  const v = _vv.copy(polo);
+  v.addScaledVector(u, -v.dot(u));
+  if(v.lengthSq() < 1e-8) v.set(0,-1,0).addScaledVector(u, u.y);
+  v.normalize();
+  const E = _vE.copy(S).addScaledVector(u, a).addScaledVector(v, alto);
+  girarHacia(bru, S, E0, E);
+  const E1 = ant.getWorldPosition(_v1);
+  const H1 = marca.getWorldPosition(_v2);
+  girarHacia(ant, E1, H1, T);
 }
 
 const V_TOMA = .32, V_LLEVA = .46, V_POSA = .16, V_VUELTA = .26;
@@ -624,7 +647,7 @@ function aplicarVuelo(s, t){
   const u = t - vuelo.t0, P = _vP;
   let w = 1;
   if(u < V_TOMA){                                   // la mano va al atril
-    P.copy(vuelo.P0); P.y += .035;
+    P.copy(vuelo.P0); P.y += .085;
     w = easo(u/.14);
     vuelo.ficha.position.copy(vuelo.P0);
     vuelo.ficha.quaternion.copy(vuelo.qIni);
@@ -655,7 +678,9 @@ function aplicarVuelo(s, t){
   if(bru && ant && marca){
     bru.quaternion.identity(); ant.quaternion.identity();
     figuras[s].updateMatrixWorld(true);
-    ikAlcanzar(bru, ant, marca, P, 4);
+    _vpo.set(vuelo.lado === 'R' ? .62 : -.62, -1, .18).normalize()
+        .applyQuaternion(figuras[s].quaternion);       // codo abajo y afuera
+    ikAlcanzar(bru, ant, marca, P, _vpo);
     _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);
     bru.quaternion.identity().slerp(_qb, w);
     ant.quaternion.identity().slerp(_qa, w);

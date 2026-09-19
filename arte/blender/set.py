@@ -542,8 +542,11 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         c = pb[hueso].constraints.new('DAMPED_TRACK')
         c.target = e; c.track_axis = 'TRACK_Y'
     for l, sg in (('l',1),('r',-1)):
-        apuntar('upperarm_'+l, (sg*.26, -.16, .62))    # codo abajo y alante
-        apuntar('lowerarm_'+l, (sg*.18, -.42, .80))    # mano al borde de la mesa
+        # El atril ocupa el borde de la mesa justo delante: si las manos
+        # descansan a ±.18 quedan encima y el antebrazo lo atraviesa. Van
+        # por fuera del atril, como se sienta uno de verdad.
+        apuntar('upperarm_'+l, (sg*.31, -.17, .62))    # codo abajo y afuera
+        apuntar('lowerarm_'+l, (sg*.30, -.42, .80))    # mano al borde, al lado
         for d in ('index','middle','pinky','ring'):
             for n in ('01','02','03'):
                 rotar(pb,'%s_%s_%s' % (d,n,l), 'X', 24)
@@ -805,10 +808,10 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
     PELOS = {
         'sombrero': [('Hair_Buzzed.gltf', CANA), ('Hair_Beard.gltf', CANA),
                      ('Eyebrows_Regular.gltf', CANA)],
-        'gorra':    [('Hair_SimpleParted.gltf', NEGRO),
+        'gorra':    [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', NEGRO),
                      ('Eyebrows_Regular.gltf', NEGRO)],
         'panuelo':  [('Hair_Buns.gltf', NEGRO), ('Eyebrows_Female.gltf', NEGRO)],
-        'afro':     [('Hair_Buzzed.gltf', NEGRO),
+        'afro':     [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', hexlin('#241A0E')),
                      ('Eyebrows_Regular.gltf', NEGRO)],
     }
     for archivo, color in PELOS.get(tipo, []):
@@ -910,7 +913,8 @@ for s in range(4):
     silla('Silla%d' % s, SILLA_COL[s], math.sin(ANG[s])*D, -math.cos(ANG[s])*D,
           ANG[s])
 silla('SillaVacia', hexlin('#2E8B4F'), -0.15, 2.15, math.radians(20))
-PIELES = [hexlin('#8A5A3B'), hexlin('#A8764E'), hexlin('#6E4529'), hexlin('#5C3A26')]
+# Tonos del Caribe de verdad: del indio claro al prieto, todos cálidos.
+PIELES = [hexlin('#8D5A32'), hexlin('#C1855A'), hexlin('#9E6238'), hexlin('#5A3618')]
 TIPOS  = ['sombrero','gorra','panuelo','afro']
 PATRONES = [ropa_guayabera, ropa_joven, ropa_dona, ropa_afro]
 PANTS  = [hexlin('#8A7B62'), hexlin('#2E3A46'), hexlin('#4A3A50'), hexlin('#2E2A33')]

@@ -782,13 +782,22 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
     # lo que corona a cada quien, puesto sobre la cabeza ya poseada
     hx, hy, hz = hw.x, hw.y, hw.z
     if tipo == 'sombrero':
-        bm = cilindro(.20,.19,.02,(hx,hy,hz+.16), seg=18)
+        PAJA = hexlin('#C9A96A'); CINTA = hexlin('#7A5738')
+        # ala: no es un disco plano. Cae un poco y se levanta en el filo.
+        R0, R1 = .118, .205
+        bm = cilindro(R1, R1, .010, (hx,hy,hz+.128), seg=48)
         for v in bm.verts:
-            d = math.hypot(v.co.x-hx, v.co.y-hy)
-            if d > .12: v.co.z += (d-.12)*.35
-        extras_cabeza.append(pieza(bm,'ala',hexlin('#C9A96A'),rough=.9,lit=1,subsurf=1))
-        extras_cabeza.append(pieza(cilindro(.08,.07,.08,(hx,hy,hz+.20), seg=14),'copa',
-                             hexlin('#C9A96A'),rough=.9,lit=1,bevel=.012,subsurf=1))
+            r = math.hypot(v.co.x-hx, v.co.y-hy)
+            t = max(0.0, min(1.0, (r-R0)/(R1-R0)))
+            v.co.z += -.020*math.sin(t*math.pi) + .034*t*t
+        extras_cabeza.append(pieza(bm,'ala',PAJA,rough=.92,lit=1,subsurf=1))
+        # copa cónica que de verdad tapa el cráneo, con su cinta y el tope redondo
+        extras_cabeza.append(pieza(cilindro(.122,.104,.104,(hx,hy,hz+.178), seg=32),
+                             'copa',PAJA,rough=.92,lit=1))
+        extras_cabeza.append(pieza(esfera(.104,(hx,hy,hz+.230), seg=24, esc=(1,1,.38)),
+                             'tope',PAJA,rough=.92,lit=1,subsurf=1))
+        extras_cabeza.append(pieza(cilindro(.1255,.1255,.026,(hx,hy,hz+.143), seg=32),
+                             'cinta',CINTA,rough=.85,lit=1))
     elif tipo == 'gorra':
         bm = esfera(.115,(hx,hy+.005,hz+.12), seg=14)
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:]+bm.edges[:]+bm.faces[:],
@@ -859,8 +868,10 @@ ANG = [0, math.pi/2, math.pi, -math.pi/2]
 D = 1.15/2 + .28
 SILLA_COL = [hexlin('#2E8B4F'), CREMA, hexlin('#2F9556'), hexlin('#237A44')]
 for s in range(4):
+    # el respaldo va en -Y y el personaje mira a -Y: la silla va media vuelta
+    # girada respecto a quien se sienta, o el espaldar le queda de frente
     silla('Silla%d' % s, SILLA_COL[s], math.sin(ANG[s])*D, -math.cos(ANG[s])*D,
-          ANG[s] + math.pi)
+          ANG[s])
 silla('SillaVacia', hexlin('#2E8B4F'), -0.15, 2.15, math.radians(20))
 PIELES = [hexlin('#8A5A3B'), hexlin('#A8764E'), hexlin('#6E4529'), hexlin('#5C3A26')]
 TIPOS  = ['sombrero','gorra','panuelo','afro']

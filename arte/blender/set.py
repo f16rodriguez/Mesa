@@ -568,7 +568,10 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
             if mod.type == 'ARMATURE':
                 bpy.ops.object.modifier_apply(modifier=mod.name)
 
-    manga_larga = (tipo == 'sombrero')
+    # La manga larga acababa en un aro suelto en la muñeca (el solidify abre el
+    # borde y el cuerpo va hundido debajo). Manga corta para todos, que además
+    # es lo que se usa en el colmado.
+    manga_larga = False
 
     def dom_verts(ob):
         nom = [g.name for g in ob.vertex_groups]
@@ -736,6 +739,21 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         if parte == 'cabeza' or (parte in ('antL','antR') and tipo != 'sombrero'):
             ob['nm'] = 'nm_f' if sexo == 'Female' else 'nm_m'
         partes_obj[parte] = ob
+
+    # Las piezas son rígidas: al girar el hombro o el codo la unión se abre.
+    # Una esfera centrada justo en el pivote no se mueve al rotar y la tapa.
+    for l_, lado_ in (('l','L'), ('r','R')):
+        for parte_, hueso_, rad_, col_ in (
+                ('bru'+lado_, 'upperarm_'+l_, .062, camisa_fn),
+                ('ant'+lado_, 'lowerarm_'+l_, .047, piel)):
+            if parte_ not in partes_obj: continue
+            w_ = arm.matrix_world @ pb[hueso_].head
+            bola = pieza(esfera(rad_, (w_.x, w_.y, w_.z), seg=14), 'bola', col_,
+                         rough=.85, lit=1)
+            bpy.ops.object.select_all(action='DESELECT')
+            bola.select_set(True); partes_obj[parte_].select_set(True)
+            bpy.context.view_layer.objects.active = partes_obj[parte_]
+            bpy.ops.object.join()
 
     # ojos y cejas van con la cabeza, oscuros
     extras_cabeza = []

@@ -603,14 +603,25 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         bmesh.ops.delete(bm, geom=quitar, context='FACES')
         sueltos = [v for v in bm.verts if not v.link_faces]
         if sueltos: bmesh.ops.delete(bm, geom=sueltos, context='VERTS')
+        # El glTF parte los vértices en las costuras de UV: cada copia lleva
+        # su propia normal. Al empujar hacia afuera se abrían en grietas y
+        # picos — eso era lo que hacía ver la ropa rota. Se sueldan primero.
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=3e-4)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(ob.data); bm.free()
         if len(ob.data.vertices) < 12:
             bpy.data.objects.remove(ob); return None
         bpy.context.view_layer.objects.active = ob
-        m = ob.modifiers.new('sm','SMOOTH'); m.factor = .8; m.iterations = suave
+        try:                      # normales partidas heredadas del importador
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
+        except Exception: pass
+        if hasattr(ob.data, 'use_auto_smooth'): ob.data.use_auto_smooth = False
+        m = ob.modifiers.new('sm','SMOOTH'); m.factor = .7; m.iterations = suave
         bpy.ops.object.modifier_apply(modifier='sm')
         m = ob.modifiers.new('di','DISPLACE'); m.mid_level = 0.0; m.strength = fuera
         bpy.ops.object.modifier_apply(modifier='di')
+        m = ob.modifiers.new('sm2','SMOOTH'); m.factor = .5; m.iterations = 2
+        bpy.ops.object.modifier_apply(modifier='sm2')   # relaja lo que quede
         m = ob.modifiers.new('so','SOLIDIFY'); m.thickness = grosor; m.offset = 0
         bpy.ops.object.modifier_apply(modifier='so')
         for pg in ob.data.polygons: pg.use_smooth = True
@@ -641,15 +652,15 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
 
     prendas = []
     if tipo == 'panuelo':
-        d = prenda(P+'vestido', TRONCO|MANGA|CADERA|MUSLO, fuera=.030, suave=9)
+        d = prenda(P+'vestido', TRONCO|MANGA|CADERA|MUSLO, fuera=.023, suave=8)
         if d: pintar(d, camisa_fn); prendas.append(d)
-        me_ = prenda(P+'medias', MUSLO|PANTO, fuera=.013, grosor=.006, suave=4)
+        me_ = prenda(P+'medias', MUSLO|PANTO, fuera=.012, grosor=.006, suave=4)
         if me_: pintar(me_, pantalon); prendas.append(me_)
     else:
         reg = TRONCO | MANGA | (MANGAL if manga_larga else set())
-        ca = prenda(P+'camisa', reg, fuera=.024, suave=8)
+        ca = prenda(P+'camisa', reg, fuera=.022, suave=8)
         if ca: pintar(ca, camisa_fn); prendas.append(ca)
-        pa = prenda(P+'pantalon', CADERA|MUSLO|PANTO, fuera=.020, suave=6)
+        pa = prenda(P+'pantalon', CADERA|MUSLO|PANTO, fuera=.017, suave=6)
         if pa: pintar(pa, pantalon); prendas.append(pa)
 
     # el cuerpo desnudo asomaba por los hombros. Recortarlo abre huecos donde la
@@ -662,8 +673,14 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         vg = cuerpo.vertex_groups.new(name='bajo_ropa')
         vg.add([i for i, d in enumerate(dc) if d in cubierto], 1.0, 'REPLACE')
         bpy.context.view_layer.objects.active = cuerpo
+        # la tela se suaviza y encoge en los hombros; si el cuerpo de abajo
+        # sigue con todo su músculo, asoma en picos. Se le da el mismo
+        # suavizado bajo la ropa y recién entonces se hunde.
+        m = cuerpo.modifiers.new('suavR','SMOOTH')
+        m.factor = .7; m.iterations = 8; m.vertex_group = 'bajo_ropa'
+        bpy.ops.object.modifier_apply(modifier='suavR')
         m = cuerpo.modifiers.new('enc','DISPLACE')
-        m.mid_level = 0.0; m.strength = -0.014; m.vertex_group = 'bajo_ropa'
+        m.mid_level = 0.0; m.strength = -0.016; m.vertex_group = 'bajo_ropa'
         bpy.ops.object.modifier_apply(modifier='enc')
         # el puntero muere al aplicar el modificador: buscarlo por nombre
         cuerpo.vertex_groups.remove(cuerpo.vertex_groups['bajo_ropa'])
@@ -840,15 +857,17 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
     if vivo(cuerpo): bpy.data.objects.remove(cuerpo)
 
 # los patrones de la ropa (coordenadas del cuerpo ya sentado: pecho ~z 1.2)
+# Ojo: estos colores viven en los vértices. Una raya de 1 cm cae entre vértice
+# y vértice y sale como manchas en triángulo — la guayabera parecía rota por
+# eso, no por la geometría. Variación suave solamente.
 def ropa_guayabera(co):
     base = hexlin('#E6DCC2')
-    if abs(co.x) < .012 or abs(abs(co.x)-.07) < .007:
-        return mezcla(base, hexlin('#B8AC8E'), .6)
-    return base
+    n = noise.noise(Vector((co.x*26, co.y*26, co.z*26)))
+    return mezcla(base, hexlin('#D6CBAE'), max(0.0, min(1.0, .5+.5*n))*.22)
 def ropa_joven(co):
     base = hexlin('#4A86C8')
-    if 1.16 < co.z < 1.26: return hexlin('#D8D2C4')
-    return base
+    t = max(0.0, min(1.0, (co.z-1.10)/.10))        # degradado, no corte seco
+    return mezcla(base, hexlin('#6FA3D8'), t*.55)
 def ropa_dona(co):
     base = hexlin('#B84A62')
     n = noise.noise(Vector((co.x*70, co.y*70, co.z*70)))

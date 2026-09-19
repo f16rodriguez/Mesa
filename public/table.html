@@ -274,6 +274,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let ws = null, S = null, previo = null, dramatica = false;
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
 let rigs = [null,null,null,null], gestos = [null,null,null,null];
+let manoRef = [null,null,null,null];   // orientación de reposo de cada mano
 let manosMarca = [null,null,null,null];   // muñeca de cada brazo, para el IK
 let bebidas = [null,null,null,null];      // la botella de cada quien
 let tragos  = [null,null,null,null];
@@ -520,13 +521,19 @@ async function cargarSet(){
   const jl = dv.getUint32(4, true);
   const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jl)));
   let off = (8 + jl + 3) & ~3;
-  const partes = [{},{},{},{}];        // P{s}_{parte} → {mesh, o}
+  const esqs = {};                     // P0..P3 → {skeleton, raiz, hueso}
+  for(const k in (meta.skeletons||{})) esqs[k] = armarEsqueleto(meta.skeletons[k]);
   for(const o of meta.objects){
     const pos = new Float32Array(buf, off, o.v*3); off += o.v*12;
     const nor = new Float32Array(buf, off, o.v*3); off += o.v*12;
     const colU = new Uint8Array(buf, off, o.v*3); off += o.v*3; off = (off+3)&~3;
     let uv = null;
     if(o.u){ uv = new Float32Array(buf, off, o.v*2); off += o.v*8; }
+    let si = null, sw = null;
+    if(o.sk){
+      si = new Uint8Array(buf, off, o.v*4); off += o.v*4;
+      sw = new Uint8Array(buf, off, o.v*4); off += o.v*4;
+    }
     const idx = new Uint32Array(buf, off, o.t*3); off += o.t*12;
     // los bytes vienen en sRGB; three espera colores de vértice lineales
     const col = new Float32Array(o.v*3);
@@ -536,51 +543,119 @@ async function cargarSet(){
     g.setAttribute('normal', new THREE.BufferAttribute(nor,3));
     g.setAttribute('color', new THREE.BufferAttribute(col,3));
     if(uv) g.setAttribute('uv', new THREE.BufferAttribute(uv,2));
+    if(si){
+      g.setAttribute('skinIndex', new THREE.BufferAttribute(si,4));
+      g.setAttribute('skinWeight',
+        new THREE.BufferAttribute(sw,4,true));   // bytes /255
+    }
     g.setIndex(new THREE.BufferAttribute(idx,1));
     // l=1: convive con las fichas y lo ilumina el juego. l=0: luz horneada en Cycles
     const extra = {};
     if(o.tx) extra.map = texLocal(o.tx, true);
     if(o.nm && uv){ extra.normalMap = texLocal(o.nm, false); }
-    const m = new THREE.Mesh(g, o.l
+    const mat = o.l
       ? new THREE.MeshStandardMaterial(Object.assign(
           {vertexColors:true, roughness:o.r, metalness:o.m}, extra))
-      : new THREE.MeshBasicMaterial(Object.assign({vertexColors:true}, extra)));
+      : new THREE.MeshBasicMaterial(Object.assign({vertexColors:true}, extra));
+    const eq = o.sk ? esqs[o.sk] : null;
+    const m = eq ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
-    const p = o.n.match(/^P(\d)_(\w+)$/);
-    const bb = o.n.match(/^Bebida(\d)$/);
-    if(p) partes[+p[1]][p[2]] = { mesh: m, o };
-    else { scene.add(m); if(bb) bebidas[+bb[1]] = m; }
-  }
-  for(let s=0;s<4;s++) armarMarioneta(s, partes[s]);
-}
-
-/* La marioneta: cada parte gira sobre su pivote, anidada en su padre.
-   torso (cadera) > cabeza (cuello) y brazos (hombro) > antebrazos (codo). */
-function armarMarioneta(s, partes){
-  const f = figuras[s], g = {};
-  if(partes.piernas) f.add(partes.piernas.mesh);
-  for(const nom of ['torso','cabeza','bruL','antL','bruR','antR']){
-    const p = partes[nom]; if(!p) continue;
-    const pv = p.o.pv || [0,0,0];
-    const paNom = (p.o.pa || '').replace(/^P\d_/, '');
-    const padre = g[paNom] || f;
-    const pvPa = g[paNom] ? g[paNom].userData.pv : [0,0,0];
-    const grp = new THREE.Group();
-    grp.position.set(pv[0]-pvPa[0], pv[1]-pvPa[1], pv[2]-pvPa[2]);
-    grp.userData.pv = pv;
-    p.mesh.position.set(-pv[0], -pv[1], -pv[2]);
-    grp.add(p.mesh); padre.add(grp);
-    g[nom] = grp;
-    if(p.o.hp){                      // dónde cae la muñeca: el IK apunta ahí
-      const marca = new THREE.Object3D();
-      marca.position.set(p.o.hp[0]-pv[0], p.o.hp[1]-pv[1], p.o.hp[2]-pv[2]);
-      grp.add(marca);
-      manosMarca[s] = manosMarca[s] || {};
-      manosMarca[s][nom === 'antL' ? 'L' : 'R'] = marca;
+    if(eq){
+      // La malla se queda en la raíz de la escena con matriz identidad: quien
+      // la mueve es el esqueleto. Si se colgara de la figura, el giro y el
+      // sitio del asiento se aplicarían dos veces.
+      m.bind(eq.skeleton, new THREE.Matrix4());
+      m.frustumCulled = false;         // la caja vive en el origen, el cuerpo no
+      scene.add(m);
+    } else {
+      scene.add(m);
+      const bb = o.n.match(/^Bebida(\d)$/);
+      if(bb) bebidas[+bb[1]] = m;
     }
   }
-  rigs[s] = g;
+  for(let s=0;s<4;s++){
+    const eq = esqs['P'+s]; if(!eq) continue;
+    figuras[s].add(eq.raiz);
+    rigs[s] = { torso: eq.hueso.spine_01, cabeza: eq.hueso.neck_01,
+                bruL: eq.hueso.upperarm_l, antL: eq.hueso.lowerarm_l,
+                bruR: eq.hueso.upperarm_r, antR: eq.hueso.lowerarm_r,
+                manoL: eq.hueso.hand_l, manoR: eq.hueso.hand_r };
+    manosMarca[s] = { L: eq.hueso.hand_l, R: eq.hueso.hand_r };
+    // cómo está puesta la mano cuando descansa, en ejes de la persona: es la
+    // orientación a la que hay que volver mientras el brazo se mueve
+    figuras[s].updateMatrixWorld(true);
+    const qf = figuras[s].getWorldQuaternion(new THREE.Quaternion()).invert();
+    manoRef[s] = {
+      L: qf.clone().multiply(eq.hueso.hand_l.getWorldQuaternion(new THREE.Quaternion())),
+      R: qf.clone().multiply(eq.hueso.hand_r.getWorldQuaternion(new THREE.Quaternion())),
+    };
+  }
 }
+
+/* El esqueleto viene de Blender ya sentado: la pose sentada ES la de reposo,
+   así que el bind es la identidad y la malla cae exactamente sobre los huesos.
+   Cada hueso trae su matriz de mundo en reposo; de ahí salen la local (contra
+   su padre) y la inversa de bind que three necesita. */
+function armarEsqueleto(defs){
+  const huesos = [], mundo = [], inv = [], porNombre = {};
+  for(const d of defs){
+    const b = new THREE.Bone(); b.name = d.n;
+    huesos.push(b); porNombre[d.n] = b;
+    mundo.push(new THREE.Matrix4().fromArray(d.m));
+  }
+  const tmp = new THREE.Matrix4();
+  defs.forEach((d,i) => {
+    const b = huesos[i];
+    if(d.p >= 0){
+      huesos[d.p].add(b);
+      tmp.copy(mundo[d.p]).invert().multiply(mundo[i]);
+    } else tmp.copy(mundo[i]);
+    tmp.decompose(b.position, b.quaternion, b.scale);
+    b.userData.q0 = b.quaternion.clone();     // la pose de reposo, para volver
+    inv.push(new THREE.Matrix4().copy(mundo[i]).invert());
+  });
+  return { skeleton: new THREE.Skeleton(huesos, inv), raiz: huesos[0],
+           hueso: porNombre };
+}
+
+/* Los huesos de Blender no están alineados con el mundo: el del brazo apunta
+   a lo largo del brazo. Las poses del juego se escribieron en los ejes de la
+   PERSONA (x = cabecear, y = mirar al lado), así que la rotación se lleva del
+   espacio de la figura al espacio local del hueso antes de aplicarla:
+      q = qPadre⁻¹ · R · qPadre · qReposo
+   Sin esto, levantar un brazo lo mandaba de lado. */
+const _qg1=new THREE.Quaternion(), _qg2=new THREE.Quaternion(),
+      _qg3=new THREE.Quaternion(), _eug=new THREE.Euler();
+function girarFig(b, f, rx, ry, rz){
+  if(!b) return;
+  b.quaternion.copy(b.userData.q0);
+  if(!rx && !ry && !rz) return;
+  b.parent.getWorldQuaternion(_qg1);
+  f.getWorldQuaternion(_qg2).invert();
+  _qg1.premultiply(_qg2);                       // el padre, en ejes de la figura
+  _qg3.setFromEuler(_eug.set(rx, ry, rz, 'YXZ'));
+  _qg2.copy(_qg1).invert().multiply(_qg3).multiply(_qg1);
+  b.quaternion.premultiply(_qg2);
+}
+/* Volver un hueso a su pose sentada (antes era la identidad; ahora el reposo
+   tiene la rotación con la que Blender lo dejó sentado). */
+function reposo(b){ if(b) b.quaternion.copy(b.userData.q0); }
+
+/* La mano no tiene por qué dar vueltas con el codo. En la vida real se queda
+   nivelada y la ficha se ve en la palma; si hereda el giro del antebrazo, la
+   ficha sale volando de lado y todo el gesto deja de leerse. Se le impone la
+   orientación de reposo (en ejes de la persona) más el golpecito de muñeca. */
+const _qm1=new THREE.Quaternion(), _qm2=new THREE.Quaternion(),
+      _qm3=new THREE.Quaternion(), _eum=new THREE.Euler();
+function nivelarMano(mano, f, qRef, rx, rz){
+  if(!mano || !qRef) return;
+  f.getWorldQuaternion(_qm1);
+  _qm2.copy(_qm1).multiply(qRef);
+  if(rx || rz) _qm2.multiply(_qm3.setFromEuler(_eum.set(rx, 0, rz, 'YXZ')));
+  mano.parent.getWorldQuaternion(_qm1).invert();
+  mano.quaternion.copy(_qm1.multiply(_qm2));
+}
+
 function gesto(s, tipo){ gestos[s] = { tipo, t0: performance.now()/1000 }; }
 
 /* Dos huesos que alcanzan un punto (CCD): el codo y el hombro giran hasta que
@@ -647,23 +722,24 @@ function aplicarTrago(s, t){
   const u = t - tr.t0, P = _vP;
   const T1=B_TOMA, T2=T1+B_SUBE, T3=T2+B_BEBE, T4=T3+B_BAJA;
   let w = 1;
+  tr.enMano = false; tr.vuelca = 0;
   if(u < T1){                                   // la mano va a la botella
     P.copy(tr.P0); P.y += .10; w = easo(u/.22);
   } else if(u < T2){                            // la sube
     const v = easo((u-T1)/B_SUBE);
-    P.copy(tr.P0).lerp(tr.boca, v); P.y += .04;
-    bot.position.copy(P); bot.position.y -= .055;
+    P.copy(tr.P0).lerp(tr.boca, v); P.y += .055;
+    tr.enMano = true; tr.vuelca = v*.5;
     bot.rotation.set(-v*.5, 0, 0);
   } else if(u < T3){                            // el trago
     const v = (u-T2)/B_BEBE;
-    P.copy(tr.boca); P.y += .04;
-    bot.position.copy(tr.boca); bot.position.y -= .055;
-    bot.rotation.set(-(.5 + .5*Math.sin(v*Math.PI)), 0, 0);
+    P.copy(tr.boca); P.y += .055;
+    tr.enMano = true; tr.vuelca = .5 + .5*Math.sin(v*Math.PI);
+    bot.rotation.set(-tr.vuelca, 0, 0);
   } else if(u < T4){                            // la devuelve
     const v = easo((u-T3)/B_BAJA);
-    P.copy(tr.boca).lerp(tr.P0, v); P.y += .04;
-    bot.position.copy(P); bot.position.y -= .055;
-    bot.rotation.set(-(1-v)*.5, 0, 0);
+    P.copy(tr.boca).lerp(tr.P0, v); P.y += .055;
+    tr.enMano = true; tr.vuelca = (1-v)*.5;
+    bot.rotation.set(-tr.vuelca, 0, 0);
   } else {
     bot.position.copy(tr.P0); bot.quaternion.copy(tr.q0);
     const v = (u-T4)/B_SUELTA;
@@ -672,21 +748,36 @@ function aplicarTrago(s, t){
     P.copy(tr.P0); P.y += .10;
   }
   const bru = r['bru'+tr.lado], ant = r['ant'+tr.lado], marca = marcas[tr.lado];
+  const mano = r['mano'+tr.lado], ref = manoRef[s] && manoRef[s][tr.lado];
   if(bru && ant && marca){
-    bru.quaternion.identity(); ant.quaternion.identity();
+    reposo(bru); reposo(ant); reposo(mano);
     figuras[s].updateMatrixWorld(true);
     _vpo.set(tr.lado === 'R' ? .62 : -.62, -1, .18).normalize()
         .applyQuaternion(figuras[s].quaternion);
     ikAlcanzar(bru, ant, marca, P, _vpo);
     _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);
-    bru.quaternion.identity().slerp(_qb, w);
-    ant.quaternion.identity().slerp(_qa, w);
+    bru.quaternion.copy(bru.userData.q0).slerp(_qb, w);
+    ant.quaternion.copy(ant.userData.q0).slerp(_qa, w);
+    ant.updateMatrixWorld(true);
+    // la muñeca vuelca la botella; el resto del brazo no gira con ella
+    nivelarMano(mano, figuras[s], ref, tr.vuelca ? -tr.vuelca*w : 0, 0);
+    if(tr.enMano){                 // la botella va agarrada, no flotando
+      marca.getWorldPosition(_v1);
+      bot.position.copy(_v1); bot.position.y -= .055;
+    }
   }
 }
 
-const V_TOMA = .32, V_LLEVA = .46, V_POSA = .16, V_VUELTA = .26;
+/* La jugada, que es LA animación del juego: la mano baja al atril, agarra la
+   ficha, la lleva por encima del paño y la posa con un golpecito de muñeca.
+   Tres cosas la hacen leerse como un brazo y no como piezas girando:
+   el IK lleva la muñeca al sitio, la mano se queda nivelada (si no, la ficha
+   se va de lado con el codo) y la ficha se cuelga de la MUÑECA de verdad —
+   no de la curva teórica — así nunca se despega de la palma. */
+const V_TOMA = .34, V_LLEVA = .50, V_POSA = .18, V_VUELTA = .28;
+const AGARRE = .055;                  // de la muñeca a la ficha, en la palma
 function aplicarVuelo(s, t){
-  const r = rigs[s], marcas = manosMarca[s];
+  const r = rigs[s], marcas = manosMarca[s], f = figuras[s];
   const fm = fichasMesh[vuelo.idx];
   if(!r || !marcas || !fm) return;
   if(!vuelo.Pfin){                       // primer cuadro: de dónde a dónde
@@ -706,45 +797,54 @@ function aplicarVuelo(s, t){
   }
   fm.visible = false;
   const u = t - vuelo.t0, P = _vP;
-  let w = 1;
-  if(u < V_TOMA){                                   // la mano va al atril
-    P.copy(vuelo.P0); P.y += .085;
-    w = easo(u/.14);
+  let w = 1, enMano = false, muneca = 0, inclina = 0;
+  if(u < V_TOMA){                                   // la mano baja al atril
+    P.copy(vuelo.P0); P.y += AGARRE + .03;
+    w = easo(u/.16); inclina = w*.5;
     vuelo.ficha.position.copy(vuelo.P0);
     vuelo.ficha.quaternion.copy(vuelo.qIni);
   } else if(u < V_TOMA+V_LLEVA){                    // la lleva por el aire
     const v = easo((u-V_TOMA)/V_LLEVA);
     P.copy(vuelo.P0).lerp(vuelo.Pfin, v);
-    P.y += .10*Math.sin(v*Math.PI) + .04;
-    vuelo.ficha.position.copy(P); vuelo.ficha.position.y -= .014;
-    _qT.copy(vuelo.qIni).slerp(vuelo.qFin, easo(Math.min(1, v*1.4)));
+    P.y += AGARRE + .085*Math.sin(v*Math.PI) + .02;
+    enMano = true; inclina = .5 + .5*v;
+    _qT.copy(vuelo.qIni).slerp(vuelo.qFin, easo(Math.min(1, v*1.35)));
     vuelo.ficha.quaternion.copy(_qT);
-  } else if(u < V_TOMA+V_LLEVA+V_POSA){             // la posa
+  } else if(u < V_TOMA+V_LLEVA+V_POSA){             // la posa, con su golpecito
     const v = easo((u-V_TOMA-V_LLEVA)/V_POSA);
-    P.copy(vuelo.Pfin); P.y += .04*(1-v) + .02;
-    vuelo.ficha.position.copy(vuelo.Pfin);
-    vuelo.ficha.position.y += .04*(1-v);
+    P.copy(vuelo.Pfin); P.y += AGARRE + .04*(1-v);
+    enMano = true; inclina = 1; muneca = -.55*v;
     vuelo.ficha.quaternion.copy(vuelo.qFin);
   } else {                                          // suelta y recoge el brazo
     if(vuelo.ficha.parent){
-      scene.remove(vuelo.ficha); sacudida = Math.max(sacudida, .014);
+      scene.remove(vuelo.ficha); sacudida = Math.max(sacudida, .018);
     }
     fm.visible = true;
     const v = (u - V_TOMA-V_LLEVA-V_POSA)/V_VUELTA;
     if(v >= 1){ vuelo = null; return; }
-    w = 1 - easo(v);
-    P.copy(vuelo.Pfin); P.y += .06;
+    w = 1 - easo(v); inclina = w; muneca = -.55*w;
+    P.copy(vuelo.Pfin); P.y += AGARRE + .05;
   }
+  // el cuerpo acompaña al brazo: sin esto el hombro se queda clavado y el
+  // brazo parece de goma cuando la ficha cae lejos
+  girarFig(r.torso, f, (f.userData.torX || 0) + inclina*.13, 0, 0);
   const bru = r['bru'+vuelo.lado], ant = r['ant'+vuelo.lado], marca = marcas[vuelo.lado];
+  const mano = r['mano'+vuelo.lado], ref = manoRef[s] && manoRef[s][vuelo.lado];
   if(bru && ant && marca){
-    bru.quaternion.identity(); ant.quaternion.identity();
-    figuras[s].updateMatrixWorld(true);
+    reposo(bru); reposo(ant); reposo(mano);
+    f.updateMatrixWorld(true);
     _vpo.set(vuelo.lado === 'R' ? .62 : -.62, -1, .18).normalize()
-        .applyQuaternion(figuras[s].quaternion);       // codo abajo y afuera
+        .applyQuaternion(f.quaternion);                // codo abajo y afuera
     ikAlcanzar(bru, ant, marca, P, _vpo);
     _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);
-    bru.quaternion.identity().slerp(_qb, w);
-    ant.quaternion.identity().slerp(_qa, w);
+    bru.quaternion.copy(bru.userData.q0).slerp(_qb, w);
+    ant.quaternion.copy(ant.userData.q0).slerp(_qa, w);
+    ant.updateMatrixWorld(true);
+    nivelarMano(mano, f, ref, muneca * w, 0);
+    if(enMano){                    // la ficha cuelga de la muñeca de verdad
+      marca.getWorldPosition(_v1);
+      vuelo.ficha.position.copy(_v1); vuelo.ficha.position.y -= AGARRE;
+    }
   }
 }
 function armarGuirnalda(a, b, sag, n){
@@ -955,12 +1055,14 @@ function animarGente(t){
         cabX = 0.4*k; torX += 0.12*k;
       }
     }
-    r.torso.rotation.x = torX;
-    if(r.cabeza){ r.cabeza.rotation.x = cabX; r.cabeza.rotation.y = cabY; }
-    if(r.bruL){ r.bruL.rotation.x = bruLX; r.bruL.rotation.z = bruLZ; }
-    if(r.bruR){ r.bruR.rotation.x = bruRX; r.bruR.rotation.z = bruRZ; }
-    if(r.antL) r.antL.rotation.x = antLX;
-    if(r.antR) r.antR.rotation.x = antRX;
+    f.userData.torX = torX;        // la jugada le suma su propia inclinación
+    girarFig(r.torso, f, torX, 0, 0);
+    girarFig(r.cabeza, f, cabX, cabY, 0);
+    reposo(r.manoL); reposo(r.manoR);
+    girarFig(r.bruL, f, bruLX, 0, bruLZ);
+    girarFig(r.bruR, f, bruRX, 0, bruRZ);
+    girarFig(r.antL, f, antLX, 0, 0);
+    girarFig(r.antR, f, antRX, 0, 0);
     if(!tragos[s] && !ge && !(vuelo && vuelo.s === s) && bebidas[s] &&
        S && S.fase === 'jugando' && S.turno !== s && t > proxTrago[s]){
       tragos[s] = { t0: t };

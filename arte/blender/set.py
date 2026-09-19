@@ -12,7 +12,7 @@
 # el piso en z=-0.75. Ejes: three (x,y,z) = blender (x, z, -y).
 
 import bpy, bmesh, struct, json, math, random, os
-from mathutils import Vector, Euler, noise
+from mathutils import Vector, Euler, Matrix, noise
 
 random.seed(7)
 OUT = '/home/user/Mesa/public/set.bin'
@@ -41,7 +41,10 @@ def material_unico():
         MAT = bpy.data.materials.new('m'); MAT.use_nodes = True
     return MAT
 
-todos = []   # (ob, lit, meta)  meta: {'pa': padre, 'pv': pivote en ejes three}
+todos = []        # (ob, lit, meta)  meta: {'sk': esqueleto al que va skinneado}
+esqueletos = {}   # nombre -> {'bones': [...], 'remap': {hueso: indice}}
+# de ejes de Blender (z arriba) a ejes de three (y arriba): (x,y,z) -> (x,z,-y)
+CONV = Matrix(((1,0,0,0),(0,0,1,0),(0,-1,0,0),(0,0,0,1)))
 
 def pieza(bm, nombre, color, rough=.9, metal=0.0, lit=0, meta=None,
           solidify=None, bevel=None, subsurf=None, cuts=None, tx=None, txs=1.0):
@@ -495,20 +498,42 @@ def _dedos(l):
             out.add('%s_%s_%s' % (d, n, l))
     return out
 
-PARTES_ORDEN = ['torso','cabeza','bruL','antL','bruR','antR','piernas']
-GRUPOS = {
-  'torso':   {'spine_01','spine_02','spine_03','clavicle_l','clavicle_r'},
-  'cabeza':  {'Head','neck_01'},
-  'bruL':    {'upperarm_l'},
-  'antL':    _dedos('l'),
-  'bruR':    {'upperarm_r'},
-  'antR':    _dedos('r'),
-  'piernas': {'root','pelvis','thigh_l','thigh_r','calf_l','calf_r',
-              'foot_l','foot_r','ball_l','ball_r'},
-}
 PIEL_G = {'Head','neck_01'} | (_dedos('l') - {'lowerarm_l'}) | (_dedos('r') - {'lowerarm_r'})
 PANT_G = {'root','pelvis','thigh_l','thigh_r','calf_l','calf_r'}
 ZAP_G  = {'foot_l','foot_r','ball_l','ball_r'}
+
+def huesos_de(arm, conservar):
+    """El esqueleto en ejes de three: cada hueso con su padre y su matriz de
+    reposo en el mundo. Los huesos que no se conservan (los 40 de los dedos)
+    mandan su peso al ancestro mas cercano que si se conserva: los dedos nunca
+    se mueven solos, asi que no se pierde nada y el esqueleto baja a 23."""
+    bones = arm.data.bones
+    conservar = [n for n in conservar if n in bones]
+    idx = {n: i for i, n in enumerate(conservar)}
+
+    def sube(b):                      # ancestro mas cercano que se conserva
+        while b is not None:
+            if b.name in idx: return idx[b.name]
+            b = b.parent
+        return 0
+
+    salida = []
+    for n in conservar:
+        b = bones[n]
+        M = CONV @ (arm.matrix_world @ b.matrix_local) @ CONV.inverted()
+        salida.append({'n': n, 'p': sube(b.parent),
+                       'm': [round(M[f][c], 6) for c in range(4) for f in range(4)]})
+    salida[0]['p'] = -1
+    remap = {b.name: sube(b) for b in bones}
+    return {'bones': salida, 'remap': remap}
+
+
+def pegar_a_hueso(ob, hueso):
+    """Pelo, ojos, sombrero: geometria suelta que sigue a un hueso entero."""
+    ob.vertex_groups.clear()
+    vg = ob.vertex_groups.new(name=hueso)
+    vg.add(list(range(len(ob.data.vertices))), 1.0, 'REPLACE')
+
 
 def rotar(pb, nombre, eje, grados):
     b = pb.get(nombre)
@@ -556,19 +581,26 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         for d in ('index','middle','pinky','ring'):
             for n in ('01','02','03'):
                 rotar(pb,'%s_%s_%s' % (d,n,l), 'X', 24)
+    # Los DAMPED_TRACK dejan la pose en el resultado evaluado, no en los canales
+    # del hueso. Para convertir esta pose en la pose de REPOSO -- que es el
+    # esqueleto que three.js va a mover -- hay que hornearla primero y soltar
+    # los constraints, si no la pose se deshace al aplicarla.
+    bpy.context.view_layer.update()
+    bpy.ops.pose.select_all(action='SELECT')
+    bpy.ops.pose.visual_transform_apply()
+    for b in pb:
+        for c in list(b.constraints): b.constraints.remove(c)
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.context.view_layer.update()
+    for e in objetivos: bpy.data.objects.remove(e)
+    objetivos = []
 
-    def pv_hueso(n):
-        w = arm.matrix_world @ pb[n].head
-        return [round(w.x,4), round(w.z,4), round(-w.y,4)]
-    pivs = {'torso': pv_hueso('spine_01'), 'cabeza': pv_hueso('neck_01'),
-            'bruL': pv_hueso('upperarm_l'), 'antL': pv_hueso('lowerarm_l'),
-            'bruR': pv_hueso('upperarm_r'), 'antR': pv_hueso('lowerarm_r')}
-    padres = {'torso':'', 'cabeza':P+'torso', 'bruL':P+'torso', 'bruR':P+'torso',
-              'antL':P+'bruL', 'antR':P+'bruR'}
-    manos_pv = {'antL': pv_hueso('hand_l'), 'antR': pv_hueso('hand_r')}
     hw = arm.matrix_world @ pb['Head'].head
+    # el pelo del pack viene en reposo: esta matriz lo lleva a la cabeza ya
+    # poseada. Tiene que salir ANTES de volver la pose en reposo, porque
+    # despues de eso la delta es la identidad.
+    Mhead = (arm.matrix_world @ pb['Head'].matrix
+             @ arm.data.bones['Head'].matrix_local.inverted())
 
     # congelar la pose en la geometría
     for m in mallas:
@@ -576,6 +608,17 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         for mod in list(m.modifiers):
             if mod.type == 'ARMATURE':
                 bpy.ops.object.modifier_apply(modifier=mod.name)
+
+    # La pose sentada pasa a ser la pose de reposo. Asi el esqueleto que se
+    # exporta coincide con la geometria ya congelada y el bind es la identidad:
+    # three.js recibe malla y huesos en el mismo sitio, sin matrices raras.
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
+    bpy.ops.pose.select_all(action='SELECT')
+    bpy.ops.pose.armature_apply()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.update()
 
     # La manga larga acababa en un aro suelto en la muñeca (el solidify abre el
     # borde y el cuerpo va hundido debajo). Manga corta para todos, que además
@@ -705,24 +748,30 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         bpy.context.view_layer.objects.active = cuerpo
         bpy.ops.object.join()
 
-    # grupo dominante por vértice, ya vestido
+    # ---- partir el cuerpo en mallas de piel y de ropa ----
+    # Antes se partia en piezas rigidas de marioneta y el hombro se abria al
+    # girar. Ahora el cuerpo entero va SKINNEADO al esqueleto: se parte solo en
+    # dos mallas porque cada una necesita su material (la piel lleva mapa de
+    # normales, la ropa lleva grano de tela), no porque se muevan por separado.
     nombres_vg = [g.name for g in cuerpo.vertex_groups]
     me = cuerpo.data
+    PIEL_BUCKET = PIEL_G | {'lowerarm_l','lowerarm_r'} if not manga_larga else PIEL_G
     dom_at = me.attributes.new('dom', 'INT', 'POINT')
     for i, v in enumerate(me.vertices):
         best, bw = 'root', -1.0
         for ge in v.groups:
             if ge.weight > bw: bw, best = ge.weight, nombres_vg[ge.group]
-        dom_at.data[i].value = next(
-            (j for j, pn in enumerate(PARTES_ORDEN) if best in GRUPOS[pn]), 6)
+        dom_at.data[i].value = 0 if best in PIEL_BUCKET else 1
 
-    # partir el cuerpo en las piezas de la marioneta
     partes_obj = {}
-    for k, parte in enumerate(PARTES_ORDEN):
+    for k, parte in enumerate(['piel', 'ropa']):
         me2 = cuerpo.data.copy()
         ob = bpy.data.objects.new('tmp_'+parte, me2)
         bpy.context.collection.objects.link(ob)
         ob.matrix_world = cuerpo.matrix_world.copy()
+        # los grupos de vértice viven en el OBJETO, no en la malla: hay que
+        # recrearlos en el MISMO orden o los pesos apuntan a otro hueso.
+        for g in cuerpo.vertex_groups: ob.vertex_groups.new(name=g.name)
         bm = bmesh.new(); bm.from_mesh(me2)
         capa = bm.verts.layers.int.get('dom')
         caras_fuera = []
@@ -741,29 +790,12 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         ob.data.materials.clear(); ob.data.materials.append(material_unico())
         for p in ob.data.polygons: p.use_smooth = True
         ob['rough'] = .82; ob['metal'] = 0.0
-        if parte in ('torso','piernas','bruL','bruR'):
+        if parte == 'ropa':
             ob['tx'] = 'tela'; ob['txs'] = .22      # grano de tela, no plástico
-        # el mapa de normales del cuerpo solo donde hay piel: cara y antebrazos.
-        # sobre la camisa dibuja músculos y parece pintura corporal.
-        if parte == 'cabeza' or (parte in ('antL','antR') and tipo != 'sombrero'):
+        else:
+            # el mapa de normales solo donde hay piel: cara, antebrazos, manos
             ob['nm'] = 'nm_f' if sexo == 'Female' else 'nm_m'
         partes_obj[parte] = ob
-
-    # Las piezas son rígidas: al girar el hombro o el codo la unión se abre.
-    # Una esfera centrada justo en el pivote no se mueve al rotar y la tapa.
-    for l_, lado_ in (('l','L'), ('r','R')):
-        for parte_, hueso_, rad_, col_ in (
-                ('bru'+lado_, 'upperarm_'+l_, .062, camisa_fn),
-                ('ant'+lado_, 'lowerarm_'+l_, .047, piel)):
-            if parte_ not in partes_obj: continue
-            w_ = arm.matrix_world @ pb[hueso_].head
-            bola = pieza(esfera(rad_, (w_.x, w_.y, w_.z), seg=14), 'bola', col_,
-                         rough=.85, lit=1)
-            bpy.ops.object.select_all(action='DESELECT')
-            bola.select_set(True); partes_obj[parte_].select_set(True)
-            bpy.context.view_layer.objects.active = partes_obj[parte_]
-            bpy.ops.object.join()
-
     # ojos y cejas van con la cabeza, oscuros
     extras_cabeza = []
     BLANCO = hexlin('#D8D2C8'); IRIS = hexlin('#3A2414'); PUPILA = hexlin('#0A0806')
@@ -786,8 +818,6 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         extras_cabeza.append(m)
 
     # pelo, cejas y barba: mallas del mismo pack, llevadas a la cabeza poseada
-    Mhead = (arm.matrix_world @ pb['Head'].matrix
-             @ arm.data.bones['Head'].matrix_local.inverted())
     def postizo(archivo, color):
         antes2 = set(bpy.context.scene.objects)
         bpy.ops.import_scene.gltf(filepath=os.path.join(RUTA_UBC, archivo))
@@ -863,21 +893,44 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
             lambda co: tuple(c*(.85+.15*noise.noise(Vector((co.x*30,co.y*30,co.z*30))))
                              for c in hexlin('#171008')), rough=1, lit=1, subsurf=1))
 
-    # registrar y nombrar
-    for parte, ob in partes_obj.items():
-        if parte == 'cabeza':
-            ob = unir([ob] + extras_cabeza, P+'cabeza', lit=1,
-                      meta={'pv': pivs['cabeza'], 'pa': padres['cabeza']})
-            # unir deja fuera duplicados de todos; registrar el resultado
-            ya = any(vivo(o) and o.name == P+'cabeza' for o,_,_ in todos)
-            if not ya: todos.append((ob, 1, {'pv': pivs['cabeza'], 'pa': padres['cabeza']}))
-            continue
-        ob.name = P + parte
-        meta = {}
-        if parte in pivs: meta = {'pv': pivs[parte], 'pa': padres[parte]}
-        if parte in manos_pv: meta['hp'] = manos_pv[parte]
-        todos.append((ob, 1, meta))
+    # ---- el esqueleto que se va a exportar ----
+    # Solo los huesos que el juego mueve o que sostienen geometria. Los dedos
+    # nunca se mueven por su cuenta: su peso se pasa a la mano y se ahorran 40
+    # huesos por persona sin que se note nada.
+    HUESOS = ['root','pelvis','spine_01','spine_02','spine_03',
+              'clavicle_l','upperarm_l','lowerarm_l','hand_l',
+              'clavicle_r','upperarm_r','lowerarm_r','hand_r',
+              'neck_01','Head',
+              'thigh_l','calf_l','foot_l','ball_l',
+              'thigh_r','calf_r','foot_r','ball_r']
+    esqueletos[P[:-1]] = huesos_de(arm, HUESOS)
 
+    # ---- registrar: todo lo de esta persona va skinneado al mismo esqueleto ----
+    for parte, ob in partes_obj.items():
+        ob.name = P + parte
+        todos.append((ob, 1, {'sk': P[:-1]}))
+    # ojos, pelo, cejas, barba y sombrero cuelgan de la cabeza. Se renombran
+    # con el prefijo de la persona: el horneado los sienta en su silla por el
+    # nombre, y sin prefijo se quedarían iluminados en el origen.
+    Mb = cuerpo.matrix_world.copy()
+    for n_, ob in enumerate(extras_cabeza):
+        if not vivo(ob): continue
+        # El pelo y el sombrero se construyen en coordenadas de mundo, pero las
+        # piezas del cuerpo llevan el desplazamiento del esqueleto DENTRO de su
+        # matriz de objeto. Al sentarlos para hornear, a los postizos se les
+        # volvía a restar ese medio metro y acababan dentro del pecho. Se les
+        # pone la misma matriz que al cuerpo, compensando la geometría.
+        Mo = ob.matrix_world.copy()
+        ob.parent = None
+        ob.data.transform(Mb.inverted() @ Mo)
+        ob.matrix_world = Mb.copy()
+        pegar_a_hueso(ob, 'Head')
+        ob.name = '%sx%d' % (P, n_)
+        puesto = False
+        for j, (o, l_, m_) in enumerate(todos):
+            if vivo(o) and o is ob:
+                todos[j] = (o, l_, dict(m_, sk=P[:-1])); puesto = True
+        if not puesto: todos.append((ob, 1, {'sk': P[:-1]}))
     # limpiar: esqueleto, objetivos y cuerpo original fuera
     for e in objetivos: bpy.data.objects.remove(e)
     bpy.data.objects.remove(arm)
@@ -1016,7 +1069,34 @@ def exportar(path):
         base = me.color_attributes.get('Base')
         luz  = me.color_attributes.get('LUZ')
         pos = bytearray(); nor = bytearray(); col = bytearray(); idx = bytearray()
-        uvb = bytearray()
+        uvb = bytearray(); sib = bytearray(); swb = bytearray()
+        # pesos de piel: el vértice se reparte entre hasta 4 huesos. Los grupos
+        # que apuntan a huesos descartados (dedos) caen sobre el que los
+        # sostiene, por eso se suman antes de ordenar.
+        esq = esqueletos.get(mt.get('sk')) if mt.get('sk') else None
+        if esq:
+            remap = esq['remap']; vgn = [g.name for g in ob.vertex_groups]
+            for v in me.vertices:
+                acc = {}
+                for ge in v.groups:
+                    if ge.group >= len(vgn): continue
+                    j = remap.get(vgn[ge.group])
+                    if j is None or ge.weight <= 0: continue
+                    acc[j] = acc.get(j, 0.0) + ge.weight
+                top = sorted(acc.items(), key=lambda kv: -kv[1])[:4]
+                if not top: top = [(0, 1.0)]
+                s = sum(w for _, w in top)
+                # cuantizar a bytes que sumen 255 exactos: truncar y repartir
+                # lo que falta por el mayor resto. Redondear cada uno por su
+                # cuenta se pasaba de 255 y reventaba el empaquetado.
+                fr = [w/s*255 for _, w in top]
+                q = [int(x) for x in fr]
+                for k in sorted(range(len(q)), key=lambda k: q[k]-fr[k])[:255-sum(q)]:
+                    q[k] += 1
+                bs = [0]*4; bw = [0]*4
+                for k, (j, _) in enumerate(top):
+                    bs[k] = j; bw[k] = q[k]
+                sib += struct.pack('<4B', *bs); swb += struct.pack('<4B', *bw)
         tx = ob.get('tx'); nm = ob.get('nm'); txs = ob.get('txs', 1.0)
         uv_mesh = None
         if nm and me.uv_layers.active:
@@ -1054,20 +1134,21 @@ def exportar(path):
         o = {'n': ob.name, 'v': nv, 't': nt, 'l': lit,
              'r': round(ob.get('rough', .9),3), 'm': round(ob.get('metal', 0),3)}
         if uvb: o['u'] = 1
+        if esq: o['sk'] = mt['sk']
         if tx: o['tx'] = tx
         if nm: o['nm'] = nm
-        if mt.get('pv'): o['pv'] = [round(x,4) for x in mt['pv']]
-        if mt.get('hp'): o['hp'] = [round(x,4) for x in mt['hp']]
-        if mt.get('pa') is not None and 'pa' in mt: o['pa'] = mt['pa']
         objetos.append(o)
-        blobs.append((bytes(pos), bytes(nor), bytes(col), bytes(uvb), bytes(idx)))
-    meta = json.dumps({'objects': objetos}).encode()
+        blobs.append((bytes(pos), bytes(nor), bytes(col), bytes(uvb),
+                      bytes(sib), bytes(swb), bytes(idx)))
+    meta = json.dumps({'objects': objetos,
+                       'skeletons': {k: v['bones'] for k, v in esqueletos.items()}
+                      }).encode()
     with open(path,'wb') as f:
         f.write(struct.pack('<4sI', b'MESA', len(meta)))
         f.write(meta); f.write(b'\0'*((-f.tell()) % 4))
-        for (p,n,c,u,i) in blobs:
+        for (p,n,c,u,si,sw,i) in blobs:
             f.write(p); f.write(n); f.write(c); f.write(b'\0'*((-len(c)) % 4))
-            f.write(u); f.write(i)
+            f.write(u); f.write(si); f.write(sw); f.write(i)
     print('exportado', path, sum(o['v'] for o in objetos), 'vertices,',
           sum(o['t'] for o in objetos), 'triangulos')
 

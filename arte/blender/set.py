@@ -158,7 +158,26 @@ def _suavizar(a, veces):
         a = (a + np.roll(a,1,0) + np.roll(a,-1,0) + np.roll(a,1,1) + np.roll(a,-1,1)) / 5.0
     return a
 
+# Materiales fotográficos (generados con Nano Banana; fuente en arte/materiales).
+# El ruido procedimental de aquí abajo NO los pisa. Antes se regeneraban en cada
+# build y borraban la foto sin avisar: la textura buena duraba hasta el
+# siguiente `blender -b -P set.py` y nadie se enteraba.
+RUTA_MATERIALES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               '..', 'materiales')
+MATERIALES_FOTO = set()
+def instalar_materiales():
+    import shutil
+    if not os.path.isdir(RUTA_MATERIALES): return
+    for f in sorted(os.listdir(RUTA_MATERIALES)):
+        if not f.endswith('.png'): continue
+        MATERIALES_FOTO.add(f[:-4])
+        shutil.copyfile(os.path.join(RUTA_MATERIALES, f),
+                        os.path.join(TEXDIR, f))
+    print('materiales de foto:', ' '.join(sorted(MATERIALES_FOTO)))
+
+
 def guardar_tex(nombre, w, h, rgb):
+    if nombre in MATERIALES_FOTO: return
     img = bpy.data.images.new(nombre, w, h, alpha=False)
     a = np.ones((h, w, 4), dtype=np.float32)
     a[:,:,0] = rgb[0]; a[:,:,1] = rgb[1]; a[:,:,2] = rgb[2]
@@ -201,6 +220,7 @@ def generar_texturas():
     m = np.clip((.90 + .07*fino + .09*pliegue)*trama, .78, 1.08)
     guardar_tex('tela', w, h, (m, m, m))
 
+instalar_materiales()
 generar_texturas()
 
 # recortes del ancla: la foto del dueño vestida sobre el 3D
@@ -218,6 +238,7 @@ def texturas_del_ancla():
         c = np.concatenate([c, c[::-1, :]], axis=0)
         return c
     def guardar_np(nombre, c):
+        if nombre in MATERIALES_FOTO: return
         out = bpy.data.images.new(nombre, c.shape[1], c.shape[0], alpha=False)
         out.pixels.foreach_set(c[::-1].ravel())
         out.filepath_raw = os.path.join(TEXDIR, nombre + '.png')
@@ -301,7 +322,8 @@ def colmado():
         c = ZINC if n > -0.25 else OXIDO
         k = .8+.2*math.sin((co.x-CX)*2*math.pi/0.24)
         return (c[0]*k, c[1]*k, c[2]*k)
-    pieza(bm, 'zinc', hexlin('#E8E8E8'), rough=.5, metal=.35, solidify=.012, tx='zinc_foto', txs=1.0)
+    pieza(bm, 'zinc', tenir(hexlin('#E8E8E8'), 'zinc_foto'), rough=.5, metal=.35,
+          solidify=.012, tx='zinc_foto', txs=1.0)
     for px in (-3.7, 3.7):
         pieza(cilindro(.035,.05,3.25,(CX+px, CY-1.3, PISO+1.62), seg=10),'puntal',MAD,rough=.8)
     bm = caja((.25,3.6,3.5),(CX-3.85, CY-0.8, PISO+1.75))
@@ -368,13 +390,14 @@ def colmado():
 # ---------------- la mesa de dominó real: pino, paño rojo, atriles ----------------
 def mesa():
     M = 1.15
-    PINO = hexlin('#C9A05C'); PINOSC = hexlin('#A87E42')
+    PINO = tenir(hexlin('#C9A05C'), 'madera')
+    PINOSC = tenir(hexlin('#A87E42'), 'madera')
     ROJO = hexlin('#A83228')
     def panio_rojo(co):
         n = noise.noise(Vector((co.x*9, co.y*9, 0)))
         return tuple(c*(.88+.12*n) for c in ROJO)
-    pieza(caja((M,M,.045),(0,0,-.0225)), 'panio', panio_rojo, rough=.96, lit=1,
-          cuts=8, bevel=.006, tx='panio', txs=1.6)
+    pieza(caja((M,M,.045),(0,0,-.0225)), 'panio', tenir(panio_rojo,'panio'),
+          rough=.96, lit=1, cuts=8, bevel=.006, tx='panio', txs=1.6)
     # el borde ancho de pino con su lomo
     r = M/2+.06
     marcos = []
@@ -635,6 +658,19 @@ def media_textura(nombre):
     _MEDIA_TEX[nombre] = out
     print('media de %s = %.3f %.3f %.3f' % ((nombre,) + out))
     return out
+
+
+def tenir(color, nombre):
+    """Con una textura A COLOR, el color de vértice ya no es el color: es un
+    TINTE, porque el motor multiplica textura x vértice. Dejar el rojo del paño
+    encima de una foto de paño rojo lo manda a negro. Se divide entre la media
+    de la textura y así el resultado cae donde se quería."""
+    m = media_textura(nombre)
+    def conv(c):
+        return tuple(min(1.0, c[k] / max(1e-4, m[k])) for k in range(3))
+    if callable(color):
+        return lambda co: conv(color(co))
+    return conv(color)
 
 
 def personaje(idx, piel, pantalon, tipo, camisa_fn):

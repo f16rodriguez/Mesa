@@ -293,27 +293,49 @@ let baseRad = 6.8, baseAlt = 5, sacudida = 0;
 const texCache = new Map();
 
 /* ================= 3D ================= */
-function texFicha(a,b){
-  const k = a+'-'+b; if(texCache.has(k)) return texCache.get(k);
-  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
-  const x = c.getContext('2d');
-  x.fillStyle = '#F4ECDE'; x.fillRect(0,0,128,256);
-  const g = x.createLinearGradient(0,0,128,256);
-  g.addColorStop(0,'rgba(255,255,255,.5)'); g.addColorStop(1,'rgba(180,165,140,.25)');
-  x.fillStyle = g; x.fillRect(0,0,128,256);
-  x.strokeStyle = '#C7B89E'; x.lineWidth = 3;
-  x.beginPath(); x.moveTo(12,128); x.lineTo(116,128); x.stroke();
-  const media = (n,oy) => {
-    if(!PIP_HEX[n]) return;
-    x.fillStyle = PIP_HEX[n];
-    PIPMAP_TEX[n].forEach(i => {
-      x.beginPath(); x.arc(30+(i%3)*34, oy+30+Math.floor(i/3)*34, 9, 0, Math.PI*2); x.fill();
-    });
+/* La cara de la ficha se dibuja en un canvas, pero el fondo ya no es un relleno
+   plano: es hueso de verdad. La imagen llega después que las primeras fichas,
+   así que al cargar se vuelven a dibujar los canvas YA creados en su sitio y se
+   marcan para subir de nuevo — así no queda media mesa con fichas de papel. */
+let IMG_HUESO = null;
+(function(){
+  const im = new Image();
+  im.onload = () => {
+    IMG_HUESO = im;
+    texCache.forEach(e => { e.pintar(); e.tex.needsUpdate = true; });
   };
-  media(a,4); media(b,132);
+  im.src = 'tex/hueso.png';
+})();
+function texFicha(a,b){
+  const k = a+'-'+b;
+  if(texCache.has(k)) return texCache.get(k).tex;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+  const x = c.getContext('2d');
+  const pintar = () => {
+    if(IMG_HUESO) x.drawImage(IMG_HUESO, 0, 0, 256, 512);
+    else x.fillStyle = '#F4ECDE', x.fillRect(0,0,256,512);
+    const g = x.createLinearGradient(0,0,256,512);
+    g.addColorStop(0,'rgba(255,252,244,.42)'); g.addColorStop(1,'rgba(150,132,104,.26)');
+    x.fillStyle = g; x.fillRect(0,0,256,512);
+    x.strokeStyle = 'rgba(120,104,78,.55)'; x.lineWidth = 5;
+    x.beginPath(); x.moveTo(24,256); x.lineTo(232,256); x.stroke();
+    const media = (n,oy) => {
+      if(!PIP_HEX[n]) return;
+      PIPMAP_TEX[n].forEach(i => {
+        const cx = 60+(i%3)*68, cy = oy+60+Math.floor(i/3)*68;
+        x.fillStyle = 'rgba(90,76,54,.35)';           // el pip va hundido
+        x.beginPath(); x.arc(cx, cy+2.5, 18.5, 0, Math.PI*2); x.fill();
+        x.fillStyle = PIP_HEX[n];
+        x.beginPath(); x.arc(cx, cy, 17, 0, Math.PI*2); x.fill();
+      });
+    };
+    media(a,8); media(b,264);
+  };
+  pintar();
   const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  texCache.set(k,t); return t;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  texCache.set(k, { tex: t, pintar });
+  return t;
 }
 function mallaFicha(a,b){
   const lados = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.55});

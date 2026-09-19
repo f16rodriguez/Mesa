@@ -756,30 +756,39 @@ function colocarCadena(board){
   cadenaGrupo.clear();
   fichasMesh = [];
   if(!board || !board.length) return;
-  const util = MESA - 0.18, sepZ = TL*1.35;
-  const filas = []; let fila = [], w = 0;
+  /* La cadena no se corta en renglones como un texto: cuando llega al borde
+     del paño dobla la esquina con una ficha atravesada y sigue de vuelta,
+     igual que en una mesa de verdad. */
+  const A = MESA/2 - 0.115;              // hasta dónde llega el paño
+  const puestas = [];
+  let x = 0, z = 0, sentido = 1;
   board.forEach((e, i) => {
-    const largo = (e.a === e.b) ? TW : TL;
-    if(w + largo > util && fila.length){ filas.push(fila); fila = []; w = 0; }
-    fila.push({e, i}); w += largo;
+    const doble = e.a === e.b, largo = doble ? TW : TL;
+    if(Math.abs(x + sentido*largo) > A){          // esta ficha hace la esquina
+      z += largo/2;
+      puestas.push({ e, i, x, z, rotY: doble ? Math.PI/2 : 0, der: true });
+      z += largo/2;
+      sentido = -sentido;
+    } else {
+      const der = sentido > 0;
+      x += sentido*largo/2;
+      puestas.push({ e, i, x, z, rotY: (doble ? 0 : Math.PI/2) + (der ? 0 : Math.PI),
+                     der });
+      x += sentido*largo/2;
+    }
   });
-  if(fila.length) filas.push(fila);
-  const z0 = -((filas.length-1)*sepZ)/2;
-  filas.forEach((f,fi) => {
-    const total = f.reduce((s,o) => s + (o.e.a===o.e.b ? TW : TL), 0);
-    const der = fi % 2 === 0;
-    let x = der ? -total/2 : total/2;
-    f.forEach(({e, i}) => {
-      const doble = e.a === e.b, largo = doble ? TW : TL;
-      const m = mallaFicha(der ? e.a : e.b, der ? e.b : e.a);
-      m.rotation.y = doble ? 0 : Math.PI/2;
-      if(!der) m.rotation.y += Math.PI;
-      x += der ? largo/2 : -largo/2;
-      m.position.set(x, TH/2, z0 + fi*sepZ);
-      x += der ? largo/2 : -largo/2;
-      cadenaGrupo.add(m);
-      fichasMesh[i] = m;
-    });
+  let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
+  puestas.forEach(q => {
+    minX=Math.min(minX,q.x); maxX=Math.max(maxX,q.x);
+    minZ=Math.min(minZ,q.z); maxZ=Math.max(maxZ,q.z);
+  });
+  const cx = (minX+maxX)/2, cz = (minZ+maxZ)/2;   // la cadena se centra sola
+  puestas.forEach(q => {
+    const m = mallaFicha(q.der ? q.e.a : q.e.b, q.der ? q.e.b : q.e.a);
+    m.rotation.y = q.rotY;
+    m.position.set(q.x-cx, TH/2, q.z-cz);
+    cadenaGrupo.add(m);
+    fichasMesh[q.i] = m;
   });
   if(vuelo && fichasMesh[vuelo.idx]) fichasMesh[vuelo.idx].visible = false;
 }

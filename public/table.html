@@ -338,15 +338,54 @@ function texFicha(a,b){
   return t;
 }
 function mallaFicha(a,b){
-  const lados = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.55});
-  const cara  = new THREE.MeshStandardMaterial({map:texFicha(a,b), roughness:.42});
-  const m = new THREE.Mesh(new THREE.BoxGeometry(TW,TH,TL), [lados,lados,cara,lados,lados,lados]);
+  // Misma geometría redondeada. Las UV son planas desde arriba, así que los
+  // cantos verticales muestrean el borde del lienzo — que es hueso limpio.
+  const cara = new THREE.MeshStandardMaterial({map:texFicha(a,b), roughness:.42,
+                                               color:0xF6EFE2});
+  const m = new THREE.Mesh(geoFicha(), cara);
   m.castShadow = true; m.receiveShadow = true; return m;
 }
+/* La ficha no es un cubo. Una de verdad tiene el canto redondeado y un bisel
+   que atrapa la luz — sin eso, y sin material, las que se tienen en la mano
+   salían como tacos de madera al lado de todo lo demás. Se extruye un
+   rectángulo redondeado con bisel y se le ponen UV planas para que la cara de
+   arriba reciba los pips y los cantos muestren hueso liso. */
+let GEO_FICHA = null;
+function geoFicha(){
+  if(GEO_FICHA) return GEO_FICHA;
+  const w = TW, h = TL, t = TH, r = 0.0052, b = 0.0013;
+  const s = new THREE.Shape();
+  const x0 = -w/2 + r, x1 = w/2 - r, y0 = -h/2 + r, y1 = h/2 - r;
+  s.moveTo(x0, -h/2);
+  s.lineTo(x1, -h/2); s.quadraticCurveTo( w/2, -h/2,  w/2, y0);
+  s.lineTo( w/2,  y1); s.quadraticCurveTo( w/2,  h/2,  x1, h/2);
+  s.lineTo( x0,  h/2); s.quadraticCurveTo(-w/2,  h/2, -w/2, y1);
+  s.lineTo(-w/2,  y0); s.quadraticCurveTo(-w/2, -h/2,  x0, -h/2);
+  const g = new THREE.ExtrudeGeometry(s, { depth: t - 2*b, bevelEnabled: true,
+    bevelThickness: b, bevelSize: b, bevelSegments: 2, curveSegments: 3 });
+  g.translate(0, 0, -(t - 2*b)/2);
+  g.rotateX(-Math.PI/2);                       // el grosor pasa a ser Y
+  const pos = g.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for(let i=0;i<pos.count;i++){
+    uv[i*2]     = (pos.getX(i) + w/2) / w;
+    uv[i*2 + 1] = 1 - (pos.getZ(i) + h/2) / h;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  GEO_FICHA = g; return g;
+}
+let TEX_HUESO_MAT = null;
+function matHueso(){
+  if(!TEX_HUESO_MAT){
+    const t = new THREE.TextureLoader().load('tex/hueso.png');
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    TEX_HUESO_MAT = new THREE.MeshStandardMaterial({map:t, roughness:.44,
+                                                    color:0xF2EADC});
+  }
+  return TEX_HUESO_MAT;
+}
 function dorsoFicha(){
-  const mat  = new THREE.MeshStandardMaterial({color:0xE8DDC8, roughness:.5});
-  const lado = new THREE.MeshStandardMaterial({color:0xEDE3D2, roughness:.5});
-  const m = new THREE.Mesh(new THREE.BoxGeometry(TW,TH,TL), [lado,lado,mat,lado,lado,lado]);
+  const m = new THREE.Mesh(geoFicha(), matHueso());
   m.castShadow = true; return m;
 }
 /* ---------- el arte v1 vive aquí: texturas pintadas en canvas ---------- */
@@ -581,6 +620,7 @@ async function cargarSet(){
       : new THREE.MeshBasicMaterial(Object.assign({vertexColors:true}, extra));
     const eq = o.sk ? esqs[o.sk] : null;
     const m = eq ? new THREE.SkinnedMesh(g, mat) : new THREE.Mesh(g, mat);
+    m.name = o.n;                      // sin nombre no hay cómo depurar nada
     m.castShadow = !!o.l; m.receiveShadow = !!o.l;
     if(eq){
       // La malla se queda en la raíz de la escena con matriz identidad: quien
@@ -1004,13 +1044,21 @@ function colocarManos(conteos){
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
   manosFan.forEach((fan,s) => {
     fan.clear();
-    const n = conteos ? conteos[s] : 0, d = MESA/2 + 0.055;
+    // Las fichas van PARADAS EN EL ATRIL, no flotando. El atril de set.py:
+    // ranura a radio .638, piso a y=.021, inclinado 16 grados hacia atrás. La
+    // ficha se apoya en ese piso, así que su centro sube TL/2*cos(16) y se va
+    // hacia afuera TL/2*sin(16). Antes quedaban 3 cm en el aire y se veían
+    // como bloques pegados a la mano de cada quien.
+    const INCL = 16 * Math.PI/180, PISO_ATRIL = 0.021;
+    const d = 0.638 + Math.sin(INCL)*TL/2;
+    const yF = PISO_ATRIL + Math.cos(INCL)*TL/2;
+    const n = conteos ? conteos[s] : 0;
     for(let i=0;i<n;i++){
       const m = dorsoFicha();
-      const off = (i - (n-1)/2) * (TW + 0.008);
-      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, 0.085,
+      const off = (i - (n-1)/2) * (TW + 0.004);
+      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, yF,
                      Math.cos(ang[s])*d - Math.sin(ang[s])*off);
-      m.rotation.set(-1.28, ang[s], 0, 'YXZ');
+      m.rotation.set(-(Math.PI/2 - INCL), ang[s], 0, 'YXZ');
       fan.add(m);
     }
   });

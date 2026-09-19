@@ -550,8 +550,12 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
     nuevos = [o for o in bpy.context.scene.objects if o not in antes]
     arm = next(o for o in nuevos if o.type == 'ARMATURE')
     mallas = [o for o in nuevos if o.type == 'MESH']
-    ojos = [o for o in mallas if 'Eye' in o.name]
-    cuerpo = next(o for o in mallas if o not in ojos)
+    # Ojo: 'Eyebrows' contiene 'Eye'. Si entra en la lista de ojos se pinta
+    # con la lógica de esclerótica y a cada quien le quedan dos brochazos
+    # blancos en la frente. Van aparte, con el color del pelo.
+    ojos  = [o for o in mallas if 'Eye' in o.name and 'Eyebrow' not in o.name]
+    cejas = [o for o in mallas if 'Eyebrow' in o.name]
+    cuerpo = next(o for o in mallas if o not in ojos and o not in cejas)
 
     # sentarlo con el esqueleto
     arm.location.z = -0.472
@@ -839,17 +843,26 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
             out.append(o)
         return out
 
-    CANA  = hexlin('#B8B2A8')
+    # La cana casi blanca le dejaba al viejo un brochazo de pintura en la
+    # barbilla. Gris de sal y pimienta: se lee como barba canosa, no como cal.
+    CANA  = hexlin('#8E8478')
     NEGRO = hexlin('#1A1208')
     PELOS = {
-        'sombrero': [('Hair_Buzzed.gltf', CANA), ('Hair_Beard.gltf', CANA),
-                     ('Eyebrows_Regular.gltf', CANA)],
-        'gorra':    [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', NEGRO),
-                     ('Eyebrows_Regular.gltf', NEGRO)],
-        'panuelo':  [('Hair_Buns.gltf', NEGRO), ('Eyebrows_Female.gltf', NEGRO)],
-        'afro':     [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', hexlin('#241A0E')),
-                     ('Eyebrows_Regular.gltf', NEGRO)],
+        'sombrero': [('Hair_Buzzed.gltf', CANA), ('Hair_Beard.gltf', CANA)],
+        'gorra':    [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', NEGRO)],
+        'panuelo':  [('Hair_Buns.gltf', NEGRO)],
+        'afro':     [('Hair_Buzzed.gltf', NEGRO), ('Hair_Beard.gltf', hexlin('#241A0E'))],
     }
+    CEJA = {'sombrero': CANA, 'gorra': NEGRO, 'panuelo': NEGRO, 'afro': NEGRO}
+    for ce in cejas:
+        ce.data.materials.clear(); ce.data.materials.append(material_unico())
+        at = ce.data.color_attributes.new(name='Base', type='FLOAT_COLOR',
+                                          domain='POINT')
+        c = CEJA.get(tipo, NEGRO)
+        for i in range(len(ce.data.vertices)): at.data[i].color = (c[0],c[1],c[2],1.0)
+        ce['rough'] = .95
+        todos.append((ce, 1, {}))
+        extras_cabeza.append(ce)
     for archivo, color in PELOS.get(tipo, []):
         extras_cabeza += postizo(archivo, color)
 
@@ -873,14 +886,24 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         extras_cabeza.append(pieza(cilindro(.1255,.1255,.026,(hx,hy,hz+.143), seg=32),
                              'cinta',CINTA,rough=.85,lit=1))
     elif tipo == 'gorra':
-        bm = esfera(.115,(hx,hy+.005,hz+.12), seg=14)
+        # La visera estaba a la altura de los ojos y con el paño casi negro
+        # parecía una venda. Sube al nacimiento del pelo, más ancha y menos
+        # larga, y el azul sube de tono para que se lea como tela.
+        PANO = hexlin('#3E5670')
+        bm = esfera(.116,(hx,hy+.004,hz+.135), seg=16)
+        for v in bm.verts: v.co.z = hz+.135 + (v.co.z-(hz+.135))*.82
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:]+bm.edges[:]+bm.faces[:],
-            plane_co=(hx,hy,hz+.115), plane_no=(0,0,-1), clear_inner=True)
-        extras_cabeza.append(pieza(bm,'gc',hexlin('#22303A'),rough=.85,lit=1,
+            plane_co=(hx,hy,hz+.140), plane_no=(0,0,-1), clear_inner=True)
+        extras_cabeza.append(pieza(bm,'gc',PANO,rough=.85,lit=1,
                              solidify=.012,subsurf=1))
-        extras_cabeza.append(pieza(caja((.115,.1,.012),(hx,hy-.135,hz+.12),
-                             rot=(math.radians(12),0,0)),'vis',hexlin('#22303A'),
-                             rough=.85,lit=1,bevel=.006,subsurf=1))
+        vb = caja((.185,.088,.010),(hx,hy-.145,hz+.150),
+                  rot=(math.radians(20),0,0))
+        for v in vb.verts:                       # las puntas caen, como la real
+            t = abs(v.co.x-hx)/.0925
+            v.co.z -= .020*t*t
+            v.co.y += .012*t*t
+        extras_cabeza.append(pieza(vb,'vis',PANO,rough=.85,lit=1,
+                             bevel=.005,subsurf=1))
     elif tipo == 'panuelo':
         # el pelo recogido del pack le queda mejor que el pañuelo: se le ve la
         # cara y los moños. Solo los aros de oro.

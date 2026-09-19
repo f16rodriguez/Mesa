@@ -265,13 +265,17 @@ button{font:inherit; color:inherit; border:none; background:none; cursor:pointer
 const $ = id => document.getElementById(id);
 const PIPMAP_DOM = {0:[],1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 const PIPMAP_TEX = {0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
-const PIP_HEX = {0:null,1:'#2F5FA0',2:'#2E7D50',3:'#C4362B',4:'#6B4A9E',5:'#D4622A',6:'#2B2724'};
+/* Los pips iban en tono medio y el bombillo los lavaba a puntitos amarillos
+   sobre blanco: no se leía una ficha. Van MUY oscuros, que es como se ven los
+   de verdad, y conservan el color por número que usa todo el mundo aquí. */
+const PIP_HEX = {0:null,1:'#12305E',2:'#12401F',3:'#7A160F',4:'#3A1C5C',5:'#8A3208',6:'#0E0C0A'};
 /* Escala real, en metros: ficha profesional de 7.5 cm sobre mesa de 1.15 m.
    A 12 cm ("jumbo") se leían bien pero la mano tapaba media mesa. */
 const TL = 0.075, TW = 0.0375, TH = 0.012, MESA = 1.15;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let ws = null, S = null, previo = null, dramatica = false;
+let modoCam = 'sutil', povAsiento = 0;   // sutil | dramatica | pov
 let renderer, scene, camera, cadenaGrupo, figuras = [], manosFan = [];
 let rigs = [null,null,null,null], gestos = [null,null,null,null];
 let manoRef = [null,null,null,null];   // orientación de reposo de cada mano
@@ -323,10 +327,13 @@ function texFicha(a,b){
       if(!PIP_HEX[n]) return;
       PIPMAP_TEX[n].forEach(i => {
         const cx = 60+(i%3)*68, cy = oy+60+Math.floor(i/3)*68;
-        x.fillStyle = 'rgba(90,76,54,.35)';           // el pip va hundido
-        x.beginPath(); x.arc(cx, cy+2.5, 18.5, 0, Math.PI*2); x.fill();
+        x.fillStyle = 'rgba(64,52,36,.55)';           // el pip va hundido
+        x.beginPath(); x.arc(cx, cy+3, 24, 0, Math.PI*2); x.fill();
         x.fillStyle = PIP_HEX[n];
-        x.beginPath(); x.arc(cx, cy, 17, 0, Math.PI*2); x.fill();
+        x.beginPath(); x.arc(cx, cy, 22, 0, Math.PI*2); x.fill();
+        x.strokeStyle = 'rgba(20,16,12,.55)';         // reborde, o se disuelve
+        x.lineWidth = 2.5;
+        x.beginPath(); x.arc(cx, cy, 22, 0, Math.PI*2); x.stroke();
       });
     };
     media(a,8); media(b,264);
@@ -340,8 +347,9 @@ function texFicha(a,b){
 function mallaFicha(a,b){
   // Misma geometría redondeada. Las UV son planas desde arriba, así que los
   // cantos verticales muestrean el borde del lienzo — que es hueso limpio.
-  const cara = new THREE.MeshStandardMaterial({map:texFicha(a,b), roughness:.42,
-                                               color:0xF6EFE2});
+  const cara = new THREE.MeshStandardMaterial({map:texFicha(a,b), roughness:.60,
+                                               color:0xBFB5A2,
+                                               emissive:0x2A2620, emissiveIntensity:.45});
   const m = new THREE.Mesh(geoFicha(), cara);
   m.castShadow = true; m.receiveShadow = true; return m;
 }
@@ -379,8 +387,10 @@ function matHueso(){
   if(!TEX_HUESO_MAT){
     const t = new THREE.TextureLoader().load('tex/hueso.png');
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-    TEX_HUESO_MAT = new THREE.MeshStandardMaterial({map:t, roughness:.44,
-                                                    color:0xF2EADC});
+    TEX_HUESO_MAT = new THREE.MeshStandardMaterial({map:t, roughness:.58,
+                                                    color:0xC2B8A5,
+                                                    emissive:0x2A2620,
+                                                    emissiveIntensity:.45});
   }
   return TEX_HUESO_MAT;
 }
@@ -1091,9 +1101,24 @@ const SUTIL = ASIENTO_ANG.map(a => a + Math.PI + 0.55);
 const DRAMA = ASIENTO_ANG.map(a => a + 0.42);
 function apuntarCamara(){
   const s = (S && S.fase === 'jugando' && S.turno !== null) ? S.turno : 0;
-  camAngGoal = (dramatica ? DRAMA : SUTIL)[s];
-  camRadGoal = baseRad * (dramatica ? 1.14 : 1);
-  camAltGoal = baseAlt * (dramatica ? 0.78 : 1);
+  povAsiento = s;
+  if(modoCam === 'pov') return;              // el POV se resuelve por cuadro
+  camAngGoal = (modoCam === 'dramatica' ? DRAMA : SUTIL)[s];
+  camRadGoal = baseRad * (modoCam === 'dramatica' ? 1.14 : 1);
+  camAltGoal = baseAlt * (modoCam === 'dramatica' ? 0.78 : 1);
+}
+/* Primera persona: sentado en la silla del que le toca, asomado sobre el paño.
+   A escala real una ficha de 7,5 cm desde el otro lado de una mesa de 1,15 m es
+   un sello de correo — desde aquí se leen, que es como se leen en la vida. */
+const POV_R = MESA/2 + 0.17, POV_Y = 0.405;
+function ponerCamaraPOV(t){
+  const ang = ASIENTO_ANG[povAsiento];
+  const resp = reduce ? 0 : Math.sin(t*0.8)*0.005;      // respiración, muy poca
+  const lado = reduce ? 0 : Math.sin(t*0.31)*0.010;
+  camera.position.set(Math.sin(ang)*POV_R + Math.cos(ang)*lado,
+                      POV_Y + resp,
+                      Math.cos(ang)*POV_R - Math.sin(ang)*lado);
+  camera.lookAt(Math.sin(ang)*0.04, 0.012, Math.cos(ang)*0.04);
 }
 function planoCenital(){ camAngGoal = 0; camRadGoal = baseRad*0.18; camAltGoal = baseAlt*1.2; }
 function animar(){
@@ -1103,11 +1128,19 @@ function animar(){
   while(dAng >  Math.PI) dAng -= 2*Math.PI;
   while(dAng < -Math.PI) dAng += 2*Math.PI;
   camAng += dAng*k; camRad += (camRadGoal-camRad)*k; camAlt += (camAltGoal-camAlt)*k;
-  const deriva = reduce ? 0 : Math.sin(t*0.22)*0.035;
-  let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
-  if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
-  camera.position.set(sx, camAlt, sz);
-  camera.lookAt(0,0.06,0);
+  if(modoCam === 'pov'){
+    ponerCamaraPOV(t);
+    if(sacudida > 0.001){
+      camera.position.x += (Math.random()-.5)*sacudida;
+      camera.position.z += (Math.random()-.5)*sacudida; sacudida *= 0.86;
+    }
+  } else {
+    const deriva = reduce ? 0 : Math.sin(t*0.22)*0.035;
+    let sx = Math.sin(camAng+deriva)*camRad, sz = Math.cos(camAng+deriva)*camRad;
+    if(sacudida > 0.001){ sx += (Math.random()-.5)*sacudida; sz += (Math.random()-.5)*sacudida; sacudida *= 0.86; }
+    camera.position.set(sx, camAlt, sz);
+    camera.lookAt(0,0.06,0);
+  }
   animarGente(t);
   renderer.render(scene,camera);
 }
@@ -1307,10 +1340,14 @@ document.querySelectorAll('.seg').forEach(seg => {
   });
 });
 
+const CICLO_CAM = ['sutil', 'dramatica', 'pov'];
+const NOMBRE_CAM = { sutil:'Cámara sutil', dramatica:'Cámara dramática',
+                     pov:'En la silla' };
 $('camBtn').onclick = e => {
-  dramatica = !dramatica;
-  e.currentTarget.textContent = dramatica ? 'Cámara dramática' : 'Cámara sutil';
-  e.currentTarget.setAttribute('aria-pressed', String(dramatica));
+  modoCam = CICLO_CAM[(CICLO_CAM.indexOf(modoCam) + 1) % CICLO_CAM.length];
+  dramatica = modoCam === 'dramatica';
+  e.currentTarget.textContent = NOMBRE_CAM[modoCam];
+  e.currentTarget.setAttribute('aria-pressed', String(modoCam !== 'sutil'));
   apuntarCamara();
 };
 $('reglasBtn').onclick = () => { pintarReglas(); $('capaReglas').hidden = false; };
@@ -1419,7 +1456,7 @@ function escAbrir(){
   $('capaLobby').hidden = true;
   $('escuela').hidden = false;
   document.querySelector('.pie').hidden = true;
-  dramatica = false; apuntarCamara();
+  dramatica = false; modoCam = 'sutil'; apuntarCamara();
   escPintar();
 }
 function escCerrar(){

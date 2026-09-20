@@ -3,3 +3,8 @@
 /* El código de mesa se lee desde el otro lado del patio. */
 .table-code{font-family:var(--serif);font-size:clamp(40px,6.4vw,68px);letter-spacing:.16em;color:var(--gold);text-align:center;line-height:1;margin:6px 0 12px;text-indent:.16em}
 .code-input{text-transform:uppercase;letter-spacing:.42em;font-size:26px;text-align:center;text-indent:.42em;font-family:var(--serif)}
+
+/* Nivel de la práctica, en la barra de abajo. */
+.niveles{display:inline-flex;gap:4px;margin-left:14px;vertical-align:middle}
+.niveles button{font:inherit;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.niveles button.elegido{background:var(--gold);border-color:var(--gold);color:#152722}

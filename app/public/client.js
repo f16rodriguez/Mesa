@@ -2,6 +2,7 @@ import * as rules from './rules.js';
 import QRCode from './qr.js';
 import {botThinkingMs} from './bot-rhythm.js';
 import {botChatter} from './bot-chatter.js';
+import {chooseMove} from './bot.js';
 import {proximityVoice} from './proximity-voice.js';
 const $=s=>document.querySelector(s),app=$('#app'),modal=$('#modal');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,6 +43,19 @@ function nuevoCodigo(){
 // Declaración de función, no const: esto se llama en la línea 18, al cargar el
 // módulo, y una const ahí arriba todavía está en su zona muerta temporal.
 function normSala(r){return /^[a-zA-Z]{4}$/.test(r)?r.toUpperCase():r;}
+
+/* Tres niveles para la práctica. El "ruido" es la probabilidad de que el bot,
+   ESE turno, se olvide de la lectura y suelte la ficha más pesada — que es
+   exactamente lo que hacía la práctica hasta ahora en TODOS los turnos, contra
+   un rival que en la mesa de verdad ya no existe. Fácil conserva ese bot;
+   Duro es el mismo que juega en el servidor. */
+const NIVELES={facil:{etiqueta:'Fácil',ruido:1},normal:{etiqueta:'Normal',ruido:.35},duro:{etiqueta:'Duro',ruido:0}};
+let nivel=NIVELES[localStorage.getItem('mesa-nivel')]?localStorage.getItem('mesa-nivel'):'normal';
+const masPesada=v=>{const r=v.legal.map(o=>({...o,w:v.hand.find(t=>t.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));return {type:'play',tile:r[0].tile,side:r[0].side};};
+function jugadaBot(v){
+ if(!v.legal.length)return {type:'pass'};
+ return Math.random()<NIVELES[nivel].ruido?masPesada(v):chooseMove(v);
+}
 const brand=()=>`<button class="game-brand" data-action="home" aria-label="Mesa home">${logo}mesa</button>`;
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}
@@ -73,7 +87,7 @@ function receive(v,presence=[]){
 }
 function action(a){unlockSound();if(practice){const check=rules.validateAction(practice,'local',a);if(!check.ok)return toast(check.error);practice=rules.applyAction(practice,'local',a);localStorage.setItem('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();}else wire({type:'action',action:a});}
 function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||'You','Marisol','Luis','Carmen'];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];action({type:'start'});}
-function scheduleBot(){clearTimeout(botTimer);if(!practice||practice.phase!=='playing'||practice.turn===0)return;botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id),opts=v.legal.map(o=>({...o,w:v.hand.find(t=>t.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));practice=rules.applyAction(practice,id,opts.length?{type:'play',tile:opts[0].tile,side:opts[0].side}:{type:'pass'});localStorage.setItem('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},Math.max(practice.moves.length===0?4200:0,botThinkingMs(practice.handNo,practice.moves.length,practice.turn)));}
+function scheduleBot(){clearTimeout(botTimer);if(!practice||practice.phase!=='playing'||practice.turn===0)return;botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id);practice=rules.applyAction(practice,id,jugadaBot(v));localStorage.setItem('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},Math.max(practice.moves.length===0?4200:0,botThinkingMs(practice.handNo,practice.moves.length,practice.turn)));}
 function turnText(){if(view.phase==='lobby')return 'There’s a chair for everyone.';if(view.phase==='seriesEnd')return 'A good night, well played.';if(view.phase==='handEnd')return 'Count it together. Then deal again.';return view.turn===view.seat?'Te toca. Your turn.':`${view.names[view.turn]}'s turn.`;}
 function score(){return `<div class="hud-score"><div class="team">PAIR A <b>${view.scores[0]}</b></div><span class="target">FIRST TO ${view.settings.target}</span><div class="team"><b>${view.scores[1]}</b> PAIR B</div></div>`;}
 const inviteUrl=(watch=false)=>`${location.origin}/?room=${room}&role=${watch?'spectator':'player'}`;
@@ -82,7 +96,7 @@ function handPanel(){if(view.seat<0||view.phase!=='playing')return '';return `<s
 function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result;return `<section class="game-result"><div class="eyebrow">${view.phase==='seriesEnd'?'SERIES COMPLETE':`HAND ${view.handNo} · CLOSED`}</div><h2>${r.zapato?'¡Zapato!':r.type==='capicua'?'¡Capicúa!':r.type==='tranque'?'Tranque.':'¡Dominó!'}</h2><p>${r.team===null?'Even pips. Nobody takes the points.':`Pair ${r.team===0?'A':'B'} takes ${view.phase==='seriesEnd'?'the series':'the hand'}.`}</p><div class="points">+${r.points}</div><p>${r.base} pips${r.bonus?` + ${r.bonus} capicúa`:''}</p>${view.isHost?button(view.phase==='seriesEnd'?'Another series':'Deal the next hand',view.phase==='seriesEnd'?'newSeries':'next','primary'):'<p>Waiting for the host to deal.</p>'}${button('Show the hands','reveal')}</section>`;}
 function renderRoom(){page='room';if(role==='player'&&view.seat>=0){renderPhone();return;}ensureWorld('game');world?.update(view,crowd.count);
  const talkDraft=$('#chat-text')?.value||'',focus=document.activeElement?.id==='chat-text';
- app.innerHTML=`<div id="room-root" class="game-shell"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?'PRACTICE':view.phase==='lobby'?'YOUR TABLE':`HAND ${String(view.handNo).padStart(2,'0')}`}<span class="connection">${practice?'NO PRESSURE':connected?'CONNECTED':'RECONNECTING'}</span></div></div>${view.phase!=='lobby'?score():''}<div class="game-tools">${button('<span class="tool-label">Camera</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${button('','fullscreen','','expand')}</div></header><div id="seat-labels">${view.names.map((n,i)=>`<div class="seat-label ${view.phase==='playing'&&i===view.turn?'active':''}" data-seatlabel="${i}">${esc(view.bots[i]&&view.phase==='lobby'?['Don Rafa','Marisol','Luis','Carmen'][i]:n)}<small>${view.bots[i]?'BOT':i%2?'PAIR B':'PAIR A'}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small></div>`).join('')}</div>${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}${view.seat>=0&&view.phase==='playing'?`<div class="game-hand-dock">${handPanel()}</div>`:`<div class="scene-help">${esc(turnText())}<small>${view.phase==='lobby'?'Pick your seats. Agree the rules. Stay a while.':'Drag to look around · Camera switches your view'}</small></div>`}<div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">Seating your people…</div><div class="game-bottom"><span class="alpha-stamp">${practice?'PRACTICE / LOCAL SAVE':'LA ESQUINA / LIVE TABLE'}</span></div></div>${q.has('debug')?'<div id="perf"></div>':''}`;
+ app.innerHTML=`<div id="room-root" class="game-shell"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?'PRACTICE':view.phase==='lobby'?'YOUR TABLE':`HAND ${String(view.handNo).padStart(2,'0')}`}<span class="connection">${practice?'NO PRESSURE':connected?'CONNECTED':'RECONNECTING'}</span></div></div>${view.phase!=='lobby'?score():''}<div class="game-tools">${button('<span class="tool-label">Camera</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${button('','fullscreen','','expand')}</div></header><div id="seat-labels">${view.names.map((n,i)=>`<div class="seat-label ${view.phase==='playing'&&i===view.turn?'active':''}" data-seatlabel="${i}">${esc(view.bots[i]&&view.phase==='lobby'?['Don Rafa','Marisol','Luis','Carmen'][i]:n)}<small>${view.bots[i]?'BOT':i%2?'PAIR B':'PAIR A'}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small></div>`).join('')}</div>${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}${view.seat>=0&&view.phase==='playing'?`<div class="game-hand-dock">${handPanel()}</div>`:`<div class="scene-help">${esc(turnText())}<small>${view.phase==='lobby'?'Pick your seats. Agree the rules. Stay a while.':'Drag to look around · Camera switches your view'}</small></div>`}<div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">Seating your people…</div><div class="game-bottom"><span class="alpha-stamp">${practice?'PRACTICE / LOCAL SAVE':'LA ESQUINA / LIVE TABLE'}</span>${practice?`<span class="niveles">${Object.entries(NIVELES).map(([k,n])=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${n.etiqueta}</button>`).join('')}</span>`:''}</div></div>${q.has('debug')?'<div id="perf"></div>':''}`;
  renderCrowd();if($('#chat-text')){$('#chat-text').value=talkDraft;if(focus)$('#chat-text').focus();}
  if($('#qr'))QRCode.toString(inviteUrl(),{type:'svg',margin:1,color:{dark:'#20392d',light:'#f3ecda'}}).then(svg=>{if($('#qr'))$('#qr').innerHTML=svg;}).catch(()=>toast('Use Copy the table link to invite your people.'));
 }
@@ -109,6 +123,7 @@ async function copyLink(watch=false){try{await navigator.clipboard.writeText(inv
 document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
  if(b.dataset.tile){selected=b.dataset.tile;renderRoom();return;}
+ if(b.dataset.nivel){nivel=b.dataset.nivel;localStorage.setItem('mesa-nivel',nivel);renderRoom();return;}
  if(b.dataset.play){action({type:'play',tile:selected,side:b.dataset.play});return;}
  if(b.dataset.lesson!==undefined){lesson=Number(b.dataset.lesson);school();return;}
  if(b.dataset.answer!==undefined){const l=lessons[lesson],correct=l.choices[Number(b.dataset.answer)].ok;$('.exercise-result').textContent=correct?l.yes:l.no;if(correct){unlockSound();hit();}return;}

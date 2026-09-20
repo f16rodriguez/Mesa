@@ -53,6 +53,11 @@ const qr = await Bun.build({entrypoints:[resolve(app,'scripts/qr-entry.js')],out
 if (!qr.success) throw new Error('QR build failed');
 const scene = await Bun.build({ entrypoints:[resolve(app,'src/scene.js')], outdir:resolve(app,'public'), naming:'scene.js', target:'browser', format:'esm', minify:true });
 if (!scene.success) { console.error(scene.logs); throw new Error('Scene build failed'); }
+// El MISMO bot que juega en el servidor, empaquetado para el navegador: la
+// práctica offline jugaba contra la regla vieja de la ficha más pesada, así
+// que se entrenaba uno contra un rival que ya no existe en la mesa de verdad.
+const bot = await Bun.build({entrypoints:[resolve(app,'src/bot.ts')],outdir:resolve(app,'public'),naming:'bot.js',target:'browser',format:'esm',minify:true});
+if(!bot.success){console.error(bot.logs);throw new Error('Bot build failed');}
 const rhythm = await Bun.build({entrypoints:[resolve(app,'src/bot-rhythm.ts')],outdir:resolve(app,'public'),naming:'bot-rhythm.js',target:'browser',format:'esm',minify:true});
 if(!rhythm.success)throw new Error('Bot timing build failed');
 await cp(resolve(app,'src/bot-chatter.js'),resolve(app,'public/bot-chatter.js'));

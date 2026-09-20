@@ -39,7 +39,9 @@ function nuevoCodigo(){
 }
 /* Las salas nuevas viven en mayúsculas. Las viejas (12 hex en minúscula) se
    dejan como están: subirlas a mayúscula las mandaría a otro Durable Object. */
-const normSala=r=>/^[a-zA-Z]{4}$/.test(r)?r.toUpperCase():r;
+// Declaración de función, no const: esto se llama en la línea 18, al cargar el
+// módulo, y una const ahí arriba todavía está en su zona muerta temporal.
+function normSala(r){return /^[a-zA-Z]{4}$/.test(r)?r.toUpperCase():r;}
 const brand=()=>`<button class="game-brand" data-action="home" aria-label="Mesa home">${logo}mesa</button>`;
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}

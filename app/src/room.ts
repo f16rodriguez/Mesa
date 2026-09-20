@@ -5,6 +5,27 @@ import { accountFor, recordSeries } from './accounts';
 import {botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
 import {joinVoice,setVoicePublish} from './voice';
+/**
+ * Seats a bot is allowed to cover. A bot seat: always. A HUMAN seat: only when
+ * someone else at the table is actually waiting on it.
+ *
+ * The 20-second cover exists so one sleeping phone cannot freeze three other
+ * people. That reason disappears the moment nobody else is waiting — and then
+ * covering is just the game playing itself while you put the phone down, which
+ * is the one thing a table must never do. Thinking for half a minute is normal
+ * dominoes; it is not a disconnect.
+ */
+export function botMayCover(g:any,seat:number,now:number){
+ const s=g.state;
+ if(s.bots[seat]) return true;
+ const m=g.members[s.players[seat]];
+ if(m&&!m.away&&now-m.lastSeen<20000) return false;      // still with us
+ return s.players.some((p:string,i:number)=>{
+  if(i===seat||s.bots[i]) return false;
+  const o=g.members[p];
+  return !!o&&!o.away&&now-o.lastSeen<20000;
+ });
+}
 export function freshGame(){return {status:'waiting',seats:[] as string[],state:null,result:null};}
 export function resolveMeta(raw:unknown){const m=(raw??{}) as Record<string,any>,arr=Array.isArray(m.players)?m.players:[];const n=(v:unknown,f:number)=>Number.isInteger(v)&&Number(v)>=1?Number(v):f;const min=n(m.minPlayers,n(arr[0],1));return {game:[m.game,m.name,m.title].find(x=>typeof x==='string'&&x.trim())??'Game',minPlayers:min,maxPlayers:Math.max(min,n(m.maxPlayers,n(arr[1],min)))};}
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;profileId?:string;lastChat?:number};
@@ -39,7 +60,7 @@ export class Room extends DurableObject<Env>{
  private async schedule(g:Store,minimumDelay=0){
   const now=Date.now(),s=g.state;let wake=now+1500;
   if(s.phase==='playing'){
-   const member=g.members[s.players[s.turn]],covered=s.bots[s.turn]||!member||now-member.lastSeen>=20000;
+   const covered=botMayCover(g,s.turn,now);
    if(covered){const key=botTurnKey(s.handNo,s.moves.length,s.turn);if(g.botKey!==key){g.botKey=key;g.botDue=now+Math.max(minimumDelay,botThinkingMs(s.handNo,s.moves.length,s.turn));}wake=Math.min(wake,g.botDue!);}
    else{delete g.botKey;delete g.botDue;}
    await this.save(g);await this.ctx.storage.setAlarm(Math.max(now+50,wake));
@@ -106,7 +127,7 @@ export class Room extends DurableObject<Env>{
  override async alarm(){await this.ctx.blockConcurrencyWhile(async()=>{
   const g=await this.load();if(!g)return;let changed=g.lastCrowd!==this.spectators(g).length;
   if(g.state.phase==='playing'){
-   const s=g.state,id=s.players[s.turn],m=g.members[id],covered=s.bots[s.turn]||!m||Date.now()-m.lastSeen>=20000;
+   const s=g.state,id=s.players[s.turn],covered=botMayCover(g,s.turn,Date.now());
    if(covered&&g.botKey===botTurnKey(s.handNo,s.moves.length,s.turn)&&Date.now()>=(g.botDue??Infinity)){const a:any=chooseMove(logic.viewFor(s,id) as any);if(logic.validateAction(s,id,a).ok){g.state=logic.applyAction(s,id,a);changed=true;}}
   }
   await this.finish(g);if(changed)this.broadcast(g);await this.save(g);await this.schedule(g);

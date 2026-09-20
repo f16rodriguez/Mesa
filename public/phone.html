@@ -514,9 +514,27 @@ $('btnEntrar').onclick = () => {
   if(c.length !== 4){ $('aviso').textContent = 'El código son cuatro letras.'; return; }
   if(!n){ $('aviso').textContent = '¿Cómo te llamas?'; return; }
   $('aviso').textContent = ''; $('btnEntrar').disabled = true;
+  try{ localStorage.setItem('mesa.nombre', n); }catch(e){}
   manda({ t:'entrar', codigo:c, nombre:n });
 };
 $('nombre').addEventListener('keydown', e => { if(e.key === 'Enter') $('btnEntrar').click(); });
+
+/* El QR de la mesa trae el código en la dirección: si viene, se rellena solo y
+   el teléfono solo tiene que decir cómo se llama. Es la diferencia entre entrar
+   y quedarse preguntando "¿qué código?". */
+(() => {
+  const c = (new URL(location.href).searchParams.get('s') || '')
+    .toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+  if(c.length === 4){
+    $('codigo').value = c;
+    document.querySelector('.entrar p').textContent = 'Mesa ' + c + ' — dinos tu nombre';
+    setTimeout(() => $('nombre').focus(), 120);
+  }
+  try{
+    const n = localStorage.getItem('mesa.nombre');
+    if(n && !$('nombre').value) $('nombre').value = n;
+  }catch(e){}
+})();
 
 /* el teléfono se duerme: al volver, reclamamos el asiento enseguida */
 document.addEventListener('visibilitychange', () => {

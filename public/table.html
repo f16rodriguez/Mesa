@@ -92,6 +92,15 @@ button{font:inherit; color:inherit; border:none; background:none; cursor:pointer
 /* lobby */
 .codigo{font-size:76px; font-weight:800; letter-spacing:.22em; text-align:center;
   color:var(--ambar); margin:6px 0 2px; padding-left:.22em}
+.entrada{display:flex; gap:26px; align-items:center; justify-content:center; margin:0 0 18px}
+.entradaTxt{flex:1 1 auto; min-width:0}
+/* el código con cuatro letras y .22em de separación se salía de la tarjeta:
+   aquí manda el ancho que sobra, no un tamaño fijo */
+.entradaTxt .codigo{font-size:clamp(40px, 5.2vw, 64px); letter-spacing:.10em;
+  margin:0; white-space:nowrap}
+#qr{width:250px; height:250px; background:#fff; border-radius:12px;
+    image-rendering:pixelated; flex:none; box-shadow:0 8px 28px rgba(0,0,0,.38)}
+@media (max-width:760px){ .entrada{flex-direction:column; gap:16px} .entradaTxt{min-width:0} }
 .url{text-align:center; font-size:19px; margin:0 0 20px; color:var(--tinta)}
 .url span{color:var(--tinta-suave); font-size:14px; display:block; margin-bottom:4px;
   letter-spacing:.1em; text-transform:uppercase}
@@ -102,6 +111,22 @@ button{font:inherit; color:inherit; border:none; background:none; cursor:pointer
 .silla .eq{margin-left:auto; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
   color:var(--tinta-suave)}
 .silla.eq0 .eq{color:var(--ambar)} .silla.eq1 .eq{color:var(--anil)}
+/* Un portátil de 720 p es EL aparato de la mesa y ahí la tarjeta se salía por
+   abajo: el botón de empezar quedaba fuera de pantalla. En pantallas bajas la
+   tarjeta se aprieta y las reglas se guardan — a esa altura lo único que
+   importa es el QR y sentarse. */
+@media (max-height:840px){
+  .capa{padding:12px}
+  #capaLobby .tarjeta{padding:20px 24px}
+  #capaLobby h2{font-size:24px}
+  #capaLobby .sub{margin-bottom:12px; font-size:13px}
+  #capaLobby .entrada{gap:20px; margin-bottom:12px}
+  #capaLobby #qr{width:186px; height:186px}
+  #capaLobby .entradaTxt .codigo{font-size:clamp(32px,4vw,48px)}
+  #capaLobby .url{font-size:16px; margin-bottom:10px}
+  #capaLobby .sillas{gap:7px; margin-bottom:12px}
+  #capaLobby .comose{display:none}
+}
 .comose{border-top:1px solid var(--linea); margin-top:4px; padding-top:16px}
 .comose h3{font-size:12px; letter-spacing:.14em; text-transform:uppercase;
   color:var(--tinta-suave); margin:0 0 10px; font-weight:600}
@@ -190,9 +215,15 @@ button{font:inherit; color:inherit; border:none; background:none; cursor:pointer
 <div class="capa" id="capaLobby" hidden>
   <div class="tarjeta">
     <h2>Mesa</h2>
-    <p class="sub">Cada quien abre esta dirección en su teléfono y escribe el código.</p>
-    <p class="url"><span>En el teléfono</span><b id="url">—</b></p>
-    <div class="codigo" id="codigo">····</div>
+    <p class="sub">Apúntale la cámara del teléfono. Si no, entra a la dirección
+      y escribe las cuatro letras.</p>
+    <div class="entrada">
+      <canvas id="qr" width="440" height="440" aria-label="Código para entrar a la mesa"></canvas>
+      <div class="entradaTxt">
+        <p class="url"><span>En el teléfono</span><b id="url">—</b></p>
+        <div class="codigo" id="codigo">····</div>
+      </div>
+    </div>
     <div class="sillas" id="sillas"></div>
     <button class="principal" id="empezarBtn" disabled>Faltan jugadores</button>
     <button class="secundaria" id="botsBtn">Rellenar lo que falte con bots</button>
@@ -308,6 +339,201 @@ const texCache = new Map();
    desde el primer día y no pesa nada. La de AMBIENTE sale de archivos en
    public/audio/, todos vendorizados: esto tiene que sonar en un patio sin datos.
    Si un archivo no está, se salta sin quejarse y el juego sigue sonando. */
+/* QR de la mesa: el teléfono entra apuntando la cámara, sin teclear el código.
+   Modo byte, corrección M, versiones 1 a 6 (hasta 106 caracteres) — de sobra
+   para una URL con su código de sala. Sin dependencias: el juego tiene que
+   correr en un patio sin datos, así que el código se genera aquí. */
+const QR = (() => {
+  // --- GF(256), polinomio 0x11D: la aritmética de Reed-Solomon ---
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  for(let i=0, x=1; i<255; i++){
+    EXP[i] = x; LOG[x] = i;
+    x <<= 1; if(x & 0x100) x ^= 0x11D;
+  }
+  for(let i=255;i<512;i++) EXP[i] = EXP[i-255];
+  const mul = (a,b) => (a===0||b===0) ? 0 : EXP[LOG[a]+LOG[b]];
+
+  function generador(n){
+    let g = [1];
+    for(let i=0;i<n;i++){
+      const s = new Array(g.length+1).fill(0);
+      for(let j=0;j<g.length;j++){
+        s[j]   ^= g[j];                  // multiplicar por x
+        s[j+1] ^= mul(g[j], EXP[i]);     // y por la raíz alfa^i
+      }
+      g = s;
+    }
+    return g;
+  }
+  function ecc(datos, n){
+    const g = generador(n), res = new Uint8Array(datos.length + n);
+    res.set(datos);
+    for(let i=0;i<datos.length;i++){
+      const c = res[i]; if(!c) continue;
+      for(let j=0;j<=n;j++) res[i+j] ^= mul(g[j], c);
+    }
+    return res.slice(datos.length);
+  }
+
+  // version -> [total de palabras, palabras de ECC por bloque, bloques]
+  const TABLA = { 1:[26,10,1], 2:[44,16,1], 3:[70,26,1],
+                  4:[100,18,2], 5:[134,24,2], 6:[172,16,4] };
+  const ALINEACION = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34] };
+  const capacidad = v => { const [t,e,b] = TABLA[v]; return t - e*b - 2; };
+
+  function bits(texto){
+    const u = new TextEncoder().encode(texto);
+    let v = 1;
+    while(v <= 6 && u.length > capacidad(v)) v++;
+    if(v > 6) throw new Error('QR: el texto no cabe');
+    const [total, ecBloque, bloques] = TABLA[v];
+    const nDatos = total - ecBloque*bloques;
+    const bs = [];
+    const empuja = (val, n) => { for(let i=n-1;i>=0;i--) bs.push((val>>i)&1); };
+    empuja(0b0100, 4); empuja(u.length, 8);
+    for(const b of u) empuja(b, 8);
+    for(let i=0;i<4 && bs.length < nDatos*8;i++) bs.push(0);
+    while(bs.length % 8) bs.push(0);
+    const datos = [];
+    for(let i=0;i<bs.length;i+=8){
+      let b = 0; for(let k=0;k<8;k++) b = (b<<1) | bs[i+k];
+      datos.push(b);
+    }
+    for(let i=0; datos.length < nDatos; i++) datos.push(i%2 ? 0x11 : 0xEC);
+    // repartir en bloques: los cortos primero, como manda la norma
+    const cortos = bloques - (nDatos % bloques), largo = Math.floor(nDatos/bloques);
+    const dat = [], ec = [];
+    let p = 0;
+    for(let i=0;i<bloques;i++){
+      const n = largo + (i < cortos ? 0 : 1);
+      const d = Uint8Array.from(datos.slice(p, p+n)); p += n;
+      dat.push(d); ec.push(ecc(d, ecBloque));
+    }
+    const salida = [];
+    for(let i=0;i<largo+1;i++) for(const d of dat) if(i < d.length) salida.push(d[i]);
+    for(let i=0;i<ecBloque;i++) for(const e of ec) salida.push(e[i]);
+    return { v, palabras: salida };
+  }
+
+  function armar(texto){
+    const { v, palabras } = bits(texto);
+    const N = 17 + v*4;
+    const m = Array.from({length:N}, () => new Int8Array(N).fill(-1));  // -1 = libre
+    const pon = (x,y,val) => { if(x>=0&&y>=0&&x<N&&y<N) m[y][x] = val; };
+    // buscadores y separadores
+    for(const [ox,oy] of [[0,0],[N-7,0],[0,N-7]]){
+      for(let y=-1;y<=7;y++) for(let x=-1;x<=7;x++){
+        const dentro = x>=0&&x<7&&y>=0&&y<7;
+        const anillo = dentro && (x===0||x===6||y===0||y===6||(x>=2&&x<=4&&y>=2&&y<=4));
+        pon(ox+x, oy+y, dentro ? (anillo?1:0) : 0);
+      }
+    }
+    // temporizadores
+    for(let i=8;i<N-8;i++){ m[6][i] = i%2===0 ? 1 : 0; m[i][6] = i%2===0 ? 1 : 0; }
+    // alineación
+    const al = ALINEACION[v];
+    for(const cy of al) for(const cx of al){
+      if((cx===6&&cy===6)||(cx===6&&cy===N-7)||(cx===N-7&&cy===6)) continue;
+      for(let y=-2;y<=2;y++) for(let x=-2;x<=2;x++){
+        const bordeOcentro = Math.max(Math.abs(x),Math.abs(y));
+        pon(cx+x, cy+y, (bordeOcentro===2 || bordeOcentro===0) ? 1 : 0);
+      }
+    }
+    // módulo oscuro y reserva del formato
+    m[N-8][8] = 1;
+    for(let i=0;i<9;i++){ if(m[8][i]===-1) m[8][i]=0; if(m[i][8]===-1) m[i][8]=0; }
+    for(let i=0;i<8;i++){ if(m[8][N-1-i]===-1) m[8][N-1-i]=0; if(m[N-1-i][8]===-1) m[N-1-i][8]=0; }
+    const reservado = m.map(f => Int8Array.from(f, c => c===-1 ? 0 : 1));
+    // datos en zigzag desde abajo a la derecha
+    const flujo = [];
+    for(const p of palabras) for(let i=7;i>=0;i--) flujo.push((p>>i)&1);
+    const REMANENTE = v===1 ? 0 : 7;
+    for(let i=0;i<REMANENTE;i++) flujo.push(0);
+    let k = 0, arriba = true;
+    for(let col=N-1; col>0; col-=2){
+      if(col===6) col--;                       // la columna del temporizador no cuenta
+      for(let i=0;i<N;i++){
+        const y = arriba ? N-1-i : i;
+        for(const x of [col, col-1]){
+          if(reservado[y][x]) continue;
+          m[y][x] = k < flujo.length ? flujo[k] : 0; k++;
+        }
+      }
+      arriba = !arriba;
+    }
+    return { m, N, v, reservado };
+  }
+
+  const MASCARA = [
+    (x,y) => (x+y)%2===0,           (x,y) => y%2===0,
+    (x,y) => x%3===0,               (x,y) => (x+y)%3===0,
+    (x,y) => (((y/2)|0)+((x/3)|0))%2===0,
+    (x,y) => (x*y)%2 + (x*y)%3 === 0,
+    (x,y) => ((x*y)%2 + (x*y)%3)%2===0,
+    (x,y) => ((x+y)%2 + (x*y)%3)%2===0,
+  ];
+  function castigo(m, N){
+    let p = 0;
+    for(let i=0;i<N;i++){
+      for(const linea of [ (j)=>m[i][j], (j)=>m[j][i] ]){
+        let run = 1;
+        for(let j=1;j<N;j++){
+          if(linea(j)===linea(j-1)) run++;
+          else { if(run>=5) p += 3 + (run-5); run = 1; }
+        }
+        if(run>=5) p += 3 + (run-5);
+      }
+    }
+    for(let y=0;y<N-1;y++) for(let x=0;x<N-1;x++)
+      if(m[y][x]===m[y][x+1] && m[y][x]===m[y+1][x] && m[y][x]===m[y+1][x+1]) p += 3;
+    const PAT = [1,0,1,1,1,0,1,0,0,0,0];
+    const cmp = (get, j) => { for(let t=0;t<11;t++) if(get(j+t)!==PAT[t]) return false; return true; };
+    const cmpR = (get, j) => { for(let t=0;t<11;t++) if(get(j+t)!==PAT[10-t]) return false; return true; };
+    for(let i=0;i<N;i++) for(let j=0;j<=N-11;j++){
+      if(cmp(t=>m[i][t], j) || cmpR(t=>m[i][t], j)) p += 40;
+      if(cmp(t=>m[t][i], j) || cmpR(t=>m[t][i], j)) p += 40;
+    }
+    let os = 0; for(let y=0;y<N;y++) for(let x=0;x<N;x++) os += m[y][x];
+    p += Math.floor(Math.abs(os*100/(N*N) - 50)/5)*10;
+    return p;
+  }
+  // formato: nivel M = 00, con su BCH y su máscara fija
+  function formato(mask){
+    let d = (0b00 << 3) | mask, v = d << 10;
+    for(let i=4;i>=0;i--) if(v & (1<<(i+10))) v ^= 0b10100110111 << i;
+    return ((d<<10) | v) ^ 0b101010000010010;
+  }
+  function ponFormato(m, N, mask){
+    const f = formato(mask);
+    for(let i=0;i<15;i++){
+      const b = (f >> i) & 1;
+      if(i<6)       m[i][8] = b;
+      else if(i<8)  m[i+1][8] = b;
+      else if(i===8) m[8][7] = b;
+      else          m[8][14-i] = b;
+      if(i<8)       m[8][N-1-i] = b;
+      else          m[N-15+i][8] = b;
+    }
+    m[N-8][8] = 1;
+  }
+
+  /* Devuelve una matriz de 0/1 lista para pintar. */
+  function matriz(texto){
+    const { m, N, reservado } = armar(texto);
+    let mejor = null, mejorP = Infinity;
+    for(let k=0;k<8;k++){
+      const c = m.map(f => Int8Array.from(f));
+      for(let y=0;y<N;y++) for(let x=0;x<N;x++)
+        if(!reservado[y][x] && MASCARA[k](x,y)) c[y][x] ^= 1;
+      ponFormato(c, N, k);
+      const p = castigo(c, N);
+      if(p < mejorP){ mejorP = p; mejor = c; }
+    }
+    return mejor;
+  }
+  return { matriz };
+})();
+
 const SFX = (() => {
   let ctx = null, maestro = null, ruidoBuf = null;
   let mudo = false, bucles = {}, proxSuelto = 0;
@@ -1969,6 +2195,21 @@ function pipGrid(n){
   }
   return p;
 }
+/* El QR de entrar. La zona de silencio (cuatro módulos en blanco alrededor) no
+   es decoración: sin ella muchas cámaras no lo enganchan. */
+function pintarQR(texto){
+  const cv = $('qr'); if(!cv || !texto) return;
+  let m; try{ m = QR.matriz(texto); }catch(e){ cv.style.display = 'none'; return; }
+  const N = m.length, Q = 4, lado = N + Q*2;
+  const px = Math.max(4, Math.floor(440 / lado));
+  cv.width = cv.height = px*lado;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, cv.width, cv.height);
+  x.fillStyle = '#12100E';
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++)
+    if(m[i][j]) x.fillRect((j+Q)*px, (i+Q)*px, px, px);
+  cv.style.display = '';
+}
 function escapar(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function decir(html){ $('locucion').innerHTML = html; }
 
@@ -2232,7 +2473,12 @@ function conectar(){
   ws.onopen = () => { reintento = 0; $('desconectado').hidden = true; manda({ t:'mesa', codigo: codigoSala }); };
   ws.onmessage = ev => {
     let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
-    if(m.t === 'sala'){ codigoSala = m.codigo; $('url').textContent = m.url; history.replaceState(null,'','?s='+m.codigo); }
+    if(m.t === 'sala'){
+      codigoSala = m.codigo; $('url').textContent = m.url;
+      // el QR lleva el código dentro: el teléfono no teclea nada
+      pintarQR(m.url + '?s=' + m.codigo);
+      history.replaceState(null,'','?s='+m.codigo);
+    }
     else if(m.t === 'state'){
       const antes = S;
       S = m;

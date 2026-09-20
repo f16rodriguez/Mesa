@@ -47,7 +47,8 @@ esqueletos = {}   # nombre -> {'bones': [...], 'remap': {hueso: indice}}
 CONV = Matrix(((1,0,0,0),(0,0,1,0),(0,-1,0,0),(0,0,0,1)))
 
 def pieza(bm, nombre, color, rough=.9, metal=0.0, lit=0, meta=None,
-          solidify=None, bevel=None, subsurf=None, cuts=None, tx=None, txs=1.0):
+          solidify=None, bevel=None, subsurf=None, cuts=None, tx=None, txs=1.0,
+          emisivo=False):
     me = bpy.data.meshes.new(nombre)
     if cuts: bmesh.ops.subdivide_edges(bm, edges=bm.edges, cuts=cuts, use_grid_fill=True)
     bm.to_mesh(me); bm.free()
@@ -67,6 +68,12 @@ def pieza(bm, nombre, color, rough=.9, metal=0.0, lit=0, meta=None,
         bpy.ops.object.modifier_apply(modifier='su')
     for p in ob.data.polygons: p.use_smooth = True
     ob['rough'] = rough; ob['metal'] = metal
+    # `emisivo` = no se hornea luz encima: el color base ES lo que se ve. Con
+    # lit=0 el motor lo pinta sin iluminar, así que se lee como algo encendido.
+    # Antes las ventanas iban con lit=1, que es justo lo contrario -- material
+    # iluminado en tiempo real a diez metros de la única bombilla -- y salían
+    # negras.
+    if emisivo: ob['emisivo'] = 1
     if tx: ob['tx'] = tx; ob['txs'] = txs
     at = ob.data.color_attributes.new(name='Base', type='FLOAT_COLOR', domain='POINT')
     for i, v in enumerate(ob.data.vertices):
@@ -444,7 +451,7 @@ def enfrente():
             pieza(caja((.60, .05, .55), (vx, fy, PISO + h*.62)),
                   'ventanaCasita%d_%d' % (n, k),
                   VENT if encendida else hexlin('#16131A'),
-                  rough=.6, lit=1 if encendida else 0)
+                  rough=.6, emisivo=encendida)
         n += 1
         px += w + 1.1 + random.random()*2.0
 
@@ -458,13 +465,34 @@ def enfrente():
         alt = 2.4 + random.random()*2.4
         pieza(cilindro(.08,.12, alt, (tx_, ty, PISO+alt/2), seg=6), 'tronco%d' % k,
               hexlin('#2A1E14'), rough=1.0)
-        for j in range(5):
-            r = .42 + random.random()*.46
-            pieza(esfera(r, (tx_+(random.random()-.5)*1.5,
-                             ty+(random.random()-.5)*1.1,
-                             PISO+alt+.15+random.random()*.95),
-                         seg=7, esc=(1,1,.78)),
+        # Cinco bolas del mismo tamaño y misma altura seguían dando una paleta
+        # de caramelo. La copa de un árbol no es redonda: es ancha, aplastada,
+        # más densa abajo y con la silueta mordida.
+        for j in range(7):
+            r = .34 + random.random()*.52
+            pieza(esfera(r, (tx_+(random.random()-.5)*2.1,
+                             ty+(random.random()-.5)*1.5,
+                             PISO+alt-.25+random.random()*1.30),
+                         seg=7, esc=(1.0+random.random()*.5,
+                                     .7+random.random()*.5,
+                                     .42+random.random()*.32)),
                   'copa%d_%d' % (k,j), hexlin('#14301F'), rough=1.0)
+    # dos palmas: es lo que dice "aquí" sin poner una bandera
+    for k, (px_, py_, alt) in enumerate([(-4.6, YF-8.2, 5.4), (7.4, YF-9.6, 6.3)]):
+        for j in range(7):                       # el tronco se va curvando
+            z = alt*j/7
+            pieza(cilindro(.13-.008*j, .12-.008*j, alt/7+.02,
+                           (px_+.055*j*j/7, py_, PISO+z+alt/14), seg=6),
+                  'palmaTronco%d_%d' % (k,j), hexlin('#3A2C1E'), rough=1.0)
+        cx_ = px_+.055*49/7
+        for j in range(9):                       # las pencas, caídas
+            a = j*2*math.pi/9 + k
+            largo = 1.5 + random.random()*.8
+            bm = caja((largo, .34, .05),
+                      (cx_+math.cos(a)*largo*.5, py_+math.sin(a)*largo*.5,
+                       PISO+alt-.10-largo*.16),
+                      rot=(0, math.radians(20+random.random()*16), a))
+            pieza(bm, 'penca%d_%d' % (k,j), hexlin('#17351E'), rough=1.0)
 
     # el poste de la esquina con su lámpara, y los cables cruzando la calle
     for (ppx, ppy, tag) in [(-6.2, YF+1.3, 'A'), (6.6, YF+1.3, 'B')]:
@@ -478,7 +506,7 @@ def enfrente():
     pieza(cilindro(.30,.10,.16,(LX+1.05, LY-1.05, PISO+5.52), seg=10),
           'campana', hexlin('#5A5348'), rough=.6, metal=.4)
     pieza(cilindro(.26,.26,.03,(LX+1.05, LY-1.05, PISO+5.43), seg=10),
-          'focoFarola', hexlin('#FFE6B4'), rough=.4, lit=1)
+          'focoFarola', hexlin('#FFE6B4'), rough=.4, emisivo=True)
     for (a, b) in [((-6.2, YF+1.3, PISO+5.9), (6.6, YF+1.3, PISO+5.75)),
                    ((-6.2, YF+1.3, PISO+5.5), (-4.0, 2.4, PISO+3.1)),
                    ((6.6, YF+1.3, PISO+5.4), (4.3, 2.2, PISO+3.1))]:
@@ -795,12 +823,18 @@ def tenir(color, nombre):
 # La mano quedaba abierta en estrella sobre el paño: 20 grados de abanico entre
 # el índice y el meñique y poca curva. Una mano en reposo tiene los dedos casi
 # paralelos y algo doblados.
-CURVA_DEDO = float(os.environ.get('CURVA_DEDO', 40))
-ADUCCION = {'index': 3.5, 'middle': 0.5, 'ring': -3.0, 'pinky': -6.5}
-TH_Z1 = float(os.environ.get('TH_Z1', -34))
-TH_X1 = float(os.environ.get('TH_X1', 14))
-TH_Z2 = float(os.environ.get('TH_Z2', -26))
-TH_Z3 = float(os.environ.get('TH_Z3', -20))
+# Mirando la mano de cerca: los dedos quedaban abiertos en abanico y las yemas
+# flotando sobre el paño, y el pulgar salía de lado, separado. Una mano puesta
+# en la mesa tiene los dedos casi juntos, las yemas TOCANDO, y el pulgar
+# recogido contra el índice. MUNECA baja la mano entera para que las yemas
+# lleguen al paño.
+CURVA_DEDO = float(os.environ.get('CURVA_DEDO', 44))
+ADUCCION = {'index': 1.5, 'middle': 0.5, 'ring': -1.5, 'pinky': -3.0}
+MUNECA = float(os.environ.get('MUNECA', 12))
+TH_Z1 = float(os.environ.get('TH_Z1', -46))
+TH_X1 = float(os.environ.get('TH_X1', 6))
+TH_Z2 = float(os.environ.get('TH_Z2', -30))
+TH_Z3 = float(os.environ.get('TH_Z3', -22))
 
 
 RUTA_PERSONAJES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -985,6 +1019,7 @@ def personaje(idx, piel, pantalon, tipo, camisa_fn):
         # Los dedos solo se doblaban, nunca se juntaban: la mano quedaba
         # abierta en estrella, que es la pose de reposo del rig y no la de
         # alguien con la mano puesta en la mesa. Se cierran hacia el medio.
+        rotar(pb,'hand_'+l, 'X', MUNECA)      # la muñeca cae: las yemas tocan
         for d in ('index','middle','pinky','ring'):
             rotar(pb,'%s_01_%s' % (d,l), 'Z', sg*ADUCCION[d])
             for n in ('01','02','03'):
@@ -1481,6 +1516,7 @@ sc.render.bake.target = 'VERTEX_COLORS'
 for ob, lit, mt in todos:
     if not vivo(ob): continue
     if os.environ.get('RAPIDO'): break
+    if ob.get('emisivo'): continue        # sin LUZ: el exportador lo deja en blanco
     at = ob.data.color_attributes.new(name='LUZ', type='FLOAT_COLOR', domain='POINT')
     ob.data.color_attributes.active_color = at
     bpy.ops.object.select_all(action='DESELECT')

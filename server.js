@@ -18,7 +18,10 @@ const PORT = process.env.PORT || 3000;
 // En la nube: URL_PUBLICA=https://juega.midominio.com — es lo que la mesa
 // enseña a los teléfonos. Sin ella, seguimos en modo portátil con la IP local.
 const URL_PUBLICA = process.env.URL_PUBLICA || null;
-const GRACIA_MS = 20000;     // cuánto esperamos a un teléfono dormido antes de que juegue el bot
+// Cuánto esperamos a un teléfono dormido antes de que juegue el bot. Es
+// ajustable SOLO para que la prueba de serie larga no tarde veinte segundos por
+// cada relevo; en producción manda el valor de siempre.
+const GRACIA_MS = process.env.GRACIA_MS !== undefined ? +process.env.GRACIA_MS : 20000;
 // Un bot que juega al instante delata que es un bot. Se queda pensando un
 // rato, y más si tiene de dónde escoger. Las pruebas lo ponen en cero.
 const PIENSA_MIN = process.env.PIENSA_MIN !== undefined ? +process.env.PIENSA_MIN : 700;
@@ -152,7 +155,14 @@ function debeJugarElBot(sala, i) {
   const a = sala.asientos[i];
   if (a.bot) return true;
   if (!a.nombre) return true;                       // asiento vacío en una partida ya empezada
-  if (a.ws) return false;
+  // Antes bastaba con que el socket siguiera abierto para que el bot no
+  // relevara, y eso es justo lo que NO pasa en un patio: el teléfono se
+  // bloquea, el navegador congela los temporizadores de la pestaña de atrás y
+  // el socket se queda abierto sin mandar nada. La mesa se quedaba clavada
+  // esperando a alguien que no iba a contestar. Lo que manda es cuándo se le
+  // oyó por última vez, no si el cable sigue puesto. El teléfono despierto
+  // manda un ping cada diez segundos, así que al que está pensando no se le
+  // quita el turno; al que se durmió, sí.
   return Date.now() - a.visto > GRACIA_MS;
 }
 

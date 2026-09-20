@@ -1750,16 +1750,40 @@ function aplicarMirada(o, s, f, r, dt){
   o.cabY += m.y; o.cabX += m.p; o.torY += m.y*.22;
 }
 
+/* Nadie se queda con las dos manos plantadas en el paño veinte minutos. Cada
+   tanto uno le mete mano a sus propias fichas: las corre, las empareja, las
+   vuelve a dejar. Cuesta nada y es la diferencia entre gente sentada y cuatro
+   maniquíes puestos alrededor de una mesa. */
+const toque = [null,null,null,null];
+let proxToque = [6, 13, 19, 26];
+function acomodarFichas(o, s, t){
+  if(!toque[s]){
+    if(t < proxToque[s] || (vuelo && vuelo.s === s) || tragos[s]) return;
+    toque[s] = { t0: t, lado: Math.random() < .5 ? 'L' : 'R',
+                 d: (Math.random()-.5)*.10 };
+  }
+  const u = t - toque[s].t0, DUR = 1.95;
+  if(u > DUR){ toque[s] = null; proxToque[s] = t + 11 + Math.random()*21; return; }
+  const k = u < .45 ? easo(u/.45) : (u > DUR-.55 ? easo((DUR-u)/.55) : 1);
+  const ang = ASIENTO_ANG[s], d = MESA/2 + .05;
+  const off = toque[s].d + Math.sin(u*1.9)*.05;
+  agarrar(o, toque[s].lado,
+    _vP2.set(Math.sin(ang)*d + Math.cos(ang)*off, .105,
+             Math.cos(ang)*d - Math.sin(ang)*off), k*.85);
+}
+
 /* Los clips. Todo lo que hace una persona está aquí y en un solo sitio. */
 const CLIPS = {
   quieto(o, u, t, s, f, r){
     respirar(o, t, f);
     verA(o, ojeada(s,t) || focoDeMesa(), .5);
+    acomodarFichas(o, s, t);
   },
   atento(o, u, t, s, f, r){
     respirar(o, t, f);
     o.torX += .055;
     verA(o, ojeada(s,t) || focoDeMesa(), .92);
+    acomodarFichas(o, s, t);
   },
   /* Barajar no es mirar barajar. Las manos entran al paño y dan vueltas sobre
      las fichas mientras se revuelven; cuando empieza el reparto se retiran. */
@@ -1795,7 +1819,8 @@ const CLIPS = {
     if((s & 1) === 0 && u > .8){
       const k = easo(Math.min(1,(u-.8)/.5)) * (1 - easo(lim((u-3.2)/.6,0,1)));
       if(k > .01){ agarrar(o, 'R', barbilla(s, _vP3), k); o.manRX = -.45*k; }
-    }
+      else acomodarFichas(o, s, t);
+    } else acomodarFichas(o, s, t);   // el otro le mete mano a sus fichas
   },
   paso(o, u, t, s, f, r){
     respirar(o, t, f);

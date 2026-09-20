@@ -1,0 +1,1 @@
+function s(r,n,e){let u=(Math.imul(r+1,73856093)^Math.imul(n+3,19349663)^Math.imul(e+7,83492791))>>>0,t=[[4800,8000],[4200,7200],[3800,6500],[5000,8200]][(e%4+4)%4],m=n>=16?400:0;return t[0]+u%(t[1]-t[0]+1)+m}function b(r,n,e){return`${r}:${n}:${e}`}export{s as botThinkingMs,b as botTurnKey};

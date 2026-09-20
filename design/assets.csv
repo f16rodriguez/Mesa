@@ -1,0 +1,4 @@
+id,role,type,description,size/ratio,style line ref,source
+colmado,background,image,night colmado street plate,4k 16:9,plan.md STYLE FORMULA,generate
+cover,launch-cover,image,ivory dominoes on a warm wooden table,3:2,plan.md STYLE FORMULA,generate
+icon,app-icon,image,ivory domino tile,1:1,plan.md STYLE FORMULA,generate

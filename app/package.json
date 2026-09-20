@@ -1,0 +1,29 @@
+{
+  "name": "higgsfield-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run check:logic && bun run check:bots && tsc --noEmit && bun run scripts/build.mjs",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check:logic": "bun run scripts/check-logic.mjs",
+    "check:bots": "bun run scripts/check-bot-lines.mjs",
+    "deploy:cloudflare": "bun run build && wrangler deploy -c wrangler.cloudflare.jsonc"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.20.1",
+    "@cloudflare/workers-types": "5.20260804.1",
+    "@playwright/test": "^1.63.0",
+    "@types/three": "^0.186.0",
+    "qrcode": "^1.5.4",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.118.0"
+  },
+  "dependencies": {
+    "livekit-client": "^2.22.3",
+    "livekit-server-sdk": "^2.19.0",
+    "three": "^0.186.0"
+  }
+}

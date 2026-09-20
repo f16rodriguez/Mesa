@@ -1,0 +1,13 @@
+#voice-hud{position:fixed;z-index:35;left:30px;bottom:57px;pointer-events:auto}#voice-hud.phone-voice{left:auto;right:22px;top:68px;bottom:auto}#voice-hud .g-button{font-size:10px;min-height:32px;padding:8px 12px}.voice-participants{max-height:210px;overflow:auto;margin:15px 0}
+/* Launch-polish overrides: a two-line title with controls inside the viewport. */
+.bot-caption{position:fixed;z-index:40;left:50%;top:95px;transform:translateX(-50%);max-width:80vw;padding:9px 15px;border-radius:6px;background:#173829e8;border:1px solid #dcc48b66;color:#f0dfb5;font:12px 'DM Sans',sans-serif;pointer-events:none}.seat-label.speaking{box-shadow:0 0 0 2px #dfc58d,0 0 18px #e9c97255}
+.title-screen{top:clamp(100px,17vh,155px);left:5vw;width:min(460px,43vw);bottom:85px;display:flex;flex-direction:column;justify-content:center}
+.title-screen h1{font-size:clamp(58px,6.2vw,91px);line-height:1.02;letter-spacing:-3.5px;margin:18px 0 20px;flex:none}
+.title-screen h1 span{display:block;white-space:nowrap}
+.title-screen>.eyebrow,.title-screen>p,.title-actions,.title-secondary{flex-shrink:0}.title-screen{overflow-y:auto;scrollbar-width:none;padding-bottom:6px}
+.title-actions{margin-top:22px;gap:8px}.title-actions .g-button{padding:13px 16px;min-height:43px}.title-secondary{margin-top:17px}.title-screen p{max-width:295px}
+.game-bottom{bottom:19px}.game-top{top:21px}
+@media(max-width:900px){.title-screen{width:350px;max-width:48vw;left:5vw;top:102px;bottom:65px}.title-screen h1{font-size:clamp(53px,7vw,70px);letter-spacing:-2.5px}}
+@media(max-width:550px){.title-screen{width:calc(100vw - 44px);max-width:330px;left:22px;top:99px;bottom:67px}.title-screen h1{font-size:clamp(45px,12.5vw,64px);letter-spacing:-2px;margin:14px 0 17px}.title-screen p{display:block;font-size:11px}.title-actions{margin-top:18px;width:225px;max-width:100%}.title-actions .g-button{min-height:41px;padding:12px 14px}.title-secondary{margin-top:14px}}
+@media(max-height:670px){.title-screen{top:86px;bottom:53px;justify-content:center}.title-screen h1{font-size:clamp(45px,5.6vw,65px);margin:11px 0 13px}.title-screen .eyebrow{margin-bottom:0}.title-actions{margin-top:13px;gap:6px}.title-actions .g-button{min-height:36px;padding:10px 13px}.title-secondary{margin-top:8px}.title-screen p{font-size:10px;line-height:1.65}}
+@media(max-height:470px){.title-screen{top:72px;bottom:39px;justify-content:flex-start}.title-screen h1{font-size:43px;line-height:.98;margin:8px 0}.title-screen p{display:none}.title-actions{margin-top:7px;gap:4px}.title-actions .g-button{padding:8px 12px;min-height:32px}.title-secondary{margin-top:5px}.title-secondary button{font-size:9px;padding:4px 0}.game-bottom{bottom:11px}}

@@ -1,0 +1,14 @@
+import { chromium } from '@playwright/test';
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const base=process.env.MESA_URL||'http://localhost:8787';
+const host=await browser.newPage({viewport:{width:1440,height:1000}}),ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:true}),phone=await ctx.newPage();
+await host.goto(base);await host.locator('[data-action="host"]').click();await host.locator('#qr svg').waitFor();
+const room=new URL(host.url()).searchParams.get('room'),link=`${base}/?room=${room}&role=player`;
+await phone.goto(link);await phone.getByLabel('Your name').fill('Reconnection test');await phone.locator('#join-form button').click();await phone.getByText('You’re at the table.').waitFor();await host.locator('[data-action="start"]').click();
+await phone.locator('.tile-button.legal,[data-action="pass"]').first().waitFor({timeout:15000});
+const before=await host.locator('.seat-0 .tile-back').count();await phone.close();await host.waitForTimeout(22500);const after=await host.locator('.seat-0 .tile-back').count();
+if(after>=before)throw Error('Bot did not cover the disconnected player in time');
+const back=await ctx.newPage();await back.goto(link);await back.locator('.hand-panel').waitFor();if(await back.locator('.tile-button').count()!==after)throw Error('Returning player did not recover updated hand');
+const local=await browser.newContext({viewport:{width:390,height:844}}),practice=await local.newPage();await practice.goto(base);await practice.locator('[data-action="practice"]').click();await practice.locator('.hand-panel').waitFor();await practice.evaluate(async()=>{await navigator.serviceWorker.ready;});await practice.waitForTimeout(600);await local.setOffline(true);await practice.reload({waitUntil:'domcontentloaded'});await practice.locator('.hand-panel').waitFor({timeout:10000});
+const fps=await host.evaluate(()=>new Promise(resolve=>{let first=null,count=0;function tick(t){first??=t;count++;if(t-first>1200)resolve((count-1)*1000/(t-first));else requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
+console.log(JSON.stringify({passed:true,disconnectedHandBefore:before,afterBotCover:after,reconnection:'restored',offlinePractice:'reload passed',headlessDesktopFPS:Math.round(fps)},null,2));await browser.close();

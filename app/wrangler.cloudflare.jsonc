@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // ── THE DEPLOY CONFIG FOR OUR OWN CLOUDFLARE ACCOUNT ─────────────
+  // wrangler.jsonc next to this file is the BUILD/DEV config: the hosting
+  // platform ignores it and generates its own from app.manifest.json. That is
+  // the whole Higgsfield dependency — the app is a stock Cloudflare Worker
+  // everywhere else. This file is that generated config, written out by hand,
+  // so the same repo deploys to an account we own:
+  //
+  //     bun run build
+  //     bunx wrangler deploy -c wrangler.cloudflare.jsonc
+  //
+  // Nothing here changes how the app builds or how it deploys on Higgsfield;
+  // wrangler only reads it when it is passed with -c.
+
+  "name": "mesa",
+  "main": "dist/worker/index.js",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Static files serve FIRST (so `/` and `/client.js` never reach the Worker);
+  // anything else — notably `/ws` — falls through to it.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+
+  // One Durable Object per room. DO NOT rename the class or change the
+  // migration tag: "v1" is what Cloudflare matches existing namespaces on, so a
+  // new tag orphans every room that has ever been created.
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+
+  // Profiles and sessions. Create it once with
+  //     bunx wrangler d1 create mesa-profiles
+  // and paste the uuid it prints over the placeholder below. It is an id, not a
+  // secret — it belongs in the repo. The placeholder is deliberately not a
+  // valid uuid so a deploy that forgets this step fails instead of silently
+  // writing to nothing.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mesa-profiles",
+      "database_id": "PUT-THE-D1-DATABASE-ID-HERE"
+    }
+  ]
+
+  // The three LiveKit values the voice code reads (LIVEKIT_URL,
+  // LIVEKIT_API_KEY, LIVEKIT_API_SECRET) are SECRETS and must never appear in
+  // this file. Set them once per account:
+  //     bunx wrangler secret put LIVEKIT_URL        -c wrangler.cloudflare.jsonc
+  //     bunx wrangler secret put LIVEKIT_API_KEY    -c wrangler.cloudflare.jsonc
+  //     bunx wrangler secret put LIVEKIT_API_SECRET -c wrangler.cloudflare.jsonc
+  // Without them the table still plays; only proximity voice goes quiet.
+}

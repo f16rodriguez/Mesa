@@ -687,6 +687,144 @@ TH_Z2 = float(os.environ.get('TH_Z2', -26))
 TH_Z3 = float(os.environ.get('TH_Z3', -20))
 
 
+RUTA_PERSONAJES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               '..', 'personajes')
+
+# El rig de Meshy tiene los NOMBRES cambiados respecto a la jerarquía real: el
+# hueso que llama 'neck' cuelga directo de Hips y mueve todo el torso — o sea
+# que es la lumbar, no el cuello. Si se mapea por nombre, el cuerpo se dobla
+# desde la cabeza. Se mapea por FUNCIÓN, mirando de quién cuelga cada uno.
+MAPA_MESHY = {
+    'Hips':'pelvis',      'neck':'spine_01',   'Spine02':'spine_02',
+    'Spine':'spine_03',   'Head1':'neck_01',   'Head':'Head',
+    'LeftShoulder':'clavicle_l', 'LeftArm':'upperarm_l',
+    'LeftForeArm':'lowerarm_l',  'LeftHand':'hand_l',
+    'RightShoulder':'clavicle_r','RightArm':'upperarm_r',
+    'RightForeArm':'lowerarm_r', 'RightHand':'hand_r',
+    'LeftUpLeg':'thigh_l', 'LeftLeg':'calf_l',
+    'LeftFoot':'foot_l',   'LeftToeBase':'ball_l',
+    'RightUpLeg':'thigh_r','RightLeg':'calf_r',
+    'RightFoot':'foot_r',  'RightToeBase':'ball_r',
+}
+
+
+def persona_generada(idx, archivo, tipo, alto=1.74):
+    """Una persona generada (Tripo) y rigueada (Meshy), sentada a la mesa.
+
+    Mucho más simple que `personaje()`: ésta YA trae ropa, pelo y cara dentro de
+    su textura, así que se salta el modelado de prendas, los postizos y el
+    pintado de piel. Lo único que hay que hacer es renombrar los huesos a
+    nuestra convención, sentarla y hornearla.
+
+    Se posa con DAMPED_TRACK (apuntar el hueso a un punto) en vez de rotar en
+    ejes: cada rig tiene sus ejes locales y adivinarlos es perder la tarde —
+    apuntar funciona igual en cualquiera."""
+    P = 'P%d_' % idx
+    antes = set(bpy.context.scene.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(RUTA_PERSONAJES, archivo))
+    nuevos = [o for o in bpy.context.scene.objects if o not in antes]
+    arm = next(o for o in nuevos if o.type == 'ARMATURE')
+    mallas = [o for o in nuevos if o.type == 'MESH']
+    # el rig trae una Icosphere suelta sin pesos
+    for m in list(mallas):
+        if not m.vertex_groups:
+            bpy.data.objects.remove(m); mallas.remove(m)
+    cuerpo = mallas[0]
+
+    for b in arm.data.bones:
+        if b.name in MAPA_MESHY: b.name = MAPA_MESHY[b.name]
+
+    # NO se escala. Escalar el esqueleto y aplicarlo dejaba los huesos en una
+    # escala y la malla en otra, y al skinnear el cuerpo reventaba en una mancha
+    # que tapaba la cámara. Viene a 1,80 m, que es una altura de persona.
+    arm.location.z = -0.472              # la cadera cae en el asiento
+    bpy.context.view_layer.update()
+
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
+    pb = arm.pose.bones
+    objetivos = []
+    def apuntar(hueso, destino):
+        if hueso not in pb: return
+        e = bpy.data.objects.new('tgt', None)
+        e.location = destino
+        bpy.context.collection.objects.link(e); objetivos.append(e)
+        c = pb[hueso].constraints.new('DAMPED_TRACK')
+        c.target = e; c.track_axis = 'TRACK_Y'
+    # sentarse: muslo al frente, pantorrilla al piso
+    for l, sg in (('l', 1), ('r', -1)):
+        apuntar('thigh_'+l, (sg*.11, -.34, .50))
+        apuntar('calf_'+l,  (sg*.12, -.32, PISO + .06))
+        apuntar('foot_'+l,  (sg*.12, -.40, PISO))
+        apuntar('upperarm_'+l, (sg*.34, -.14, .58))
+        apuntar('lowerarm_'+l, (sg*.33, -.46, .50))
+    # NADA de doblar la columna en este rig. Su hueso raíz del torso pivota a
+    # la altura del CUELLO (1,22), no de la lumbar: apuntarlo hacia abajo le
+    # plegaba el cuerpo entero sobre la mesa. Se queda derecho.
+    
+    bpy.context.view_layer.update()
+    bpy.ops.pose.select_all(action='SELECT')
+    bpy.ops.pose.visual_transform_apply()
+    for b in pb:
+        for c in list(b.constraints): b.constraints.remove(c)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.update()
+    for e in objetivos: bpy.data.objects.remove(e)
+
+    hw = arm.matrix_world @ pb['Head'].head
+    Mhead = (arm.matrix_world @ pb['Head'].matrix
+             @ arm.data.bones['Head'].matrix_local.inverted())
+
+    for m in mallas:
+        bpy.context.view_layer.objects.active = m
+        for mod in list(m.modifiers):
+            if mod.type == 'ARMATURE':
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
+    bpy.ops.pose.select_all(action='SELECT')
+    bpy.ops.pose.armature_apply()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.update()
+
+    HUESOS = ['pelvis','spine_01','spine_02','spine_03',
+              'clavicle_l','upperarm_l','lowerarm_l','hand_l',
+              'clavicle_r','upperarm_r','lowerarm_r','hand_r',
+              'neck_01','Head',
+              'thigh_l','calf_l','foot_l','ball_l',
+              'thigh_r','calf_r','foot_r','ball_r']
+    esqueletos[P[:-1]] = huesos_de(arm, HUESOS)
+
+    # su textura viene metida dentro del glb; el motor necesita un PNG suelto
+    for mt_ in cuerpo.data.materials:
+        if not (mt_ and mt_.use_nodes): continue
+        for nd in mt_.node_tree.nodes:
+            if nd.type == 'TEX_IMAGE' and nd.image and nd.image.size[0]:
+                im_ = nd.image
+                if im_.size[0] > 1024: im_.scale(1024, 1024)
+                im_.filepath_raw = os.path.join(TEXDIR, 'pi%d.png' % idx)
+                im_.file_format = 'PNG'; im_.save()
+                break
+    cuerpo.name = P + 'piel'
+    cuerpo['rough'] = .72; cuerpo['metal'] = 0.0
+    cuerpo['tx'] = 'pi%d' % idx           # su propia textura, ya en public/tex
+    cuerpo['uvreal'] = 1                  # su atlas necesita SUS UV, no proyección
+    for p in cuerpo.data.polygons: p.use_smooth = True
+    # el color de vértice queda en blanco: sólo multiplica a la textura
+    at = cuerpo.data.color_attributes.new(name='Base', type='FLOAT_COLOR',
+                                          domain='POINT')
+    for i in range(len(cuerpo.data.vertices)): at.data[i].color = (1,1,1,1)
+    # al borrar el padre, el hijo pierde su sitio: se guarda y se devuelve
+    Mc = cuerpo.matrix_world.copy()
+    cuerpo.parent = None
+    cuerpo.matrix_world = Mc
+    todos.append((cuerpo, 1, {'sk': P[:-1]}))
+    bpy.data.objects.remove(arm)
+    return hw, Mhead
+
+
 def personaje(idx, piel, pantalon, tipo, camisa_fn):
     P = 'P%d_' % idx
     sexo = 'Female' if tipo == 'panuelo' else 'Male'
@@ -1166,7 +1304,10 @@ TIPOS  = ['sombrero','gorra','panuelo','afro']
 PATRONES = [ropa_guayabera, ropa_joven, ropa_dona, ropa_afro]
 PANTS  = [hexlin('#8A7B62'), hexlin('#2E3A46'), hexlin('#4A3A50'), hexlin('#2E2A33')]
 for s in range(4):
-    personaje(s, PIELES[s], PANTS[s], TIPOS[s], PATRONES[s])
+    if s == 0 and os.path.exists(os.path.join(RUTA_PERSONAJES, 'chelo_rig.glb')):
+        persona_generada(s, 'chelo_rig.glb', TIPOS[s])
+    else:
+        personaje(s, PIELES[s], PANTS[s], TIPOS[s], PATRONES[s])
 
 # la gente se sienta SOLO para hornear; vuelve al origen antes de exportar
 COLOC = []
@@ -1287,7 +1428,11 @@ def exportar(path):
                 sib += struct.pack('<4B', *bs); swb += struct.pack('<4B', *bw)
         tx = ob.get('tx'); nm = ob.get('nm'); txs = ob.get('txs', 1.0)
         uv_mesh = None
-        if nm and me.uv_layers.active:
+        # Las UV de verdad se usan si la pieza las trae a propósito ('uvreal',
+        # como el atlas de una persona generada) o si lleva mapa de normales.
+        # Lo demás sigue con proyección plana por ejes, que es lo que quieren
+        # la pared y el piso.
+        if (nm or ob.get('uvreal')) and me.uv_layers.active:
             uv_mesh = [None]*nv
             for loop in me.loops:
                 if uv_mesh[loop.vertex_index] is None:

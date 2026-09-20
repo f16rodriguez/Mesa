@@ -1156,7 +1156,10 @@ function colocarCadena(board){
      tramo del medio topa a la derecha, sube por el costado y vuelve por arriba.
      Y crece desde el CENTRO hacia los dos extremos, que por eso cada punta
      dobla para su lado. */
-  const A = MESA/2 - 0.125;             // hasta dónde llega el paño
+  // Menos fichas en línea recta. En las capturas de ellos el tramo del medio
+  // dobla mucho antes de llegar al borde del paño: la cadena se ve como una
+  // grapa, no como una raya de punta a punta.
+  const A = 0.30;
   const HUECO = 0.0016;                 // holgura: pegadas se funden en una barra
   const DX = [1, 0, -1, 0], DZ = [0, 1, 0, -1];   // +X, +Z, -X, -Z
 

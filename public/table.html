@@ -385,29 +385,77 @@ const SFX = (() => {
     const fin = env(o, .07, .002, .09);
     o.start(); o.stop(fin + .02);
   }
-  function revoltura(){                 // el reparto: fichas barajadas
+  /* La revoltura dura lo que dura la barajada en pantalla: dos segundos de
+     fichas rozándose, con sus golpecitos sueltos encima. Antes era un solo
+     soplido de un segundo y la animación seguía en silencio. */
+  function revoltura(dur){
     if(!ctx || mudo) return;
+    dur = dur || 2.0;
     const s = ctx.createBufferSource(); s.buffer = ruidoBuf; s.loop = true;
     const f = ctx.createBiquadFilter();
     f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = .7;
     s.connect(f);
-    const fin = env(f, .12, .12, .85);
+    const fin = env(f, .10, .18, dur);
     s.start(); s.stop(fin + .05);
+    // los chasquidos: hueso contra hueso, cada vez en un sitio distinto
+    for(let i=0;i<20;i++){
+      const w = .04 + Math.random()*(dur - .2);
+      const o = ctx.createBufferSource(); o.buffer = ruidoBuf; o.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 1400 + Math.random()*1800;
+      bp.Q.value = 3.2; o.connect(bp);
+      const g = ctx.createGain(); const t0 = ctx.currentTime + w;
+      g.gain.setValueAtTime(.0001, t0);
+      g.gain.exponentialRampToValueAtTime(.035 + Math.random()*.03, t0 + .002);
+      g.gain.exponentialRampToValueAtTime(.0001, t0 + .05);
+      bp.connect(g); g.connect(maestro);
+      o.start(t0); o.stop(t0 + .08);
+    }
+  }
+  /* El motor que cruza la calle. Si hay archivo se usa; si no, se sintetiza:
+     una sierra grave que sube al acercarse y baja al alejarse (el efecto
+     Doppler de toda la vida) y se va de un lado al otro del estéreo. Sin esto
+     la moto cruzaba muda, que es peor que no cruzar. */
+  function motorPasa(dur){
+    if(!ctx || mudo) return;
+    if(buf['moto']){ suelto('moto', .34); return; }
+    const t0 = ctx.currentTime, t1 = t0 + dur;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(58, t0);
+    o.frequency.linearRampToValueAtTime(104, t0 + dur*.48);
+    o.frequency.linearRampToValueAtTime(46, t1);
+    const o2 = ctx.createOscillator(); o2.type = 'square';
+    o2.frequency.setValueAtTime(29, t0);
+    o2.frequency.linearRampToValueAtTime(52, t0 + dur*.48);
+    o2.frequency.linearRampToValueAtTime(23, t1);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(320, t0);
+    f.frequency.linearRampToValueAtTime(1500, t0 + dur*.48);
+    f.frequency.linearRampToValueAtTime(260, t1);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(.0001, t0);
+    g.gain.exponentialRampToValueAtTime(.22, t0 + dur*.45);
+    g.gain.exponentialRampToValueAtTime(.0001, t1);
+    o.connect(f); o2.connect(f); f.connect(g);
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if(pan){ pan.pan.setValueAtTime(-.85, t0); pan.pan.linearRampToValueAtTime(.85, t1);
+             g.connect(pan); pan.connect(maestro); }
+    else g.connect(maestro);
+    o.start(t0); o2.start(t0); o.stop(t1+.05); o2.stop(t1+.05);
   }
   /* Cada tanto pasa algo en la calle. Sin archivos no suena nada y ya. */
   function calle(t){
     if(!ctx || mudo || t < proxSuelto) return;
     proxSuelto = t + 22 + Math.random()*38;
     const r = Math.random();
-    if(r < .45)      suelto('moto',  .32 + Math.random()*.2);
-    else if(r < .78) suelto('gente', .16 + Math.random()*.1);
+    if(r < .60)      suelto('gente', .16 + Math.random()*.1);
     else             suelto('perro', .18);
   }
   function silenciar(v){
     mudo = v;
     if(maestro) maestro.gain.value = v ? 0 : .9;
   }
-  return { arrancar, golpe, vidrio, revoltura, calle, silenciar,
+  return { arrancar, golpe, vidrio, revoltura, calle, motorPasa, silenciar,
            get mudo(){ return mudo; },
            get activo(){ return !!ctx; } };
 })();
@@ -561,38 +609,75 @@ function texMadera(){
     }
   });
 }
+/* El cielo se dibujaba con elipses de borde duro sobre una textura de 1024:
+   estiradas en un domo de 70 m quedaban como panqueques morados apilados, que
+   es exactamente lo que se veía. Ahora las nubes son BROCHAZOS con caída suave
+   — muchos, pequeños y en bandas — el horizonte lleva su calima para que el mar
+   no corte en seco, y arriba hay luna. */
+function brochazo(x, cx, cy, rw, rh, rgb, a){
+  x.save(); x.translate(cx, cy); x.scale(1, Math.max(.04, rh/rw));
+  const g = x.createRadialGradient(0,0,0, 0,0, rw);
+  g.addColorStop(0,   `rgba(${rgb},${a})`);
+  g.addColorStop(.45, `rgba(${rgb},${a*.62})`);
+  g.addColorStop(.78, `rgba(${rgb},${a*.20})`);
+  g.addColorStop(1,   `rgba(${rgb},0)`);
+  x.fillStyle = g; x.beginPath(); x.arc(0,0,rw,0,Math.PI*2); x.fill();
+  x.restore();
+}
 function texCielo(){
-  return lienzoTex(1024,512,(x,w,h) => {
+  return lienzoTex(2048,1024,(x,w,h) => {
     // el horizonte del domo cae en v≈.5: el dorado va ahí, no abajo
     const g = x.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'#0E1834'); g.addColorStop(.26,'#2A2A52');
-    g.addColorStop(.38,'#5E4266'); g.addColorStop(.44,'#B05C48');
-    g.addColorStop(.49,'#E8935A'); g.addColorStop(.56,'#B0584E');
-    g.addColorStop(.64,'#4A3450'); g.addColorStop(1,'#241B2E');
+    g.addColorStop(0,'#0B1230'); g.addColorStop(.22,'#22244C');
+    g.addColorStop(.36,'#553E63'); g.addColorStop(.43,'#9E5A50');
+    g.addColorStop(.48,'#DE8F5E'); g.addColorStop(.505,'#F0B071');
+    g.addColorStop(.55,'#A55A4E'); g.addColorStop(.63,'#4A3450');
+    g.addColorStop(.80,'#2A2038'); g.addColorStop(1,'#1C1526');
     x.fillStyle = g; x.fillRect(0,0,w,h);
-    // cúmulos del atardecer: panza violeta, borde encendido por abajo
-    for(let i=0;i<34;i++){
-      const cy = h*(.40+Math.random()*.11), cw = 26+Math.random()*70, ch = 7+Math.random()*13;
-      const cx = Math.random()*w;
-      x.globalAlpha = .75;
-      x.fillStyle = ['#4A2E4E','#5A3452','#3E2846'][(Math.random()*3)|0];
-      for(let k=0;k<3;k++){
-        x.beginPath();
-        x.ellipse(cx+(k-1)*cw*.5, cy+(Math.random()-.5)*4, cw*.6, ch, 0, 0, Math.PI*2);
-        x.fill();
-      }
-      x.globalAlpha = .4; x.fillStyle = '#F09A5E';
-      x.beginPath(); x.ellipse(cx, cy+ch*.55, cw*.8, ch*.4, 0, 0, Math.PI*2); x.fill();
-    }
-    x.globalAlpha = .45; x.fillStyle = '#41284A';      // velos finos
-    for(let i=0;i<20;i++)
-      x.fillRect(Math.random()*w, h*(.42+Math.random()*.12), 40+Math.random()*130, 2+Math.random()*4);
+    // la luna, antes de las nubes, para que alguna le pase por delante
+    const lx = w*.72, ly = h*.17;
+    brochazo(x, lx, ly, 190, 190, '255,236,206', .10);
+    brochazo(x, lx, ly, 74, 74, '255,240,214', .22);
+    x.globalAlpha = .92; x.fillStyle = '#F6EEDC';
+    x.beginPath(); x.arc(lx, ly, 21, 0, Math.PI*2); x.fill();
+    x.globalAlpha = .10; x.fillStyle = '#9A8E7C';
+    x.beginPath(); x.arc(lx-6, ly-4, 7, 0, Math.PI*2); x.fill();
+    x.beginPath(); x.arc(lx+7, ly+5, 5, 0, Math.PI*2); x.fill();
     x.globalAlpha = 1;
-    for(let i=0;i<160;i++){                            // estrellas
-      const py = Math.random()*h*.3;
-      x.globalAlpha = .3 + Math.random()*.65*(1-py/(h*.3));
-      x.fillStyle = '#EAF2FF';
-      x.fillRect(Math.random()*w, py, 1.8, 1.8);
+    // cuatro bandas de nubes: mientras más abajo, más encendidas por debajo
+    const BANDAS = [
+      { v:.300, n:26, rw:[120,300], rh:[9,20],  c:'58,44,74',  a:.16 },
+      { v:.375, n:34, rw:[110,280], rh:[10,22], c:'74,50,78',  a:.24 },
+      { v:.440, n:42, rw:[ 90,240], rh:[11,24], c:'92,58,82',  a:.30 },
+      { v:.545, n:38, rw:[100,260], rh:[10,22], c:'70,46,72',  a:.26 },
+      { v:.620, n:24, rw:[130,320], rh:[ 8,18], c:'56,40,62',  a:.20 },
+    ];
+    for(const b of BANDAS){
+      for(let i=0;i<b.n;i++){
+        const cx = Math.random()*w*1.1 - w*.05;
+        const cy = h*b.v + (Math.random()-.5)*h*.030;
+        const rw = b.rw[0] + Math.random()*(b.rw[1]-b.rw[0]);
+        const rh = b.rh[0] + Math.random()*(b.rh[1]-b.rh[0]);
+        brochazo(x, cx, cy, rw, rh, b.c, b.a*(.6+Math.random()*.6));
+        // la panza encendida: solo en las bandas de abajo y muy suave
+        if(b.v > .40 && b.v < .60 && Math.random() < .55)
+          brochazo(x, cx+(Math.random()-.5)*rw*.4, cy+rh*.75,
+                   rw*.72, rh*.42, '246,166,104', .14+Math.random()*.10);
+      }
+    }
+    // calima del horizonte: sin esto el mar corta el cielo con una raya negra
+    const hz = x.createLinearGradient(0, h*.47, 0, h*.60);
+    hz.addColorStop(0,'rgba(246,186,132,0)');
+    hz.addColorStop(.35,'rgba(240,164,116,.26)');
+    hz.addColorStop(1,'rgba(52,38,56,0)');
+    x.fillStyle = hz; x.fillRect(0, h*.47, w, h*.13);
+    // estrellas: más arriba, más brillo, y ninguna sobre el resplandor
+    for(let i=0;i<420;i++){
+      const py = Math.pow(Math.random(), 1.5)*h*.33;
+      x.globalAlpha = (.18 + Math.random()*.72)*(1 - py/(h*.36));
+      x.fillStyle = Math.random() < .12 ? '#FFD9B0' : '#EAF2FF';
+      const r = Math.random() < .08 ? 2.6 : 1.5;
+      x.fillRect(Math.random()*w, py, r, r);
     }
     x.globalAlpha = 1;
   });
@@ -613,7 +698,7 @@ function spriteGlow(escala){
 
 /* ---------- el entorno: cielo, vista, colmado ---------- */
 function armarCielo(){
-  const d = new THREE.Mesh(new THREE.SphereGeometry(70,24,12),
+  const d = new THREE.Mesh(new THREE.SphereGeometry(70,56,28),
     new THREE.MeshBasicMaterial({map:texCielo(), side:THREE.BackSide, fog:false, depthWrite:false}));
   d.renderOrder = -2; scene.add(d);
 }
@@ -1033,7 +1118,7 @@ function aplicarVuelo(s, t){
   }
   // el cuerpo acompaña al brazo: sin esto el hombro se queda clavado y el
   // brazo parece de goma cuando la ficha cae lejos
-  girarFig(r.torso, f, (f.userData.torX || 0) + inclina*.13, 0, 0);
+  girarFig(r.torso, f, (f.userData.torX || 0) + inclina*.13, f.userData.torY || 0, 0);
   const bru = r['bru'+vuelo.lado], ant = r['ant'+vuelo.lado], marca = marcas[vuelo.lado];
   const mano = r['mano'+vuelo.lado], ref = manoRef[s] && manoRef[s][vuelo.lado];
   if(bru && ant && marca){
@@ -1066,6 +1151,7 @@ function armarGuirnalda(a, b, sag, n){
     const bmb = new THREE.Mesh(new THREE.SphereGeometry(.022,8,6), foco);
     bmb.position.copy(p); bmb.position.y -= .03; scene.add(bmb);
     const gl = spriteGlow(.22); gl.position.copy(bmb.position); scene.add(gl);
+    gl.material = gl.material.clone(); focosGuirnalda.push(gl);
   }
   const luz = new THREE.PointLight(0xFFC98C, 1.2, 3.5, 2);
   luz.position.copy(curva.getPoint(.5)); luz.position.y += .05; scene.add(luz);
@@ -1103,6 +1189,7 @@ function init3D(){
   armarGuirnalda([-4.5,2.3,-3.75],[4.3,2.42,2.2], .3, 14);
   armarGuirnalda([2.9,2.3,-3.75],[-4.3,2.42,2.2], .3, 14);
   armarGuirnalda([-4.4,2.24,-3.05],[2.8,2.24,-3.05], .14, 12);  // la del alero del zinc
+  armarCalleViva();
 
   // la gente llega con el set de Blender; aquí solo sus grupos animables
   const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
@@ -1118,7 +1205,7 @@ function init3D(){
 
   // luz: el bombillo de la mesa manda; el cielo y el colmado acompañan
   scene.add(new THREE.HemisphereLight(0x7A6890, 0x3A2818, .9));
-  const bombillo = new THREE.PointLight(0xFFD9A0, 4.2, 7, 2);
+  const bombillo = luzMesa = new THREE.PointLight(0xFFD9A0, 4.2, 7, 2);
   bombillo.position.set(0,1.95,0); bombillo.castShadow = true;
   bombillo.shadow.mapSize.set(1024,1024); bombillo.shadow.bias = -0.004;
   scene.add(bombillo);
@@ -1208,28 +1295,265 @@ function colocarCadena(board){
   if(vuelo && fichasMesh[vuelo.idx]) fichasMesh[vuelo.idx].visible = false;
 }
 function colocarManos(conteos){
-  const ang = [0, Math.PI/2, Math.PI, -Math.PI/2];
+  if(barajada) return;       // mientras se reparte mandan las fichas del vuelo
   manosFan.forEach((fan,s) => {
     fan.clear();
-    // Las fichas van PARADAS EN EL ATRIL, no flotando. El atril de set.py:
-    // ranura a radio .638, piso a y=.021, inclinado 16 grados hacia atrás. La
-    // ficha se apoya en ese piso, así que su centro sube TL/2*cos(16) y se va
-    // hacia afuera TL/2*sin(16). Antes quedaban 3 cm en el aire y se veían
-    // como bloques pegados a la mano de cada quien.
-    const INCL = 16 * Math.PI/180, PISO_ATRIL = 0.021;
-    const d = 0.638 + Math.sin(INCL)*TL/2;
-    const yF = PISO_ATRIL + Math.cos(INCL)*TL/2;
+    // Las fichas van PARADAS EN EL ATRIL, no flotando: la ranura la calcula
+    // ranura(), la misma que usa el reparto, para que la ficha no dé un
+    // saltito al pasar de una mano a la otra.
     const n = conteos ? conteos[s] : 0;
     for(let i=0;i<n;i++){
       const m = dorsoFicha();
-      const off = (i - (n-1)/2) * (TW + 0.004);
-      m.position.set(Math.sin(ang[s])*d + Math.cos(ang[s])*off, yF,
-                     Math.cos(ang[s])*d - Math.sin(ang[s])*off);
-      m.rotation.set(-(Math.PI/2 - INCL), ang[s], 0, 'YXZ');
+      ranura(s, i, n, m.position);
+      m.rotation.set(-(Math.PI/2 - INCL_ATRIL), ASIENTO_ANG[s], 0, 'YXZ');
       fan.add(m);
     }
   });
 }
+/* ================= la calle se mueve =================
+   Un fondo quieto se lee como telón pintado, por bonito que sea. Cada tanto
+   cruza un motor con su foco, alguien pasa por la acera de enfrente, la
+   guirnalda parpadea y de vez en cuando se va la luz medio segundo, como se va
+   de verdad. Nada de esto toca el juego: va con el reloj del navegador, no con
+   el servidor, así que da igual si la mesa está esperando a alguien. */
+const CALLE_Z = 5.0, ACERA_Z = 7.1;      // el asfalto y la acera de enfrente
+let luzMesa = null, focosGuirnalda = [], moto = null, peaton = null;
+let bichos = null, proxMoto = 6, proxPeaton = 14, apagon = -9;
+
+function armarMoto(){
+  const g = new THREE.Group();
+  const oscuro = new THREE.MeshStandardMaterial({color:0x14120F, roughness:.7});
+  const goma   = new THREE.MeshStandardMaterial({color:0x0A0908, roughness:.95});
+  [[-.30,.26],[.30,.26]].forEach(([dx,r]) => {
+    const rue = new THREE.Mesh(new THREE.CylinderGeometry(r,r,.075,12), goma);
+    rue.rotation.z = Math.PI/2; rue.position.set(dx, r, 0); g.add(rue);
+  });
+  const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(.62,.20,.20), oscuro);
+  cuerpo.position.set(0,.46,0); g.add(cuerpo);
+  const tanque = new THREE.Mesh(new THREE.BoxGeometry(.28,.16,.22),
+    new THREE.MeshStandardMaterial({color:0x7A1E16, roughness:.45}));
+  tanque.position.set(-.02,.60,0); g.add(tanque);
+  // el que va montado: una silueta basta a quince metros, y con la espalda
+  // inclinada se lee que va rápido
+  const piel = new THREE.MeshStandardMaterial({color:0x1A1512, roughness:.9});
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.34,4,8), piel);
+  torso.position.set(-.06,.92,0); torso.rotation.x = .28; g.add(torso);
+  const casco = new THREE.Mesh(new THREE.SphereGeometry(.125,10,8), piel);
+  casco.position.set(.06,1.20,0); g.add(casco);
+  [-1,1].forEach(sx => {
+    const br = new THREE.Mesh(new THREE.CapsuleGeometry(.045,.30,3,6), piel);
+    br.position.set(.14,.92,sx*.13); br.rotation.z = -.9; g.add(br);
+  });
+  // foco, farito trasero y el halo: es lo único que de verdad se ve de noche
+  const foco = new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),
+    new THREE.MeshBasicMaterial({color:0xFFF0C8, fog:false}));
+  foco.position.set(.40,.66,0); g.add(foco);
+  const halo = spriteGlow(1.5); halo.position.copy(foco.position); g.add(halo);
+  const rojo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex,
+    color:0xFF3A20, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending }));
+  rojo.scale.set(.45,.45,1); rojo.position.set(-.38,.60,0); g.add(rojo);
+  const luz = new THREE.PointLight(0xFFE2B0, 0, 7, 2);   // se enciende al pasar
+  luz.position.set(.7,.7,0); g.add(luz);
+  g.visible = false; scene.add(g);
+  return { g, luz, halo, t0: -99, dir: 1 };
+}
+
+function armarPeaton(){
+  const g = new THREE.Group();
+  const m = new THREE.MeshStandardMaterial({color:0x17141A, roughness:1});
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.15,.44,4,8), m);
+  torso.position.y = .98; g.add(torso);
+  const cab = new THREE.Mesh(new THREE.SphereGeometry(.125,10,8), m);
+  cab.position.y = 1.40; g.add(cab);
+  const piernas = [-1,1].map(sx => {
+    const p = new THREE.Mesh(new THREE.CapsuleGeometry(.075,.52,3,6), m);
+    p.position.set(0,.40,sx*.09); g.add(p); return p;
+  });
+  const brazos = [-1,1].map(sx => {
+    const br = new THREE.Mesh(new THREE.CapsuleGeometry(.055,.40,3,6), m);
+    br.position.set(0,1.00,sx*.22); g.add(br); return br;
+  });
+  g.visible = false; scene.add(g);
+  return { g, piernas, brazos, t0: -99, dir: 1 };
+}
+
+/* Los bichos del bombillo. Seis puntitos dando vueltas cuestan nada y son la
+   diferencia entre una bombilla y una bombilla de patio. */
+function armarBichos(){
+  const g = new THREE.Group();
+  const mat = new THREE.SpriteMaterial({ map: glowTex, color: 0xFFE9C0,
+    transparent:true, opacity:.55, depthWrite:false, blending:THREE.AdditiveBlending });
+  const s = [];
+  for(let i=0;i<7;i++){
+    const b = new THREE.Sprite(mat.clone());
+    b.scale.set(.035,.035,1); g.add(b);
+    s.push({ b, r:.10+Math.random()*.22, v:1.1+Math.random()*2.2,
+             f:Math.random()*6.28, y:Math.random()*.16-.06,
+             vy:.6+Math.random()*1.4 });
+  }
+  g.position.set(0,1.95,0); scene.add(g);
+  return { g, s };
+}
+
+function armarCalleViva(){
+  moto = armarMoto(); peaton = armarPeaton(); bichos = armarBichos();
+}
+
+function animarCalle(t){
+  if(reduce) return;
+  // el parpadeo de siempre y, cada tanto, medio segundo de bajón: el barrio
+  if(t > apagon + 40 && Math.random() < .0016) apagon = t;
+  const u = t - apagon;
+  const bajon = (u >= 0 && u < .55) ? .34 + .66*Math.abs(Math.sin(u*22)) * (u/.55) : 1;
+  const tremol = .94 + .06*Math.sin(t*7.3) + .03*Math.sin(t*23.7);
+  if(luzMesa) luzMesa.intensity = 4.2 * tremol * bajon;
+  focosGuirnalda.forEach((f, i) => {
+    f.material.opacity = (.75 + .25*Math.sin(t*(2.1+i*.37) + i)) * bajon;
+  });
+  if(bichos){
+    bichos.s.forEach(x => {
+      const a = t*x.v + x.f;
+      x.b.position.set(Math.cos(a)*x.r, x.y + Math.sin(t*x.vy + x.f)*.05,
+                       Math.sin(a)*x.r*.8);
+      x.b.material.opacity = (.35 + .35*Math.sin(t*9 + x.f)) * bajon;
+    });
+  }
+  // el motor: entra por un lado, cruza y se va. El sonido sale con él.
+  if(moto){
+    const um = t - moto.t0, DUR = 3.4;
+    if(um > DUR){
+      if(t > proxMoto){
+        moto.t0 = t; moto.dir = Math.random() < .5 ? 1 : -1;
+        proxMoto = t + 26 + Math.random()*40;
+        moto.g.visible = true;
+        SFX.motorPasa(DUR);
+      } else moto.g.visible = false;
+    } else {
+      const v = um/DUR, x = (-17 + 34*v) * moto.dir;
+      moto.g.position.set(x, -0.75, CALLE_Z + (moto.dir > 0 ? -.55 : .55));
+      moto.g.rotation.y = moto.dir > 0 ? Math.PI/2 : -Math.PI/2;
+      moto.g.rotation.z = Math.sin(t*9)*.02;
+      moto.luz.intensity = 2.6;
+      moto.halo.scale.setScalar(1.3 + .25*Math.sin(t*17));
+    }
+  }
+  // alguien que pasa por la acera de enfrente, sin prisa
+  if(peaton){
+    const up = t - peaton.t0, DUR = 13.5;
+    if(up > DUR){
+      if(t > proxPeaton){
+        peaton.t0 = t; peaton.dir = Math.random() < .5 ? 1 : -1;
+        proxPeaton = t + 30 + Math.random()*55; peaton.g.visible = true;
+      } else peaton.g.visible = false;
+    } else {
+      const v = up/DUR, x = (-13 + 26*v) * peaton.dir;
+      peaton.g.position.set(x, -0.75, ACERA_Z);
+      peaton.g.rotation.y = peaton.dir > 0 ? Math.PI/2 : -Math.PI/2;
+      const paso = Math.sin(t*4.4);
+      peaton.piernas[0].rotation.x =  paso*.42;
+      peaton.piernas[1].rotation.x = -paso*.42;
+      peaton.brazos[0].rotation.x  = -paso*.34;
+      peaton.brazos[1].rotation.x  =  paso*.34;
+      peaton.g.position.y = -0.75 + Math.abs(paso)*.018;   // el vaivén del paso
+    }
+  }
+}
+
+/* ================= la barajada =================
+   Al empezar cada mano las 28 fichas salen boca abajo al centro, se revuelven
+   dando vueltas unas contra otras sobre el paño, se apilan de siete en siete y
+   de ahí vuelan al atril de cada quien. Es lo PRIMERO que ve el que llega a la
+   mesa, así que es lo primero que tiene que verse bien. */
+const B_REVUELVE = 2.10, B_JUNTA = .46, B_PASO = .040, B_VUELO = .40;
+const B_REPARTE = 27*B_PASO + B_VUELO;
+let barajada = null;
+/* La ranura del atril, en un solo sitio: la usa el reparto para saber a dónde
+   va cada ficha y colocarManos para dejarla ahí. Si se calculara dos veces,
+   la ficha daría un saltito al terminar la barajada. */
+const INCL_ATRIL = 16*Math.PI/180, PISO_ATRIL = 0.021;
+function ranura(s, i, n, out){
+  const ang = ASIENTO_ANG[s];
+  const d = 0.638 + Math.sin(INCL_ATRIL)*TL/2;
+  const y = PISO_ATRIL + Math.cos(INCL_ATRIL)*TL/2;
+  const off = (i - (n-1)/2) * (TW + 0.004);
+  return out.set(Math.sin(ang)*d + Math.cos(ang)*off, y,
+                 Math.cos(ang)*d - Math.sin(ang)*off);
+}
+function arrancarBarajada(){
+  if(barajada) terminarBarajada();
+  const g = new THREE.Group(); scene.add(g);
+  const fichas = [];
+  for(let k=0;k<28;k++){
+    const m = dorsoFicha();
+    const a = (k/28)*Math.PI*2 + Math.random()*.5;
+    const rr = .10 + Math.random()*.20;
+    fichas.push({ m,
+      // cada ficha da su propia vuelta: mismo sentido para todas se ve a rueda.
+      // El radio y el centro llegan hasta el borde del paño: antes la revoltura
+      // era un charquito en el medio y no se leía como barajar.
+      rx: .07 + Math.random()*.17, rz: .07 + Math.random()*.17,
+      ox: Math.cos(a)*rr*.85, oz: Math.sin(a)*rr*.85,
+      fase: a, giro: Math.random() < .5 ? -1 : 1,
+      vel: .9 + Math.random()*.9, sono: false });
+    m.position.set(Math.cos(a)*rr, TH/2, Math.sin(a)*rr);
+    m.rotation.set(0, a, 0);
+    g.add(m);
+  }
+  barajada = { t0: performance.now()/1000, g, fichas };
+  focoMesa.set(0, .012, 0);
+  SFX.revoltura(B_REVUELVE);
+  manosFan.forEach(f => f.clear());
+}
+function terminarBarajada(){
+  if(!barajada) return;
+  scene.remove(barajada.g);
+  barajada = null;
+}
+const _vB1 = new THREE.Vector3(), _vB2 = new THREE.Vector3();
+const _qB1 = new THREE.Quaternion(), _qB2 = new THREE.Quaternion();
+const _euB = new THREE.Euler();
+function animarBarajada(t){
+  const u = t - barajada.t0;
+  const T1 = B_REVUELVE, T2 = T1 + B_JUNTA, T3 = T2 + B_REPARTE;
+  if(u >= T3 + .18){ terminarBarajada(); pintar(); return; }
+  barajada.fichas.forEach((f, k) => {
+    const s = k % 4, niv = Math.floor(k/4);       // su pila y su altura en ella
+    // dónde está la pila de cada quien: delante de él, ordenadas de siete
+    _vB1.set(Math.sin(ASIENTO_ANG[s])*.145, TH/2 + niv*TH*1.04,
+             Math.cos(ASIENTO_ANG[s])*.145);
+    if(u < T2){
+      const w = u < T1 ? easo(Math.min(1, u/.35)) * (1 - easo(Math.max(0,(u-T1+.45)/.45)))
+                       : 0;
+      const a = f.fase + u*1.55*f.vel*f.giro;
+      _vB2.set(f.ox + Math.cos(a)*f.rx, TH/2 + Math.abs(Math.sin(a*3.1))*.004,
+               f.oz + Math.sin(a)*f.rz);
+      if(u < T1){
+        f.m.position.lerpVectors(_vB1, _vB2, w);
+        f.m.rotation.set(0, f.fase + a*.55*f.giro, 0);
+      } else {                                    // se juntan en las cuatro pilas
+        const v = easo((u - T1)/B_JUNTA);
+        f.m.position.lerpVectors(_vB2, _vB1, v);
+        f.m.position.y += .02*Math.sin(v*Math.PI);
+        f.m.rotation.y = f.m.rotation.y + (ASIENTO_ANG[s] - f.m.rotation.y)*v*.5;
+      }
+      return;
+    }
+    // el reparto: de siete en siete, dando la vuelta a la mesa, y cada pila se
+    // gasta por ARRIBA, que es como se levanta una pila de verdad
+    const ronda = 6 - niv;
+    const sale = T2 + (ronda*4 + s)*B_PASO;
+    if(t - barajada.t0 < sale){ f.m.position.copy(_vB1); f.m.rotation.set(0, ASIENTO_ANG[s], 0); return; }
+    const v = Math.min(1, (u - sale)/B_VUELO), w = easo(v);
+    ranura(s, niv, 7, _vB2);
+    f.m.position.lerpVectors(_vB1, _vB2, w);
+    f.m.position.y += .085*Math.sin(w*Math.PI);
+    _qB1.setFromEuler(_euB.set(0, ASIENTO_ANG[s], 0, 'YXZ'));
+    _qB2.setFromEuler(_euB.set(-(Math.PI/2 - INCL_ATRIL), ASIENTO_ANG[s], 0, 'YXZ'));
+    f.m.quaternion.copy(_qB1).slerp(_qB2, w);
+    if(v >= 1 && !f.sono){ f.sono = true; SFX.golpe(.13); }
+  });
+}
+
 /* La sutil mira desde una esquina, como un mirón parado en la mesa:
    nunca hay una espalda tapando el centro. */
 /* Los ángulos de antes caían todos en 30 grados: la cámara no se movía y no
@@ -1293,79 +1617,319 @@ function animar(){
     camera.position.set(sx, camAlt, sz);
     camera.lookAt(0,0.06,0);
   }
+  animarCalle(t);
+  if(barajada) animarBarajada(t);
   animarGente(t);
   SFX.calle(t);
   renderer.render(scene,camera);
 }
 
-/* La gente vive: respira, mira al que le toca, alcanza la ficha al jugar,
-   se abre de brazos en el paso, celebra el dominó. Todo sobre la marioneta. */
+/* ================= la gente =================
+   Cada quien está en un ESTADO: quieto, atento, pensando, jugando, paso,
+   celebra, lamenta. Un estado es una función que llena una POSE — ángulos en
+   ejes de la persona, a dónde mira y, si hace falta, a qué punto del mundo va
+   cada mano. El mezclador cruza del estado viejo al nuevo en un cuarto de
+   segundo, así que nunca hay un salto.
+
+   Antes esto eran ifs sueltos que escribían ángulos a pelo: el que no jugaba
+   se quedaba EXACTAMENTE en la pose que trajo de Blender, sin mover un dedo, y
+   la cabeza barría de lado a lado con un seno. De ahí lo de marioneta mirando
+   al vacío. Ahora el reposo respira y la mirada apunta a un punto de verdad. */
 const easo = x => x<0?0:x>1?1:x*x*(3-2*x);
-let tCambioTurno = -9, turnoPrevio = null;
+const lim = (v,a,b) => v<a?a:(v>b?b:v);
+const VIVO = reduce ? 0 : 1;             // respeta prefers-reduced-motion
+const MEZCLA = .26;                      // segundos de cruce entre estados
+let tCambioTurno = -9, turnoPrevio = null, tAnim = -1;
+let estados = [null,null,null,null];
+const mirada = [{y:0,p:0},{y:0,p:0},{y:0,p:0},{y:0,p:0}];
+const focoMesa = new THREE.Vector3(0, .012, 0);   // dónde cayó la última ficha
+const _vP1=new THREE.Vector3(), _vP2=new THREE.Vector3(),
+      _vP3=new THREE.Vector3(), _vP4=new THREE.Vector3(),
+      _vLat=new THREE.Vector3(), _vmi=new THREE.Vector3();
+const _qk1=new THREE.Quaternion(), _qk2=new THREE.Quaternion();
+
+function poseCero(){
+  return { torX:0, torY:0, cabX:0, cabY:0, cabZ:0,
+           bruLX:0, bruLY:0, bruLZ:0, bruRX:0, bruRY:0, bruRZ:0,
+           antLX:0, antRX:0, manLX:0, manRX:0, subeY:0,
+           miraK:0, ikLw:0, ikRw:0,
+           mira:null, ikL:null, ikR:null,
+           _mira:new THREE.Vector3(), _ikL:new THREE.Vector3(),
+           _ikR:new THREE.Vector3() };
+}
+const ESCALARES = Object.keys(poseCero())
+  .filter(k => k[0] !== '_' && !['mira','ikL','ikR'].includes(k));
+const _pA = poseCero(), _pB = poseCero(), _pM = poseCero();
+function limpiarPose(o){
+  for(const c of ESCALARES) o[c] = 0;
+  o.mira = null; o.ikL = null; o.ikR = null;
+}
+/* Los puntos se COPIAN al vector propio de la pose: si se guardara el vector
+   prestado, la pose vieja y la nueva acabarían apuntando al mismo sitio y el
+   cruce no cruzaría nada. */
+function verA(o, p, k){ if(p){ o.mira = o._mira.copy(p); o.miraK = k; } }
+function agarrar(o, lado, p, w){
+  if(lado === 'L'){ o.ikL = o._ikL.copy(p); o.ikLw = w; }
+  else { o.ikR = o._ikR.copy(p); o.ikRw = w; }
+}
+function mezclaPunto(o, campo, prop, peso, a, b, k){
+  const pa = a[campo], pb = b[campo];
+  if(pa && pb){ o[campo] = prop.copy(pa).lerp(pb, k); o[peso] = a[peso] + (b[peso]-a[peso])*k; }
+  else if(pb){ o[campo] = prop.copy(pb); o[peso] = b[peso]*k; }
+  else if(pa){ o[campo] = prop.copy(pa); o[peso] = a[peso]*(1-k); }
+  else { o[campo] = null; o[peso] = 0; }
+}
+function mezclarPose(o, a, b, k){
+  for(const c of ESCALARES) o[c] = a[c] + (b[c]-a[c])*k;
+  mezclaPunto(o, 'mira', o._mira, 'miraK', a, b, k);
+  mezclaPunto(o, 'ikL',  o._ikL,  'ikLw',  a, b, k);
+  mezclaPunto(o, 'ikR',  o._ikR,  'ikRw',  a, b, k);
+}
+
+/* El reposo respira. Es el 90 % de lo que se ve: tres de cada cuatro están
+   sentados esperando, y un muñeco perfectamente quieto es lo que delata que
+   no hay nadie ahí dentro. */
+function respirar(o, t, f){
+  const ph = f.userData.fase;
+  o.torX += VIVO*Math.sin(t*.62 + ph)*.016;
+  o.torY += VIVO*Math.sin(t*.17 + ph*1.7)*.045;     // se acomoda en la silla
+  const d = VIVO*Math.sin(t*.29 + ph*2.3);
+  o.bruLZ += d*.020; o.bruRZ += -d*.020;
+  o.antLX += VIVO*Math.sin(t*.41 + ph)*.035;
+  o.antRX += VIVO*Math.sin(t*.37 + ph + 1.1)*.035;
+  o.subeY += VIVO*Math.sin(t*1.35 + ph)*.004;
+}
+
+/* Puntos del mundo que le importan a una persona: su atril, su barbilla, su
+   frente, el centro de su pecho. Salen de la cabeza de verdad, no de números
+   fijos, así que siguen al cuerpo cuando se inclina. */
+function delanteDe(s, alto, fuera, out){
+  const r = rigs[s], f = figuras[s], o = out;
+  if(r && r.cabeza) r.cabeza.getWorldPosition(o); else o.copy(f.position);
+  _vLat.set(0,0,1).applyQuaternion(f.getWorldQuaternion(_qk1));
+  o.addScaledVector(_vLat, fuera); o.y += alto;
+  return o;
+}
+const barbilla = (s,out) => delanteDe(s, -.045, .105, out);
+const frente   = (s,out) => delanteDe(s,  .105, .085, out);
+const pecho    = (s,out) => delanteDe(s, -.235, .215, out);
+function atrilDe(s, out){
+  const ang = ASIENTO_ANG[s], d = MESA/2 + .06;
+  return out.set(Math.sin(ang)*d, .055, Math.cos(ang)*d);
+}
+/* El vistazo al que le toca dura dos segundos y se apaga solo. Clavar la
+   mirada en el otro todo el rato es lo que hacía que se miraran fijo. */
+function ojeada(s, t){
+  if(!S || S.turno === null || S.turno === s) return null;
+  if(t - tCambioTurno > 1.5) return null;
+  const r = rigs[S.turno];
+  if(!r || !r.cabeza) return null;
+  return r.cabeza.getWorldPosition(_vP4);
+}
+function focoDeMesa(){
+  return (vuelo && vuelo.ficha) ? vuelo.ficha.position : focoMesa;
+}
+
+/* Mirar un punto: el ángulo sale de los OJOS (un palmo sobre el cuello) al
+   objetivo, en ejes de la persona, y se limita para que nadie se disloque.
+   El amortiguado va aparte del cruce de estados: si se hiciera dentro del
+   clip, mezclar dos clips lo aplicaría dos veces por cuadro. */
+function aplicarMirada(o, s, f, r, dt){
+  const m = mirada[s];
+  let yaw = 0, pit = 0;
+  if(o.mira && o.miraK > 0 && r.cabeza){
+    r.cabeza.getWorldPosition(_vP1);
+    _vmi.subVectors(o.mira, _vP1); _vmi.y -= .12;
+    _vmi.applyQuaternion(f.getWorldQuaternion(_qk1).invert());
+    const h = Math.hypot(_vmi.x, _vmi.z);
+    yaw = lim(Math.atan2(_vmi.x, _vmi.z), -.70, .70) * o.miraK;
+    pit = lim(-Math.atan2(_vmi.y, h), -.40, .55) * o.miraK;
+  }
+  const a = 1 - Math.pow(.0022, dt);      // suavizado, no depende del cuadro
+  m.y += (yaw - m.y)*a; m.p += (pit - m.p)*a;
+  o.cabY += m.y; o.cabX += m.p; o.torY += m.y*.22;
+}
+
+/* Los clips. Todo lo que hace una persona está aquí y en un solo sitio. */
+const CLIPS = {
+  quieto(o, u, t, s, f, r){
+    respirar(o, t, f);
+    verA(o, ojeada(s,t) || focoDeMesa(), .5);
+  },
+  atento(o, u, t, s, f, r){
+    respirar(o, t, f);
+    o.torX += .055;
+    verA(o, ojeada(s,t) || focoDeMesa(), .92);
+  },
+  /* Barajar no es mirar barajar. Las manos entran al paño y dan vueltas sobre
+     las fichas mientras se revuelven; cuando empieza el reparto se retiran. */
+  barajando(o, u, t, s, f, r){
+    respirar(o, t, f);
+    o.torX += .12;
+    verA(o, focoMesa, .95);
+    if(!barajada) return;
+    const u2 = t - barajada.t0, fin = B_REVUELVE + B_JUNTA*.5;
+    const k = u2 < .30 ? easo(u2/.30)
+            : (u2 > fin - .40 ? Math.max(0, 1 - (u2 - (fin-.40))/.40) : 1);
+    if(k > .01){
+      // La vuelta va DELANTE de cada quien, no en el medio de la mesa: con el
+      // objetivo en el centro los brazos salían estirados al máximo y las
+      // manos de dos jugadores se encontraban como si se saludaran.
+      const ang = ASIENTO_ANG[s], a = t*2.4 + s*1.9;
+      agarrar(o, (s % 2) ? 'L' : 'R',
+        _vP1.set(Math.sin(ang)*.36 + Math.cos(a)*.115, .070,
+                 Math.cos(ang)*.36 + Math.sin(a)*.115), k*.92);
+    }
+  },
+  jugando(o, u, t, s, f, r){         // el brazo lo lleva aplicarVuelo
+    respirar(o, t, f);
+    o.torX += .04;
+    verA(o, focoDeMesa(), .95);
+  },
+  pensando(o, u, t, s, f, r){
+    respirar(o, t, f);
+    o.torX += .10 + VIVO*Math.sin(t*1.1 + f.userData.fase)*.012;
+    verA(o, atrilDe(s, _vP2), .95);
+    // uno se agarra la barbilla mientras piensa; el otro no. Que no hagan
+    // todos lo mismo al mismo tiempo es la mitad de que parezcan gente.
+    if((s & 1) === 0 && u > .8){
+      const k = easo(Math.min(1,(u-.8)/.5)) * (1 - easo(lim((u-3.2)/.6,0,1)));
+      if(k > .01){ agarrar(o, 'R', barbilla(s, _vP3), k); o.manRX = -.45*k; }
+    }
+  },
+  paso(o, u, t, s, f, r){
+    respirar(o, t, f);
+    const k = Math.sin(easo(Math.min(1, u/1.35))*Math.PI);
+    o.bruLZ += .34*k;  o.bruRZ += -.34*k;      // codos afuera
+    o.bruLX += -.26*k; o.bruRX += -.26*k;      // hombros arriba
+    o.antLX += -.58*k; o.antRX += -.58*k;      // antebrazos al frente
+    o.manLX += .55*k;  o.manRX += .55*k;       // palmas arriba: "no hay"
+    o.torX += -.06*k;  o.cabX += -.07*k;
+    o.cabY += VIVO*Math.sin(u*9.5)*.15*k;
+    verA(o, focoDeMesa(), .35);
+  },
+  celebra(o, u, t, s, f, r){
+    const k = Math.sin(easo(Math.min(1, u/2.4))*Math.PI);
+    o.torX += -.13*k; o.cabX += -.20*k;
+    o.subeY += VIVO*.026*Math.abs(Math.sin(u*6.6))*k;
+    verA(o, focoDeMesa(), .5);
+    if(u > .22 && u < 1.80){
+      // tres palmadas: las manos se BUSCAN, con el mismo IK de la jugada. Se
+      // lee muchísimo mejor que dos brazos tiesos levantados.
+      const c = ((u - .22) % .44)/.44;
+      const sep = .050 + .105*(1 - Math.abs(Math.sin(c*Math.PI)));
+      const P = pecho(s, _vP1);
+      _vLat.set(1,0,0).applyQuaternion(f.getWorldQuaternion(_qk1));
+      agarrar(o, 'L', _vP2.copy(P).addScaledVector(_vLat, -sep), k);
+      agarrar(o, 'R', _vP3.copy(P).addScaledVector(_vLat,  sep), k);
+    } else {
+      o.bruLX += -1.00*k; o.bruRX += -1.00*k;
+      o.antLX += -.80*k;  o.antRX += -.80*k;
+      o.bruLZ += .20*k;   o.bruRZ += -.20*k;
+    }
+  },
+  lamenta(o, u, t, s, f, r){
+    respirar(o, t, f);
+    const k = Math.sin(easo(Math.min(1, u/1.8))*Math.PI);
+    o.torX += .17*k; o.cabX += .30*k; o.subeY += -.020*k;
+    agarrar(o, 'R', frente(s, _vP1), k*.9);
+    verA(o, atrilDe(s, _vP2), .45);
+  },
+};
+
+/* Qué estado le toca. Los de una vez (paso, celebra, lamenta) duran lo suyo
+   y se apagan; el resto sale del estado del juego. */
+const UNICO = { paso: 1.35, celebra: 2.40, lamenta: 1.80 };
+function estadoQueToca(s, t){
+  if(barajada) return 'barajando';       // las manos revuelven y luego miran
+  const g = gestos[s];
+  if(g){
+    if(t - g.t0 < (UNICO[g.tipo] || 1)) return g.tipo;
+    gestos[s] = null;
+  }
+  if(vuelo && vuelo.s === s) return 'jugando';
+  if(S && S.fase === 'jugando'){
+    if(S.pensando === s || S.turno === s) return 'pensando';
+    if(vuelo || t - tCambioTurno < 2.2) return 'atento';
+  }
+  return 'quieto';
+}
+function ponerEstado(s, nombre, t){
+  const e = estados[s];
+  if(e && e.nombre === nombre) return;
+  estados[s] = { nombre, t0: t, prev: e ? e.nombre : nombre,
+                 prevT0: e ? e.t0 : t, tCruce: t };
+}
+
+/* Un brazo que va a un punto: se resuelve el IK y se mezcla con la pose del
+   clip según el peso, así la mano sale del reposo y vuelve sin dar un tirón. */
+function aplicarIK(s, lado, punto, w, munec){
+  const r = rigs[s], marcas = manosMarca[s], f = figuras[s];
+  const bru = r['bru'+lado], ant = r['ant'+lado];
+  const marca = marcas && marcas[lado], mano = r['mano'+lado];
+  const ref = manoRef[s] && manoRef[s][lado];
+  if(!bru || !ant || !marca) return;
+  f.updateMatrixWorld(true);
+  _qk1.copy(bru.quaternion); _qk2.copy(ant.quaternion);   // la pose del clip
+  _vpo.set(lado === 'R' ? .62 : -.62, -1, .18).normalize()
+      .applyQuaternion(f.getWorldQuaternion(_q1));        // codo abajo y afuera
+  ikAlcanzar(bru, ant, marca, punto, _vpo);
+  _qb.copy(bru.quaternion); _qa.copy(ant.quaternion);     // lo que dio el IK
+  bru.quaternion.copy(_qk1).slerp(_qb, w);
+  ant.quaternion.copy(_qk2).slerp(_qa, w);
+  ant.updateMatrixWorld(true);
+  nivelarMano(mano, f, ref, munec, 0);
+}
+
 function animarGente(t){
+  const dt = tAnim < 0 ? 1/60 : lim(t - tAnim, .001, .1);
+  tAnim = t;
   if(S && S.turno !== turnoPrevio){ turnoPrevio = S.turno; tCambioTurno = t; }
-  figuras.forEach((f,s) => {
+  if(vuelo && vuelo.Pfin) focoMesa.copy(vuelo.Pfin);
+  figuras.forEach((f, s) => {
     const r = rigs[s]; if(!r || !r.torso) return;
-    const fase = f.userData.fase;
-    let torX = reduce ? 0 : Math.sin(t*0.9+fase)*0.02;
-    let cabX = 0, cabY = reduce ? 0 : Math.sin(t*0.21+fase*2.1)*0.22;
-    let bruLX=0, bruLZ=0, bruRX=0, bruRZ=0, antLX=0, antRX=0;
-    // Antes todos se quedaban CLAVADOS mirando al que le toca, todo el rato.
-    // En una mesa de verdad uno echa un vistazo cuando alguien mueve y vuelve a
-    // lo suyo. El vistazo dura y se apaga solo.
-    if(S && S.fase === 'jugando' && S.turno !== null && S.turno !== s){
-      const ojeada = Math.max(0, 1 - (t - tCambioTurno) / 2.4);
-      if(ojeada > 0){
-        const d = Math.atan2(Math.sin((S.turno-s)*Math.PI/2), Math.cos((S.turno-s)*Math.PI/2));
-        cabY += Math.max(-0.5, Math.min(0.5, d*0.38)) * easo(ojeada);
-      }
+    ponerEstado(s, estadoQueToca(s, t), t);
+    const e = estados[s];
+    limpiarPose(_pB);
+    (CLIPS[e.nombre] || CLIPS.quieto)(_pB, t - e.t0, t, s, f, r);
+    let P = _pB;
+    const k = e.prev === e.nombre ? 1 : easo(Math.min(1, (t - e.tCruce)/MEZCLA));
+    if(k < 1){
+      limpiarPose(_pA);
+      (CLIPS[e.prev] || CLIPS.quieto)(_pA, t - e.prevT0, t, s, f, r);
+      mezclarPose(_pM, _pA, _pB, k); P = _pM;
     }
-    if(S && S.pensando === s){            // se queda mirando la mesa
-      cabX += .14 + Math.sin(t*1.2 + fase)*.04;
-      torX += .05;
-    }
-    const ge = gestos[s];
-    if(ge){
-      const u = (t - ge.t0)/1.1;
-      if(u >= 1){ gestos[s] = null; }
-      else if(ge.tipo === 'jugar'){
-        const k = u<0.4 ? easo(u/0.4) : u<0.55 ? 1 : easo((1-u)/0.45);
-        bruRX = -0.72*k; antRX = 0.38*k; torX += 0.12*k;
-        if(u>0.4 && u<0.55) bruRX -= 0.12;                    // el golpecito
-      } else if(ge.tipo === 'paso'){
-        const k = Math.sin(Math.min(1,u)*Math.PI);
-        bruLZ = 0.35*k; bruRZ = -0.35*k; antLX = -0.35*k; antRX = -0.35*k;
-        cabY += Math.sin(u*12)*0.14*k;
-      } else if(ge.tipo === 'celebra'){
-        const k = Math.sin(Math.min(1,u)*Math.PI);
-        bruLX = -1.9*k; bruRX = -1.9*k; torX -= 0.1*k;
-        f.position.y = f.userData.y0 + 0.03*Math.abs(Math.sin(u*6.28))*k;
-      } else if(ge.tipo === 'lamenta'){
-        const k = Math.sin(Math.min(1,u)*Math.PI);
-        cabX = 0.4*k; torX += 0.12*k;
-      }
-    }
-    f.userData.torX = torX;        // la jugada le suma su propia inclinación
-    girarFig(r.torso, f, torX, 0, 0);
-    girarFig(r.cabeza, f, cabX, cabY, 0);
-    reposo(r.manoL); reposo(r.manoR);
-    girarFig(r.bruL, f, bruLX, 0, bruLZ);
-    girarFig(r.bruR, f, bruRX, 0, bruRZ);
-    girarFig(r.antL, f, antLX, 0, 0);
-    girarFig(r.antR, f, antRX, 0, 0);
-    if(!tragos[s] && !ge && !(vuelo && vuelo.s === s) && bebidas[s] &&
-       S && S.fase === 'jugando' && S.turno !== s && t > proxTrago[s]){
+    aplicarMirada(P, s, f, r, dt);
+
+    f.userData.torX = P.torX; f.userData.torY = P.torY;
+    girarFig(r.torso, f, P.torX, P.torY, 0);
+    f.updateMatrixWorld(true);       // el tronco ya giró: los hijos lo leen
+    girarFig(r.cabeza, f, P.cabX, P.cabY, P.cabZ);
+    girarFig(r.bruL, f, P.bruLX, P.bruLY, P.bruLZ);
+    girarFig(r.bruR, f, P.bruRX, P.bruRY, P.bruRZ);
+    girarFig(r.antL, f, P.antLX, 0, 0);
+    girarFig(r.antR, f, P.antRX, 0, 0);
+    girarFig(r.manoL, f, P.manLX, 0, 0);
+    girarFig(r.manoR, f, P.manRX, 0, 0);
+
+    // el trago y la jugada mandan sobre su brazo: el clip no se lo disputa
+    const ocupada = { L:false, R:false };
+    if(vuelo && vuelo.s === s) ocupada[vuelo.lado || 'R'] = true;
+    if(tragos[s] && tragos[s].lado) ocupada[tragos[s].lado] = true;
+    if(P.ikL && P.ikLw > .01 && !ocupada.L) aplicarIK(s,'L',P.ikL,P.ikLw,P.manLX);
+    if(P.ikR && P.ikRw > .01 && !ocupada.R) aplicarIK(s,'R',P.ikR,P.ikRw,P.manRX);
+
+    if(!tragos[s] && e.nombre === 'quieto' && !(vuelo && vuelo.s === s) &&
+       bebidas[s] && S && S.fase === 'jugando' && S.turno !== s && t > proxTrago[s]){
       tragos[s] = { t0: t };
     }
     if(tragos[s]) aplicarTrago(s, t);
     if(vuelo && vuelo.s === s) aplicarVuelo(s, t);
+
     const activo = S && S.fase === 'jugando' && S.turno === s;
     const esc = activo ? 1.02 : 1;
     f.scale.x += (esc - f.scale.x)*0.1; f.scale.y = f.scale.x; f.scale.z = f.scale.x;
-    if(!ge || ge.tipo !== 'celebra'){
-      const bob = reduce ? 0 : Math.sin(t*1.4+fase)*0.004;
-      f.position.y += (f.userData.y0 + bob - f.position.y)*0.1;
-    }
+    f.position.y = f.userData.y0 + P.subeY;
   });
 }
 
@@ -1648,6 +2212,9 @@ function conectar(){
       const antes = S;
       S = m;
       if(antes && antes.board && m.board && m.board.length > antes.board.length) sacudida = 0.02;
+      // mano nueva: se baraja y se reparte antes de que nadie juegue
+      if(m.fase === 'jugando' && (!antes || antes.fase !== 'jugando' ||
+                                  m.manoNo !== antes.manoNo)) arrancarBarajada();
       // la vida de la mesa: quién jugó alcanza, quién pasó se encoge
       if(antes && antes.fase === 'jugando' && m.fase !== 'lobby' && antes.turno !== null){
         if(m.board.length > antes.board.length){

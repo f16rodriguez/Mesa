@@ -271,7 +271,10 @@ const PIPMAP_TEX = {0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,
 const PIP_HEX = {0:null,1:'#12305E',2:'#12401F',3:'#7A160F',4:'#3A1C5C',5:'#8A3208',6:'#0E0C0A'};
 /* Escala real, en metros: ficha profesional de 7.5 cm sobre mesa de 1.15 m.
    A 12 cm ("jumbo") se leían bien pero la mano tapaba media mesa. */
-const TL = 0.075, TW = 0.0375, TH = 0.012, MESA = 1.15;
+/* La ficha creció de 7,5 a 9 cm. A 7,5 entraban doce a lo ancho del paño y se
+   veían como sellos; en DR Dominoes entran unas nueve y por eso se leen. A 12
+   ("jumbo") la mano tapaba media mesa — 9 es el punto medio. */
+const TL = 0.090, TW = 0.045, TH = 0.013, MESA = 1.15;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let ws = null, S = null, previo = null, dramatica = false;
@@ -1148,31 +1151,44 @@ function colocarCadena(board){
   cadenaGrupo.clear();
   fichasMesh = [];
   if(!board || !board.length) return;
-  /* La cadena no se corta en renglones como un texto: cuando llega al borde
-     del paño dobla la esquina con una ficha atravesada y sigue de vuelta,
-     igual que en una mesa de verdad. */
-  const A = MESA/2 - 0.115;              // hasta dónde llega el paño
-  // Pegadas sin holgura, las fichas se funden en UNA barra blanca y no se
-  // distingue una de otra. Milímetro y medio entre canto y canto: es lo que
-  // deja ver el bisel y que se lean como piezas sueltas.
-  const HUECO = 0.0016;
-  const puestas = [];
-  let x = 0, z = 0, sentido = 1;
-  board.forEach((e, i) => {
-    const doble = e.a === e.b, largo = (doble ? TW : TL) + HUECO;
-    if(Math.abs(x + sentido*largo) > A){          // esta ficha hace la esquina
-      z += largo/2;
-      puestas.push({ e, i, x, z, rotY: doble ? Math.PI/2 : 0, der: true });
-      z += largo/2;
-      sentido = -sentido;
-    } else {
-      const der = sentido > 0;
-      x += sentido*largo/2;
-      puestas.push({ e, i, x, z, rotY: (doble ? 0 : Math.PI/2) + (der ? 0 : Math.PI),
-                     der });
-      x += sentido*largo/2;
+  /* La cadena NO se corta en renglones como un texto. Cuando llega al borde del
+     paño dobla 90 grados y sigue por el lado, como en una mesa de verdad: el
+     tramo del medio topa a la derecha, sube por el costado y vuelve por arriba.
+     Y crece desde el CENTRO hacia los dos extremos, que por eso cada punta
+     dobla para su lado. */
+  const A = MESA/2 - 0.125;             // hasta dónde llega el paño
+  const HUECO = 0.0016;                 // holgura: pegadas se funden en una barra
+  const DX = [1, 0, -1, 0], DZ = [0, 1, 0, -1];   // +X, +Z, -X, -Z
+
+  function tramo(items, dir0, giro){
+    const out = [];
+    let x = 0, z = 0, dir = dir0, vueltas = 0;
+    for(const it of items){
+      const doble = it.e.a === it.e.b;
+      const largo = (doble ? TW : TL) + HUECO;
+      let nx = x + DX[dir]*largo, nz = z + DZ[dir]*largo;
+      if((Math.abs(nx) > A || Math.abs(nz) > A) && vueltas < 3){
+        dir = (dir + giro + 4) % 4;     // dobla la esquina y sigue por el lado
+        vueltas++;
+        nx = x + DX[dir]*largo; nz = z + DZ[dir]*largo;
+      }
+      // la ficha se alinea con la marcha; el doble va cruzado
+      const base = (dir % 2 === 0) ? Math.PI/2 : 0;
+      out.push({ e: it.e, i: it.i,
+                 x: x + DX[dir]*largo/2, z: z + DZ[dir]*largo/2,
+                 rotY: base + (doble ? Math.PI/2 : 0), der: it.der });
+      x = nx; z = nz;
     }
-  });
+    return out;
+  }
+
+  const med = Math.floor((board.length - 1) / 2);
+  const der = [], izq = [];
+  for(let i = med; i < board.length; i++) der.push({ e: board[i], i, der: true });
+  for(let i = med - 1; i >= 0; i--)       izq.push({ e: board[i], i, der: false });
+
+  const puestas = tramo(der, 0, 1).concat(tramo(izq, 2, -1));
+
   let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
   puestas.forEach(q => {
     minX=Math.min(minX,q.x); maxX=Math.max(maxX,q.x);
@@ -1234,7 +1250,9 @@ function apuntarCamara(){
 /* Primera persona: sentado en la silla del que le toca, asomado sobre el paño.
    A escala real una ficha de 7,5 cm desde el otro lado de una mesa de 1,15 m es
    un sello de correo — desde aquí se leen, que es como se leen en la vida. */
-const POV_R = MESA/2 + 0.17, POV_Y = 0.405;
+// Más alta y más picada que antes: es de donde sale la legibilidad
+// de ellos — la mesa llena el cuadro y las fichas se leen solas.
+const POV_R = MESA/2 + 0.10, POV_Y = 0.56;
 function ponerCamaraPOV(t){
   const ang = ASIENTO_ANG[povAsiento];
   /* Uno no se ve la cara ni los brazos desde sus propios ojos, y pegados al
@@ -1246,7 +1264,7 @@ function ponerCamaraPOV(t){
   camera.position.set(Math.sin(ang)*POV_R + Math.cos(ang)*lado,
                       POV_Y + resp,
                       Math.cos(ang)*POV_R - Math.sin(ang)*lado);
-  camera.lookAt(Math.sin(ang)*0.04, 0.012, Math.cos(ang)*0.04);
+  camera.lookAt(Math.sin(ang)*-0.14, 0.010, Math.cos(ang)*-0.14);
 }
 function planoCenital(){ camAngGoal = 0; camRadGoal = baseRad*0.18; camAltGoal = baseAlt*1.2; }
 function animar(){

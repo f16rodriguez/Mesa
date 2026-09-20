@@ -387,6 +387,119 @@ def colmado():
     pieza(caja((.1,.07,.2),(CX+3.43, CY-0.14, PISO+.1)), 'escoba',
           hexlin('#C9A96A'), rough=1)
 
+# ---------------- la acera de enfrente ----------------
+def enfrente():
+    """Por el lado abierto no había NADA: arena hasta el horizonte. Tres de las
+    cuatro cámaras miran para allá, así que tres de cada cuatro planos salían
+    contra un vacío. Una mesa de dominó en la calle tiene CALLE delante:
+    asfalto, contén, casitas pintadas con su zinc, ventanas encendidas, poste
+    con cables y la luz amarilla de la esquina.
+
+    Todo son cajas y cilindros a propósito: se ve a quince metros, no necesita
+    detalle, y así el horneado no se dispara."""
+    random.seed(7)
+    YF = -5.0                                   # el eje de la calle
+    pieza(caja((30, 3.1, .02), (0, YF, PISO+.012)), 'asfalto',
+          hexlin('#241F1C'), rough=.9, tx='concreto', txs=6.0)
+    for py in (YF+1.62, YF-1.62):               # los dos contenes
+        pieza(caja((30, .26, .14), (0, py, PISO+.07)), 'conten',
+              hexlin('#9A9279'), rough=.95)
+    # la línea del medio, a trozos, que es lo que la lee como calle
+    for k in range(-9, 10):
+        pieza(caja((.9, .09, .006), (k*1.6, YF, PISO+.026)), 'raya',
+              hexlin('#C8B45A'), rough=.9)
+
+    COL = ['#5E8FA8','#C9765C','#6FB5A6','#C8A03A','#8E6FA0','#B03A2E']
+    VENT = hexlin('#FFD79A')
+    # Las casas NO van pegadas ni a la misma distancia: una hilera maciza a la
+    # misma profundidad se lee como un muro pintado, que es lo que salió la vez
+    # pasada. Van más atrás, más bajas, con callejones entre ellas y con la
+    # fachada MIRANDO a la mesa (la primera vez puse puertas y ventanas en la
+    # cara de atrás y las casitas salieron ciegas).
+    px = -13.0
+    n = 0
+    while px < 12.0:
+        w = 2.8 + random.random()*2.6
+        h = 2.0 + random.random()*1.0
+        prof = 3.6 + random.random()*1.6
+        py = YF - 1.9 - 1.7 - random.random()*3.4
+        c = hexlin(random.choice(COL))
+        cx = px + w/2
+        pieza(caja((w, prof, h), (cx, py, PISO + h/2)), 'casita%d' % n,
+              pared_color(c, mezcla(c, hexlin('#2A2230'), .45)),
+              rough=.95, cuts=3, tx='pared_det', txs=w*1.3)
+        # el zinc, siempre un poco volado y torcido
+        bm = caja((w+.40, prof+.45, .05), (cx, py, PISO + h + .06),
+                  rot=(math.radians(4), 0, 0))
+        pieza(bm, 'zincCasita%d' % n, tenir(hexlin('#D8D8D8'), 'zinc_foto'),
+              rough=.55, metal=.3, tx='zinc_foto', txs=w*.9)
+        # la fachada da a la calle: la puerta y las ventanas encendidas son lo
+        # que dice la hora sin decirla
+        fy = py + prof/2
+        pieza(caja((.82, .06, 1.90), (cx - w*.22, fy, PISO + .95)),
+              'puertaCasita%d' % n, hexlin('#2A1A10'), rough=.9)
+        for k in range(2 if w > 4.0 else 1):
+            vx = cx + w*(.17 + k*.25)
+            encendida = random.random() < .62
+            pieza(caja((.60, .05, .55), (vx, fy, PISO + h*.62)),
+                  'ventanaCasita%d_%d' % (n, k),
+                  VENT if encendida else hexlin('#16131A'),
+                  rough=.6, lit=1 if encendida else 0)
+        n += 1
+        px += w + 1.1 + random.random()*2.0
+
+    # palos detrás de las casas: rompen la línea recta de los techos
+    # Palos detrás, para que los techos no hagan una línea recta. Tres esferas
+    # iguales daban una paleta de caramelo: ahora cada copa son cinco bolas
+    # distintas y descentradas, que es lo que hace la silueta de un árbol.
+    for k in range(6):
+        tx_ = -12.0 + k*4.2 + random.random()*2.2
+        ty = YF - 7.2 - random.random()*3.6
+        alt = 2.4 + random.random()*2.4
+        pieza(cilindro(.08,.12, alt, (tx_, ty, PISO+alt/2), seg=6), 'tronco%d' % k,
+              hexlin('#2A1E14'), rough=1.0)
+        for j in range(5):
+            r = .42 + random.random()*.46
+            pieza(esfera(r, (tx_+(random.random()-.5)*1.5,
+                             ty+(random.random()-.5)*1.1,
+                             PISO+alt+.15+random.random()*.95),
+                         seg=7, esc=(1,1,.78)),
+                  'copa%d_%d' % (k,j), hexlin('#14301F'), rough=1.0)
+
+    # el poste de la esquina con su lámpara, y los cables cruzando la calle
+    for (ppx, ppy, tag) in [(-6.2, YF+1.3, 'A'), (6.6, YF+1.3, 'B')]:
+        pieza(cilindro(.075,.095, 6.2, (ppx, ppy, PISO+3.1), seg=8),
+              'poste'+tag, hexlin('#4A443C'), rough=.85)
+    # la lámpara: un brazo, la campana y el disco que sí se ve encendido
+    LX, LY = -6.2, YF+1.3
+    bm = cilindro(.035,.035,1.15,(LX+.55, LY-.55, PISO+5.55), seg=6,
+                  rot=(math.radians(90), 0, math.radians(45)))
+    pieza(bm, 'brazoFarola', hexlin('#4A443C'), rough=.8)
+    pieza(cilindro(.30,.10,.16,(LX+1.05, LY-1.05, PISO+5.52), seg=10),
+          'campana', hexlin('#5A5348'), rough=.6, metal=.4)
+    pieza(cilindro(.26,.26,.03,(LX+1.05, LY-1.05, PISO+5.43), seg=10),
+          'focoFarola', hexlin('#FFE6B4'), rough=.4, lit=1)
+    for (a, b) in [((-6.2, YF+1.3, PISO+5.9), (6.6, YF+1.3, PISO+5.75)),
+                   ((-6.2, YF+1.3, PISO+5.5), (-4.0, 2.4, PISO+3.1)),
+                   ((6.6, YF+1.3, PISO+5.4), (4.3, 2.2, PISO+3.1))]:
+        m = ((a[0]+b[0])/2, (a[1]+b[1])/2, (a[2]+b[2])/2 - .45)
+        pieza(tubo(a, m, .016, .016, 5), 'cableA', hexlin('#14100C'), rough=.9)
+        pieza(tubo(m, b, .016, .016, 5), 'cableB', hexlin('#14100C'), rough=.9)
+
+    # el muro del solar, a un lado: tapa el vacío lateral sin cerrar la escena
+    pieza(caja((.30, 7.0, 1.9), (10.2, 0.6, PISO+.95)), 'muroSolar',
+          pared_color(hexlin('#A8906A'), hexlin('#6E5B42')), rough=.97,
+          cuts=4, tx='pared_det', txs=9.0)
+    pieza(caja((.42, 7.2, .10), (10.2, 0.6, PISO+1.94)), 'remateMuro',
+          hexlin('#8A7C60'), rough=.95)
+    pieza(caja((.24, 5.4, 2.4), (-9.0, 1.2, PISO+1.2)), 'casaLateral',
+          pared_color(hexlin('#4F8A3D'), hexlin('#31562A')), rough=.96,
+          cuts=4, tx='pared_det', txs=7.0)
+    bm = caja((.7, 5.8, .05), (-9.05, 1.2, PISO+2.44), rot=(0, math.radians(5), 0))
+    pieza(bm, 'zincLateral', tenir(hexlin('#D8D8D8'), 'zinc_foto'),
+          rough=.55, metal=.3, tx='zinc_foto', txs=5.0)
+
+
 # ---------------- la mesa de dominó real: pino, paño rojo, atriles ----------------
 def mesa():
     M = 1.15
@@ -679,8 +792,11 @@ def tenir(color, nombre):
 
 # Cuánto se cierra el pulgar. Se afinan MIRANDO un primer plano de la mano:
 # a ojo desde el código no se sabe hacia dónde mira el eje del hueso.
-CURVA_DEDO = float(os.environ.get('CURVA_DEDO', 31))
-ADUCCION = {'index': 7.0, 'middle': 1.0, 'ring': -6.0, 'pinky': -13.0}
+# La mano quedaba abierta en estrella sobre el paño: 20 grados de abanico entre
+# el índice y el meñique y poca curva. Una mano en reposo tiene los dedos casi
+# paralelos y algo doblados.
+CURVA_DEDO = float(os.environ.get('CURVA_DEDO', 40))
+ADUCCION = {'index': 3.5, 'middle': 0.5, 'ring': -3.0, 'pinky': -6.5}
 TH_Z1 = float(os.environ.get('TH_Z1', -34))
 TH_X1 = float(os.environ.get('TH_X1', 14))
 TH_Z2 = float(os.environ.get('TH_Z2', -26))
@@ -1283,6 +1399,7 @@ def ropa_afro(co):
 limpiar()
 calle()
 colmado()
+enfrente()
 mesa()
 vecindario()
 ANG = [0, math.pi/2, math.pi, -math.pi/2]
@@ -1304,7 +1421,13 @@ TIPOS  = ['sombrero','gorra','panuelo','afro']
 PATRONES = [ropa_guayabera, ropa_joven, ropa_dona, ropa_afro]
 PANTS  = [hexlin('#8A7B62'), hexlin('#2E3A46'), hexlin('#4A3A50'), hexlin('#2E2A33')]
 for s in range(4):
-    if s == 0 and os.path.exists(os.path.join(RUTA_PERSONAJES, 'chelo_rig.glb')):
+    # El personaje generado NO entra hasta que tenga un esqueleto bueno. El rig
+    # que compramos viene degenerado -- los huesos del lado izquierdo caen sobre
+    # el eje del cuerpo -- y el resultado es que se sentaba con la cabeza torcida
+    # cien grados, mirando a la nada. Eso era lo de "se miran entre ellos".
+    # Para volver a probarlo: GENERADO=1 blender -b -P arte/blender/set.py
+    if (s == 0 and os.environ.get('GENERADO')
+            and os.path.exists(os.path.join(RUTA_PERSONAJES, 'chelo_rig.glb'))):
         persona_generada(s, 'chelo_rig.glb', TIPOS[s])
     else:
         personaje(s, PIELES[s], PANTS[s], TIPOS[s], PATRONES[s])
@@ -1333,6 +1456,9 @@ punto((-0.7, .8, 2.02), 28, (1.0,.72,.48))
 punto((0, -2.2, 2.14), 24, (1.0,.72,.48))              # la de alante
 punto((-0.8, 3.05, 2.2), 34, (1.0,.72,.48))          # la del alero
 punto((CX, CY-0.95, 2.1), 60, (1.0,.74,.5))           # el porche
+# la farola de la esquina: sin ella las casitas de enfrente salen en negro y
+# la calle vuelve a ser un vacío, solo que con cajas dentro
+punto((-5.15, -6.05, PISO+5.35), 900, (1.0,.86,.62), .35)
 li = bpy.data.lights.new('int','AREA'); li.energy = 90; li.color = (1.0,.69,.42)
 li.size = 2.4; li.size_y = 1.2
 ob = bpy.data.objects.new('int', li)

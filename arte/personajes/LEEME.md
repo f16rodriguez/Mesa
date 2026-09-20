@@ -7,7 +7,45 @@ persona: 8 de imágenes, 9 de malla.
 `chelo.glb` — 13.778 triángulos, textura de color 4096², 1,80 m de alto real
 (`auto_size`). De pie, brazos abajo, pose neutra.
 
-## El esqueleto: resuelto, y por 5 créditos
+## El esqueleto de Meshy está ROTO. Medido, no opinado.
+
+`chelo_rig.glb` trae 22 huesos con nombres correctos — y por eso lo di por
+bueno, que fue el error: comprobé los NOMBRES y no comprobé una sola POSICIÓN.
+
+Posiciones reales de los huesos del lado izquierdo en el rig de origen:
+
+| hueso | x |
+|---|---|
+| `LeftArm` | 0,032 |
+| `LeftForeArm` | 0,069 |
+| `LeftHand` | 0,112 |
+| `LeftUpLeg` | 0,035 |
+| `LeftFoot` | −0,030 |
+
+Todos pegados al EJE del cuerpo. Un hombro izquierdo de verdad está en x≈0,18
+— el del cuerpo CC0 está en 0,212. Y las colas son peores: la de `LeftArm` cae
+a 31 metros. El esqueleto es degenerado: no tiene separación de miembros, así
+que el brazo pivota desde el centro del pecho y la malla se desgarra.
+
+Los 5 créditos se perdieron. La lección no: **comprobar posiciones, no nombres.**
+
+## El plan bueno, y es gratis: transferir pesos
+
+El esqueleto CC0 de Quaternius (`arte/blender/ubc/`) SÍ tiene las articulaciones
+donde van y ya usa nuestros nombres. Se le transfieren los pesos a la malla
+generada con el modificador Data Transfer (por superficie más cercana) y se
+liga a ESE esqueleto. Así toda la animación sigue funcionando sin tocarla.
+
+Los dos cuerpos tienen que estar en la misma pose antes de transferir: el
+generado está de pie con los brazos abajo, el base en A. Hay que bajarle los
+brazos al base, aplicar esa pose como reposo, y recién entonces transferir.
+
+## Lo que NO se hace
+
+Volver a pagar rigging esperando otro resultado. El mismo modelo sobre la misma
+malla da el mismo esqueleto.
+
+## El mapa de nombres, que sigue sirviendo
 
 `chelo_rig.glb` — la misma malla con esqueleto de Meshy (`3d_rigging`, 5
 créditos). 22 huesos en convención Mixamo, y TODOS los que mueve el juego

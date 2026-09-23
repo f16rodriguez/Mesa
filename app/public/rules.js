@@ -14,12 +14,54 @@ function options(s, seat) {
 export function setup(players) {
   return {version:1,phase:'lobby',hostId:'host',players:Array.from({length:4},(_,i)=>players[i]||'bot-'+i),names:['Seat 1','Seat 2','Seat 3','Seat 4'],bots:[0,1,2,3].map(i=>!players[i]),seed:617263,settings:{target:200,capicua:25,tie:'blocker',allPips:false},scores:[0,0],hands:[[],[],[],[]],chain:[],left:null,right:null,turn:0,opener:0,handNo:0,passes:0,lastPlay:0,event:null,history:[],moves:[],deal:[],result:null};
 }
+/*
+ * The shuffle. A table is only fair if nobody can predict or reconstruct the
+ * deal, so this is ChaCha20 (RFC 8439) keyed with the room's 256-bit seed, and
+ * Fisher-Yates draws each index by rejection sampling, never `% n` on a raw
+ * word (that alone biases the deal). The old 32-bit LCG put the 6-6 in seat 3
+ * almost four times as often as in seat 0, and a player could recover the seed
+ * from their own hand. Pure and deterministic: the same seed replays the same
+ * deal, which is what the tests and the saved practice game rely on.
+ */
+const rotl=(x,n)=>(x<<n)|(x>>>(32-n));
+function chacha20(key,counter,nonce) {
+  const init=[0x61707865,0x3320646e,0x79622d32,0x6b206574,...key,counter>>>0,...nonce],x=init.slice();
+  const q=(a,b,c,d)=>{x[a]=(x[a]+x[b])|0;x[d]=rotl(x[d]^x[a],16);x[c]=(x[c]+x[d])|0;x[b]=rotl(x[b]^x[c],12);x[a]=(x[a]+x[b])|0;x[d]=rotl(x[d]^x[a],8);x[c]=(x[c]+x[d])|0;x[b]=rotl(x[b]^x[c],7);};
+  for(let i=0;i<10;i++){q(0,4,8,12);q(1,5,9,13);q(2,6,10,14);q(3,7,11,15);q(0,5,10,15);q(1,6,11,12);q(2,7,8,13);q(3,4,9,14);}
+  return x.map((v,i)=>(v+init[i])>>>0);
+}
+const NONCE=[0x6173656d,0x696d6f64,0x73656f6e]; // "mesadominoes" in ASCII: the dealing stream
+/** 64 hex characters (32 random bytes from the room) are the key as-is; a byte
+ *  array is read the same way. Anything else — a 32-bit number from a saved
+ *  practice game or a test — is folded and run through one ChaCha block, so it
+ *  still yields a full, well-mixed key (with only the entropy it came with). */
+function seedKey(seed) {
+  if(Array.isArray(seed)&&seed.length===32&&seed.every(b=>Number.isInteger(b)&&b>=0&&b<256)) seed=seed.map(b=>(b+256).toString(16).slice(1)).join('');
+  if(typeof seed==='string'&&/^[0-9a-f]{64}$/i.test(seed)) return Array.from({length:8},(_,w)=>parseInt(seed.slice(w*8,w*8+8).match(/../g).reverse().join(''),16)>>>0);
+  const text=String(seed),key=[0x243f6a88,0x85a308d3,0x13198a2e,0x03707344,0xa4093822,0x299f31d0,0x082efa98,0xec4e6c89];
+  for(let i=0;i<text.length;i++) key[i%8]=Math.imul(key[i%8]^text.charCodeAt(i),0x01000193)>>>0;
+  return chacha20(key,text.length,NONCE).slice(0,8);
+}
+function randomStream(seed) {
+  const key=seedKey(seed);let block=[],i=16,counter=0;
+  return ()=>{if(i===16){block=chacha20(key,counter++,NONCE);i=0;}return block[i++];};
+}
+/** Uniform in [0,n): words at or past the last multiple of n are redrawn. */
+function below(next,n) {
+  const limit=Math.floor(4294967296/n)*n;let u=next();
+  while(u>=limit) u=next();
+  return u%n;
+}
+/** Highest pip first, then the other end: a hand's order says nothing about the deck. */
+const byPips=hand=>[...hand].sort((x,y)=>Math.max(y.a,y.b)-Math.max(x.a,x.b)||Math.min(y.a,y.b)-Math.min(x.a,x.b));
 function deal(s) {
-  let seed=s.seed>>>0;
-  const deck=[];
+  const next=randomStream(s.seed),deck=[];
   for(let a=0;a<=6;a++) for(let b=a;b<=6;b++) deck.push({id:a+'-'+b,a,b});
-  for(let i=27;i>0;i--){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const j=seed%(i+1);[deck[i],deck[j]]=[deck[j],deck[i]];}
-  const hands=Array.from({length:4},(_,i)=>deck.slice(i*7,i*7+7));
+  for(let i=27;i>0;i--){const j=below(next,i+1);[deck[i],deck[j]]=[deck[j],deck[i]];}
+  // The next seed comes from further down the same stream: a practice game (no
+  // server to hand it fresh bytes) still deals a new, unpredictable hand.
+  const seed=Array.from({length:8},()=>next().toString(16).padStart(8,'0')).join('');
+  const hands=Array.from({length:4},(_,i)=>byPips(deck.slice(i*7,i*7+7)));
   const opener=s.handNo===0?hands.findIndex(h=>h.some(t=>t.id==='6-6')):s.opener;
   return {...s,seed,phase:'playing',hands,deal:hands.map(h=>h.map(t=>({...t}))),chain:[],left:null,right:null,turn:opener,opener,handNo:s.handNo+1,passes:0,lastPlay:opener,moves:[],result:null,event:{type:'deal',seat:opener}};
 }
@@ -87,5 +129,5 @@ export function isGameOver(s) {
 }
 export function viewFor(s,p) {
   const seat=s.players.indexOf(p),closed=s.phase==='handEnd'||s.phase==='seriesEnd';
-  return {phase:s.phase,names:s.names,bots:s.bots,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,hand:seat<0?[]:s.hands[seat],legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands:null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
+  return {phase:s.phase,names:s.names,bots:s.bots,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
 }

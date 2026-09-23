@@ -26,6 +26,9 @@ export function botMayCover(g:any,seat:number,now:number){
   return !!o&&!o.away&&now-o.lastSeen<20000;
  });
 }
+/** 32 bytes from the platform CSPRNG, as hex: the key logic.js deals from.
+ *  A new one before every deal, so no hand says anything about the next. */
+export const freshSeed=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
 export function freshGame(){return {status:'waiting',seats:[] as string[],state:null,result:null};}
 export function resolveMeta(raw:unknown){const m=(raw??{}) as Record<string,any>,arr=Array.isArray(m.players)?m.players:[];const n=(v:unknown,f:number)=>Number.isInteger(v)&&Number(v)>=1?Number(v):f;const min=n(m.minPlayers,n(arr[0],1));return {game:[m.game,m.name,m.title].find(x=>typeof x==='string'&&x.trim())??'Game',minPlayers:min,maxPlayers:Math.max(min,n(m.maxPlayers,n(arr[1],min)))};}
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;profileId?:string;lastChat?:number};
@@ -80,7 +83,7 @@ export class Room extends DurableObject<Env>{
     const att=ws.deserializeAttachment();if(att?.id)return this.error(ws,'Already joined.');
     if(typeof msg.token!=='string'||!/^[a-f0-9]{64}$/.test(msg.token))return this.error(ws,'Invalid seat credential. Reload and try again.');
     const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg.token));const id=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
-    if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=crypto.getRandomValues(new Uint32Array(1))[0];g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
+    if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=freshSeed();g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
     if(!g.members[id]){
      if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
      const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
@@ -117,7 +120,7 @@ export class Room extends DurableObject<Env>{
    }
    if(msg.type!=='action')return this.error(ws,'Unknown action.');
    const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
-   if(['start','next','newSeries'].includes(msg.action.type))g.state.seed=crypto.getRandomValues(new Uint32Array(1))[0];
+   if(['start','next','newSeries'].includes(msg.action.type))g.state.seed=freshSeed();
    if(msg.action.type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
    g.state=logic.applyAction(g.state,id,msg.action);
    if(msg.action.type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?['Don Rafa','Marisol','Tío Luis','Carmen'][i]:n);

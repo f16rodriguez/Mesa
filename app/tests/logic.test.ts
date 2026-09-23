@@ -19,3 +19,47 @@ describe('Dominican double-six rules',()=>{
  it('detects a 200–0 zapato and reveals hands only after closing',()=>{let s=start();s.scores=[198,0];s.chain=[{...t(1,2),x:1,y:2}];s.left=1;s.right=2;s.turn=0;s.hands=[[t(2,4)],[t(3,6)],[t(5,5)],[t(0,3)]];s=play(s,'a',{type:'play',tile:'2-4',side:'right'});expect(L.isGameOver(s).over).toBe(true);expect(s.result.zapato).toBe(true);expect((L.viewFor(s,'spectator') as any).revealed).not.toBeNull();expect((L.viewFor(s,'spectator') as any).replay.deal).toBeDefined();});
  it('completes fixed-seed full series with tile conservation and matching invariant',()=>{for(const seed of [17,8128,625]){let s=initial();s.seed=seed;s=play(s,'host',{type:'start'});let steps=0;while(s.phase!=='seriesEnd'&&steps++<2000){if(s.phase==='handEnd'){s=play(s,'host',{type:'next'});continue;}const p=s.players[s.turn],v:any=L.viewFor(s,p),o=v.legal[0];s=play(s,p,o?{type:'play',...o}:{type:'pass'});expect(s.hands.flat().length+s.chain.length).toBe(28);for(let i=1;i<s.chain.length;i++)expect(s.chain[i-1].y).toBe(s.chain[i].x);}expect(s.phase).toBe('seriesEnd');expect(steps).toBeLessThan(2000);}});
 });
+describe('a fair deal nobody can reconstruct',()=>{
+ const hex=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
+ const dealWith=(seed:unknown)=>{const s:any=initial();s.seed=seed;return L.applyAction(s,'host',{type:'start'}) as any;};
+ const seatOf=(s:any,id:string)=>s.hands.findIndex((h:any[])=>h.some(x=>x.id===id));
+ it('sends every tile to every seat a quarter of the time over 20k deals',()=>{
+  // The old 32-bit LCG put the 6-6 in seat 0 10% of the time and in seat 3 39%,
+  // so pair B led the first hand 59% of the time.
+  const N=20000,count=Array.from({length:28},()=>[0,0,0,0]),ids=(dealWith(1).hands.flat() as any[]).map(x=>x.id).sort();
+  let pairB=0,sameHand=0;
+  for(let n=0;n<N;n++){
+   const s=dealWith(hex());
+   s.hands.forEach((h:any[],seat:number)=>h.forEach(x=>{const row=count[ids.indexOf(x.id)]!;row[seat]=row[seat]!+1;}));
+   if(s.turn%2)pairB++;
+   if(seatOf(s,'6-6')===seatOf(s,'5-5'))sameHand++;
+  }
+  const six=count[ids.indexOf('6-6')]!;
+  for(const c of six)expect(Math.abs(c/N-0.25)).toBeLessThan(0.02);
+  const chi=(row:number[])=>row.reduce((x,c)=>x+(c-N/4)**2/(N/4),0);
+  expect(chi(six)).toBeLessThan(16.27);                 // 3 degrees of freedom, p = 0.001
+  for(const row of count)expect(chi(row)).toBeLessThan(30.7); // p = 1e-6 per tile: 28 checks, no flakes
+  expect(Math.abs(pairB/N-0.5)).toBeLessThan(0.02);
+  expect(Math.abs(sameHand/N-6/27)).toBeLessThan(0.02); // the 5-5 lands in one of the 6-6's 6 remaining slots of 27
+ });
+ it('replays by seed, still accepts an old numeric seed, and moves to a fresh 256-bit seed',()=>{
+  const seed=hex(),bytes=seed.match(/../g)!.map(x=>parseInt(x,16));
+  expect(dealWith(seed).hands).toEqual(dealWith(seed).hands);
+  expect(dealWith(bytes).hands).toEqual(dealWith(seed).hands);
+  expect(dealWith(17).hands).toEqual(dealWith(17).hands);
+  expect(dealWith(17).hands).not.toEqual(dealWith(18).hands);
+  const s=dealWith(17);expect(s.seed).toMatch(/^[0-9a-f]{64}$/);
+  // The next deal (a practice game has no server to hand it new bytes) differs.
+  s.phase='handEnd';s.opener=0;const again:any=L.applyAction(s,'host',{type:'next'});expect(again.hands).not.toEqual(s.hands);expect(again.seed).not.toBe(s.seed);
+ });
+ it('shows every hand sorted, so tile order says nothing about the deck',()=>{
+  const sorted=(h:any[])=>h.every((x,i)=>!i||Math.max(h[i-1].a,h[i-1].b)>Math.max(x.a,x.b)||(Math.max(h[i-1].a,h[i-1].b)===Math.max(x.a,x.b)&&Math.min(h[i-1].a,h[i-1].b)>Math.min(x.a,x.b)));
+  for(let n=0;n<50;n++){
+   const s=dealWith(hex());
+   for(const p of ['a','b','c','d'])expect(sorted((L.viewFor(s,p) as any).hand)).toBe(true);
+   // even a hand stored out of order (a state saved before this change)
+   s.hands[0]=[...s.hands[0]].reverse();expect(sorted((L.viewFor(s,'a') as any).hand)).toBe(true);
+   const closed={...s,phase:'handEnd'};for(const h of (L.viewFor(closed,'spectator') as any).revealed)expect(sorted(h)).toBe(true);
+  }
+ });
+});

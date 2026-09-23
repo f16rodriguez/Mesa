@@ -13,6 +13,12 @@ export interface Env {
   /** One Durable Object instance per room — `app.manifest.json` → durableObject. */
   ROOMS: DurableObjectNamespace;
   DB: D1Database;
+  /** Paddle (cobro del desbloqueo). Sin las tres, Mesa no cobra ni bloquea nada. */
+  PADDLE_CLIENT_TOKEN?: string;
+  PADDLE_PRICE_ID?: string;
+  PADDLE_WEBHOOK_SECRET?: string;
+  /** "sandbox" (por defecto) o "production". */
+  PADDLE_ENV?: string;
   LIVEKIT_URL?: string;
   LIVEKIT_API_KEY?: string;
   LIVEKIT_API_SECRET?: string;

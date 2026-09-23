@@ -22,7 +22,12 @@ export async function ensureDb(env:Env){await env.DB.batch([
  env.DB.prepare('CREATE TABLE IF NOT EXISTS profiles (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, country TEXT NOT NULL DEFAULT "", age_band TEXT NOT NULL DEFAULT "", avatar INTEGER NOT NULL DEFAULT 0, password_hash TEXT NOT NULL, salt TEXT NOT NULL, created_at INTEGER NOT NULL, games INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0, losses INTEGER NOT NULL DEFAULT 0)'),
  env.DB.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, profile_id TEXT NOT NULL, expires_at INTEGER NOT NULL)'),
  env.DB.prepare('CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL)'),
- env.DB.prepare('CREATE TABLE IF NOT EXISTS series_results (series_id TEXT NOT NULL, profile_id TEXT NOT NULL, won INTEGER NOT NULL, opponent_score INTEGER NOT NULL, own_score INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(series_id,profile_id))')
+ env.DB.prepare('CREATE TABLE IF NOT EXISTS series_results (series_id TEXT NOT NULL, profile_id TEXT NOT NULL, won INTEGER NOT NULL, opponent_score INTEGER NOT NULL, own_score INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(series_id,profile_id))'),
+ // El desbloqueo (ver pagos.ts): lo que cada cuenta tiene, lo que pagó y qué serie cubrió quién.
+ env.DB.prepare('CREATE TABLE IF NOT EXISTS entitlements (profile_id TEXT PRIMARY KEY, trial_used INTEGER NOT NULL DEFAULT 0, unlocked_at INTEGER, unlock_txn TEXT)'),
+ env.DB.prepare('CREATE TABLE IF NOT EXISTS purchases (txn_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, price_id TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT "", total TEXT NOT NULL DEFAULT "", currency TEXT NOT NULL DEFAULT "", status TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)'),
+ env.DB.prepare('CREATE INDEX IF NOT EXISTS purchases_profile ON purchases(profile_id)'),
+ env.DB.prepare('CREATE TABLE IF NOT EXISTS series_sponsors (series_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)')
 ]);}
 function safeProfile(p:any,own=false){if(!p)return null;return {id:p.id,username:p.username,name:p.display_name,country:p.country,avatar:p.avatar,createdAt:p.created_at,games:p.games,wins:p.wins,losses:p.losses,...(own?{ageBand:p.age_band}:{})};}
 export async function accountFor(req:Request,env:Env){const token=req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!token||!/^[a-f0-9]{64}$/.test(token))return null;await ensureDb(env);return env.DB.prepare('SELECT p.* FROM profiles p JOIN sessions s ON p.id=s.profile_id WHERE s.token_hash=? AND s.expires_at>?').bind(await hash(token),Date.now()).first<any>();}
@@ -49,7 +54,7 @@ export async function accountRoute(req:Request,env:Env){const url=new URL(req.ur
  }
  if(!['/api/signup','/api/login'].includes(route))return json({error:'Not found'},404);
  const username=typeof input.username==='string'?input.username.toLowerCase().trim():'',password=typeof input.password==='string'?input.password:'';
- if(!/^[a-z0-9_]{3,20}$/.test(username)||password.length<12||password.length>128)return json({error:'Use a 3–20 character username and a password of at least 12 characters.'},400);
+ if(!/^[a-z0-9_]{3,20}$/.test(username)||password.length<8||password.length>128)return json({error:'Use a 3–20 character username and a password of at least 8 characters.'},400);
  const ip=req.headers.get('cf-connecting-ip')||'local',window=Math.floor(Date.now()/60000),key=await hash(ip+'|'+window);
  const rate=await env.DB.prepare('INSERT INTO auth_limits(key,count,expires_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count').bind(key,Date.now()+120000).first<{count:number}>();
  if((rate?.count||0)>8)return json({error:'Too many attempts. Wait a minute.'},429);

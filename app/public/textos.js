@@ -71,7 +71,18 @@ const ES={
  // Avisos
  copiado:'Copiado. Mándale el enlace.',copiadoPublico:'Enlace para mirar copiado.',espera:'Espera tu turno.',noPantallaCompleta:'Aquí no hay pantalla completa.',
  nivel_facil:'Fácil',nivel_normal:'Normal',nivel_duro:'Duro',
- bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'Tú'
+ bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'Tú',
+ // Desbloqueo
+ conCuentaGratis:'Con una cuenta de Mesa, esta mesa tiene {n} series gratis.',crearCuenta:'Crear cuenta',yaTengoCuenta:'Ya tengo cuenta',
+ mesaDesbloqueada:'Tu Mesa está desbloqueada. Jueguen lo que quieran.',teQuedan:'Te quedan {n} series gratis.',teQueda1:'Te queda 1 serie gratis.',
+ seAcabaron:'Se acabaron tus series gratis.',desbloqueaUnaVez:'Desbloquéala una vez y juega todas las series que quieras, en cualquier mesa.',desbloquear:'Desbloquear Mesa · {precio}',unaVez:'Un solo pago. Sin suscripción.',
+ bloqueoSinCuentaTit:'¿Quién pone la mesa?',bloqueoSinCuenta:'Para repartir, alguien sentado necesita una cuenta de Mesa. Con ella, las primeras {n} series son gratis. En el teléfono: «Crear cuenta».',
+ bloqueoSinSeriesTit:'Se acabaron las series gratis.',bloqueoSinSeries:'Desbloqueen Mesa una sola vez por {precio} desde cualquier teléfono de la mesa, y jueguen todas las series que quieran.',
+ gratisNota:'Con una cuenta, las primeras {n} series son gratis. Después, {precio} una sola vez.',
+ serieGratisDe:'Serie gratis {k} de {n} · cuenta de {nombre}',mesaDe:'Mesa de {nombre}',
+ primeroCuenta:'Primero tu cuenta, así el desbloqueo se queda contigo en cualquier mesa.',confirmandoPago:'Confirmando el pago…',
+ mesaDesbloqueadaYa:'¡Listo! Mesa desbloqueada. Ahora sí, repartan.',pagoTarda:'El pago está tardando en llegar. Si ya te cobraron, se desbloquea solo en unos minutos.',
+ pagosNoCargo:'No cargó el cobro. Revisa la conexión y prueba otra vez.',pagosNoDisponibles:'El cobro no está disponible ahora mismo.'
 };
 const EN={
  marca:'mesa',ubicacion:'THE COLMADO · SANTO DOMINGO',subtitulo:'DOMINICAN DOMINOES',
@@ -131,7 +142,18 @@ const EN={
  desdePublico:'FROM THE CROWD',enLaMesa:'AT THE TABLE',publico:' · CROWD',
  copiado:'Copied. Mándale el link.',copiadoPublico:'Spectator link copied.',espera:'Wait for your turn.',noPantallaCompleta:'Full screen is not available here.',
  nivel_facil:'Easy',nivel_normal:'Normal',nivel_duro:'Hard',
- bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'You'
+ bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'You',
+ // Unlock
+ conCuentaGratis:'With a Mesa account, this table gets {n} free series.',crearCuenta:'Create account',yaTengoCuenta:'I have an account',
+ mesaDesbloqueada:'Your Mesa is unlocked. Play all you want.',teQuedan:'You have {n} free series left.',teQueda1:'You have 1 free series left.',
+ seAcabaron:'Your free series are used up.',desbloqueaUnaVez:'Unlock it once and play as many series as you like, at any table.',desbloquear:'Unlock Mesa · {precio}',unaVez:'One payment. No subscription.',
+ bloqueoSinCuentaTit:'Who’s hosting?',bloqueoSinCuenta:'To deal, someone seated needs a Mesa account. It comes with {n} free series. On a phone: “Create account”.',
+ bloqueoSinSeriesTit:'The free series are up.',bloqueoSinSeries:'Unlock Mesa once for {precio} from any phone at the table and play as many series as you like.',
+ gratisNota:'With an account, the first {n} series are free. Then {precio}, once.',
+ serieGratisDe:'Free series {k} of {n} · {nombre}’s account',mesaDe:'{nombre}’s Mesa',
+ primeroCuenta:'Account first, so the unlock stays with you at any table.',confirmandoPago:'Confirming your payment…',
+ mesaDesbloqueadaYa:'Done! Mesa is unlocked. Deal away.',pagoTarda:'Your payment is taking a while. If you were charged, it unlocks by itself in a few minutes.',
+ pagosNoCargo:'Checkout didn’t load. Check your connection and try again.',pagosNoDisponibles:'Checkout isn’t available right now.'
 };
 let lengua='es';
 try{const g=localStorage.getItem('mesa-idioma');lengua=g==='en'||g==='es'?g:'es';}catch{}

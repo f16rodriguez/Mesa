@@ -11,5 +11,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: { include: ['tests/**/*.test.ts'] },
-  plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.jsonc" } })],
+  // Paddle vacío aunque haya un .dev.vars con claves: las pruebas que lo necesitan
+  // lo encienden ellas mismas (tests/pagos.test.ts); las demás juegan gratis.
+  plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.jsonc" }, miniflare: { bindings: { PADDLE_CLIENT_TOKEN: "", PADDLE_PRICE_ID: "", PADDLE_WEBHOOK_SECRET: "" } } })],
 });

@@ -13,6 +13,7 @@ import type { Env } from "./env";
 import { Room } from "./room";
 import { accountRoute } from './accounts';
 import {voiceRoute} from './voice';
+import {avisoPaddle,configPagos} from './pagos';
 
 export { Room };
 
@@ -31,6 +32,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if(url.pathname.startsWith('/api/voice-')){try{return await voiceRoute(request,env);}catch{return Response.json({error:'Voice service is unavailable.'},{status:503});}}
+    // Paddle llama desde sus servidores (sin Origin): va antes de la comprobación de origen de las cuentas.
+    if(url.pathname==='/api/paddle'){try{return await avisoPaddle(request,env);}catch(err){console.error('aviso de Paddle falló',err);return Response.json({error:'Try again'},{status:500});}}
+    if(url.pathname==='/api/pagos'&&request.method==='GET')return configPagos(request,env);
     if (url.pathname.startsWith('/api/')) {
       try { return await accountRoute(request, env); }
       catch (error) { console.error('account route failed', error); return Response.json({ error: 'Profile service is temporarily unavailable.' }, { status: 503 }); }

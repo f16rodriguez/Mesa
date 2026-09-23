@@ -32,6 +32,8 @@ const esTelefono=matchMedia('(pointer:coarse)').matches&&Math.max(innerWidth,inn
 let page='home',view=null,room='',role='host',ws=null,practice=null,selected=null,lesson=0,connected=false,botTimer=null,toastTimer=null,lastEvent='',lastHand=0,world=null,worldPromise=null,profile=null,chatOpen=false,crowd={count:0,chat:[],viewers:[],muted:[],featured:false},lastBubble='',cameraIndex=0,lastMode='',authMode='login';
 let sound=almacen.get('mesa-sound')!=='off',ambientOn=almacen.get('mesa-ambience')!=='off',music=null,musicMuted=false,pendiente=false,pendienteTimer=null,wakeLock=null,vozDisponible=false,turnoVisto='',ultimoMensaje=0,finVisto={k:'',t:0},revelado=null,movsVistos='';
 const conexion={gen:0,timer:null,intentos:0,nombre:''};
+// El desbloqueo: lo que dice el cuarto (mesaInfo) y lo que tiene mi cuenta (pagosCfg.cuenta).
+let mesaInfo=null,pagosCfg=null,precioLocal='';
 // La tele rehace su HTML en cada jugada: esto recuerda qué ya entró, para no repetir la animación.
 const visto={fin:'',turno:'',tantos:''};
 const muted=new Set(almacen.json('mesa-muted',[]));let crowdMuted=almacen.get('mesa-crowd-muted')==='yes';
@@ -96,7 +98,7 @@ function connect(name=conexion.nombre){
  s.onopen=()=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();s.send(JSON.stringify({type:'join',role,token:token(),name:name||profile?.name||almacen.get('mesa-name','')}));pedirWakeLock();};
  s.onmessage=e=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();if(e.data==='__pong')return;let m;try{m=JSON.parse(e.data);}catch{return;}
   if(m.type==='error'){soltarPendiente();toast(m.error);if(!view)joinScreen(m.error);return;}
-  if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;receive(m.view,m.presence);if(!antes)marcarConexion();}};
+  if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;mesaInfo=m.mesa||null;receive(m.view,m.presence);if(!antes)marcarConexion();}};
  s.onclose=()=>{if(gen!==conexion.gen)return;connected=false;marcarConexion();reconectar();};
  s.onerror=()=>{};
 }
@@ -145,7 +147,7 @@ function home(){disconnect();page='home';view=null;practice=null;revelado=null;e
 function receive(v,presence=[]){
  const antes=view;
  if(page==='room'){botChatter.update(v,role,crowd);if(room&&!practice&&vozDisponible)proximityVoice.session({room,role,token:token(),seat:v.seat,crowd});}
- const key=`${v.handNo}-${v.moves.length}-${v.phase}-${v.turn}-${v.scores.join(',')}-${v.names.join('|')}-${v.bots.join('')}-${JSON.stringify(v.settings)}-${presence.join('')}-${v.isHost}`,changed=key!==lastEvent;
+ const key=`${v.handNo}-${v.moves.length}-${v.phase}-${v.turn}-${v.scores.join(',')}-${v.names.join('|')}-${v.bots.join('')}-${JSON.stringify(v.settings)}-${presence.join('')}-${v.isHost}-${JSON.stringify(mesaInfo)}-${JSON.stringify(pagosCfg?.cuenta||null)}`,changed=key!==lastEvent;
  view=v;view.presence=presence;if(selected&&!v.legal.some(o=>o.tile===selected))selected=null;
  // Sonidos de la mesa (en la tele). La ficha suena al aterrizar (evento de la escena); aquí va lo demás.
  const mv=`${v.handNo}:${v.moves.length}`;
@@ -168,15 +170,15 @@ function marcador(){const falta=espera(),r=view.result,s=[...view.scores];if(fal
  return `<div class="pizarra">${[0,1].map(i=>`<div class="equipo pareja-${i?'b':'a'} ${view.phase==='playing'&&view.turn%2===i?'toca':''}"><span class="quienes">${parejaDe(i)}</span><b class="tanto ${antes[i]!==undefined&&antes[i]!==''&&antes[i]!==String(s[i])?'cambio':''}">${s[i]}</b><i class="barra"><i style="width:${pct(i)}%"></i></i></div>`).join(`<span class="meta">${t('aDoscientos',{n:meta})}</span>`)}</div>`;}
 function turnoTexto(){if(view.phase!=='playing')return '';const i=view.turn;if(i===view.seat)return `<b>${t('teToca')}</b>`;return `${t('leToca',{nombre:`<b>${esc(nombreDe(i))}</b>`})}${view.bots[i]?` <span class="piensa">${t('pensando')}</span>`:''}`;}
 const inviteUrl=(watch=false)=>`${location.origin}/?room=${room}&role=${watch?'spectator':'player'}`;
-function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside class="cartel"><div class="eyebrow">${t('mandaleCodigo')}</div><h2>${t('arrimaSilla')}</h2><div class="cartel-cuerpo"><div id="qr" class="qr" aria-label="QR"></div><div><div class="table-code">${esc(room)}</div><p>${t('escaneaTelefono')}</p><button class="text-link" data-action="copy">${icon('copy')} ${t('copiarEnlace')}</button></div></div>
+function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside class="cartel">${avisoPago()}<div class="eyebrow">${t('mandaleCodigo')}</div><h2>${t('arrimaSilla')}</h2><div class="cartel-cuerpo"><div id="qr" class="qr" aria-label="QR"></div><div><div class="table-code">${esc(room)}</div><p>${t('escaneaTelefono')}</p><button class="text-link" data-action="copy">${icon('copy')} ${t('copiarEnlace')}</button></div></div>
  <div class="sillas">${view.names.map((n,i)=>`<div class="silla pareja-${i%2?'b':'a'} ${view.bots[i]?'libre':'llego'}"><span class="num">${i+1}</span><span>${view.bots[i]?t('sillaLibre',{bot:esc(BOTS[i])}):esc(n)}</span><small>${t('pareja',{x:i%2?'B':'A'})}</small></div>`).join('')}</div>
- ${button(llenos<4?t('repartirConBots'):t('repartir'),'start','primary full')}${button(t('reglasCasa'),'house','full')}<p class="start-caption">${t('tuCompaneroEnfrente')}</p></aside>`;}
+ ${button(llenos<4?t('repartirConBots'):t('repartir'),'start','primary full')}${button(t('reglasCasa'),'house','full')}<p class="start-caption">${t('tuCompaneroEnfrente')}</p>${mesaInfo?.pagos&&!mesaInfo.bloqueo?`<p class="gratis-nota">${t('gratisNota',{n:mesaInfo.gratis,precio:precio()})}</p>`:''}</aside>`;}
 function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result,falta=espera(),serie=view.phase==='seriesEnd';
  const sello=r.zapato?t('zapato'):r.type==='capicua'?t('capicua'):r.type==='tranque'?t('tranque'):t('domino');
  const quien=r.team===null?t('empate'):serie?t('ganaron',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))}):t('ganan',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))});
  const puedeRepartir=view.canDeal??(view.isHost||view.seat>=0);
  return `<section class="resultado pareja-${r.team===1?'b':r.team===0?'a':'n'}" style="animation-delay:${falta.toFixed(2)}s"><div class="eyebrow">${serie?t('serieCompleta'):t('manoCerrada',{n:view.handNo})}</div><h2 class="sello">${sello}</h2><p class="quien">${quien}</p>${r.team!=null?`<div class="points">${t('puntos',{n:r.points})}</div><p class="detalle">${r.bonus?t('pipsCapicua',{n:r.base,c:r.bonus}):t('pipsDetalle',{n:r.base})}</p>`:''}${!serie&&view.opener!=null?`<p class="sale">${t('sale',{nombre:esc(nombreDe(view.opener))})}</p>`:''}
- <div class="acciones">${puedeRepartir?button(serie?t('otraSerie'):t('repartirOtra'),serie?'newSeries':'next','primary'):`<p>${t('esperandoReparto')}</p>`}${button(t('verManos'),'reveal')}</div></section>`;}
+ ${serie?avisoPago():''}<div class="acciones">${puedeRepartir?button(serie?t('otraSerie'):t('repartirOtra'),serie?'newSeries':'next','primary'):`<p>${t('esperandoReparto')}</p>`}${button(t('verManos'),'reveal')}</div></section>`;}
 function renderRoom(){page='room';if(role==='player'&&view.seat>=0){renderPhone();return;}ensureWorld('game');world?.update(view,crowd.count);
  const talkDraft=$('#chat-text')?.value||'',focus=document.activeElement?.id==='chat-text',jugando=view.phase==='playing';
  const habia=['.pizarra','.cartel','.game-hand-dock'].filter(c=>$(c)),kFin=view.handNo+':'+view.phase,kTurno=jugando?view.handNo+':'+view.turn:'',falta=espera();
@@ -184,7 +186,7 @@ function renderRoom(){page='room';if(role==='player'&&view.seat>=0){renderPhone(
   ${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}
   ${view.seat>=0&&jugando?`<div class="game-hand-dock">${handPanel()}</div>`:jugando?`<div class="turno-banner pareja-${view.turn%2?'b':'a'}">${turnoTexto()}</div>`:view.phase==='lobby'&&!view.isHost?`<div class="scene-help">${t('haySillaParaTodos')}</div>`:''}
   <div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>
-  <div class="game-bottom">${practice?`<span class="niveles">${Object.keys(NIVELES).map(k=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${t('nivel_'+k)}</button>`).join('')}</span>`:''}</div></div>`;
+  <div class="game-bottom">${practice?`<span class="niveles">${Object.keys(NIVELES).map(k=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${t('nivel_'+k)}</button>`).join('')}</span>`:patrocinioTexto()}</div></div>`;
  for(const c of habia)$(c)?.classList.add('sin-entrada');
  if(visto.fin===kFin)$('.resultado')?.classList.add('sin-entrada');else if($('.resultado')&&falta<=0)visto.fin=kFin;
  if(visto.turno===kTurno)$('.turno-banner')?.classList.add('sin-entrada');visto.turno=kTurno;
@@ -221,10 +223,44 @@ function renderPhone(){hideWorld();const s=view.seat,mia=s%2,compa=(s+2)%4,jugan
  const top=`<header class="control-top"><div class="yo"><b>${esc(view.names[s])}</b><span class="pareja pareja-${mia?'b':'a'}">${t('conCompanero',{nombre:esc(corto(nombreDe(compa)))})}</span></div><div class="mini-marcador"><span class="pareja-${mia?'b':'a'}">${t('nosotros')} <b>${view.scores[mia]}</b></span><span class="pareja-${mia?'a':'b'}">${t('ellos')} <b>${view.scores[1-mia]}</b></span></div></header>`;
  let cuerpo;
  if(jugando)cuerpo=`<p class="ultima">${ultimaJugada()}</p>${handPanel()}`;
- else if(view.phase==='lobby')cuerpo=`<div class="phone-wait"><div class="eyebrow">${t('tuSillaLista')}</div><h1>${t('estasEnMesa')}</h1><p>${t('miraArriba')}</p></div>`;
- else{const r=view.result,gano=r?.team===mia,parejo=r?.team==null;cuerpo=`<div class="phone-wait fin ${parejo?'':gano?'gano':'perdio'}"><div class="eyebrow">${r?.zapato?t('zapato'):r?.type==='capicua'?t('capicua'):r?.type==='tranque'?t('tranque'):t('domino')}</div><h1>${parejo?t('parejo'):gano?t('ganamos'):t('perdimos')}</h1>${!parejo&&gano?`<div class="points">${t('puntos',{n:r.points})}</div>`:''}<p>${r?.pips?t('tusPuntos',{n:r.pips[s]}):''}${view.opener!=null&&view.phase==='handEnd'?'<br>'+t('sale',{nombre:esc(nombreDe(view.opener))}):''}</p>${view.phase!=='playing'?button(view.phase==='seriesEnd'?t('otraSerie'):t('repartirOtra'),view.phase==='seriesEnd'?'newSeries':'next','primary full'):''}</div>`;
+ else if(view.phase==='lobby')cuerpo=`<div class="phone-wait"><div class="eyebrow">${t('tuSillaLista')}</div><h1>${t('estasEnMesa')}</h1><p>${t('miraArriba')}</p>${cuentaCard()}</div>`;
+ else{const r=view.result,gano=r?.team===mia,parejo=r?.team==null;cuerpo=`<div class="phone-wait fin ${parejo?'':gano?'gano':'perdio'}"><div class="eyebrow">${r?.zapato?t('zapato'):r?.type==='capicua'?t('capicua'):r?.type==='tranque'?t('tranque'):t('domino')}</div><h1>${parejo?t('parejo'):gano?t('ganamos'):t('perdimos')}</h1>${!parejo&&gano?`<div class="points">${t('puntos',{n:r.points})}</div>`:''}<p>${r?.pips?t('tusPuntos',{n:r.pips[s]}):''}${view.opener!=null&&view.phase==='handEnd'?'<br>'+t('sale',{nombre:esc(nombreDe(view.opener))}):''}</p>${view.phase==='seriesEnd'?cuentaCard():''}${view.phase!=='playing'?button(view.phase==='seriesEnd'?t('otraSerie'):t('repartirOtra'),view.phase==='seriesEnd'?'newSeries':'next','primary full'):''}</div>`;
   if(r&&finVisto.k!==view.handNo+':'+view.phase){finVisto={k:view.handNo+':'+view.phase,t:performance.now()};if(gano)vibrar(VIBRA.gano);}}
  app.innerHTML=`<main id="room-root" class="phone-only control pareja-${mia?'b':'a'} ${jugando&&view.turn===s?'mi-turno':''}">${top}${cuerpo}<div class="te-toca-flash" aria-hidden="true">${t('teToca')}</div><footer class="phone-bottom"><span class="connection ${connected?'':'off'}">${connected?t('conectado'):t('reconectando')}</span><button data-action="school">${t('unaAyudita')}</button><button data-action="salir">${icon('exit')}</button></footer></main>`;}
+
+/* ── El desbloqueo ────────────────────────────────────────────────────────── */
+/* Tres series gratis por cuenta y después un solo pago (ver src/pagos.ts). El cuarto
+   decide quién cubre cada serie; aquí solo se enseña y se cobra. El cobro es de Paddle:
+   su script se baja solo cuando alguien toca "Desbloquear", nunca antes. */
+const precio=()=>precioLocal||pagosCfg?.precio||'$9.99';
+async function cargarPagos(){try{const r=await fetch('/api/pagos',{credentials:'include'});pagosCfg=r.ok?await r.json():{activos:false};}catch{pagosCfg=pagosCfg||{activos:false};}return pagosCfg;}
+function patrocinioTexto(){const p=mesaInfo?.patrocinio;if(!mesaInfo?.pagos||!p||view.phase==='lobby')return '';
+ return `<span class="patrocinio">${p.tipo==='unlock'?t('mesaDe',{nombre:esc(p.nombre)}):t('serieGratisDe',{k:mesaInfo.gratis-p.quedan,n:mesaInfo.gratis,nombre:esc(p.nombre)})}</span>`;}
+/** En la tele: por qué no se reparte y qué hacer, con el teléfono. */
+function avisoPago(){const b=mesaInfo?.pagos&&mesaInfo.bloqueo;if(!b)return '';
+ return `<div class="aviso-pago"><h3>${b==='sinCuenta'?t('bloqueoSinCuentaTit'):t('bloqueoSinSeriesTit')}</h3><p>${b==='sinCuenta'?t('bloqueoSinCuenta',{n:mesaInfo.gratis}):t('bloqueoSinSeries',{precio:precio(),n:mesaInfo.gratis})}</p></div>`;}
+/** En el teléfono: crear cuenta, cuántas gratis quedan, o desbloquear. */
+function cuentaCard(){if(!mesaInfo?.pagos)return '';const b=mesaInfo.bloqueo,c=pagosCfg?.cuenta;let cuerpo;
+ if(!profile)cuerpo=`<p>${t('conCuentaGratis',{n:mesaInfo.gratis})}</p><div class="fila">${button(t('crearCuenta'),'cuenta-crear','primary')}${button(t('yaTengoCuenta'),'cuenta-entrar')}</div>`;
+ else if(c?.desbloqueada)cuerpo=`<p class="listo">${t('mesaDesbloqueada')}</p>`;
+ else cuerpo=`<p>${c?.gratisQuedan?(c.gratisQuedan===1?t('teQueda1'):t('teQuedan',{n:c.gratisQuedan})):b==='sinSeries'?t('desbloqueaUnaVez'):t('seAcabaron')}</p>${button(t('desbloquear',{precio:precio()}),'desbloquear','primary full')}<small>${t('unaVez')}</small>`;
+ return `<section class="cuenta-mesa ${b?'bloqueada':''}">${b?`<h3>${b==='sinCuenta'?t('bloqueoSinCuentaTit'):t('bloqueoSinSeriesTit')}</h3>`:''}${cuerpo}</section>`;}
+let paddleListo=null;
+function cargarPaddle(){if(paddleListo)return paddleListo;
+ paddleListo=new Promise((ok,mal)=>{const sc=document.createElement('script');sc.src='https://cdn.paddle.com/paddle/v2/paddle.js';sc.async=true;sc.onload=()=>{try{const P=window.Paddle;if(pagosCfg.entorno!=='production')P.Environment.set('sandbox');P.Initialize({token:pagosCfg.clientToken,eventCallback:ev=>{if(ev?.name==='checkout.completed')pagoHecho();}});ok(P);}catch(e){mal(e);}};sc.onerror=()=>{paddleListo=null;mal(Error('paddle'));};document.head.appendChild(sc);});
+ return paddleListo;}
+async function desbloquear(){
+ if(!profile){authMode='signup';showAuth(t('primeroCuenta'));return;}
+ const cfg=pagosCfg?.activos?pagosCfg:await cargarPagos();if(!cfg?.activos){toast(t('pagosNoDisponibles'));return;}
+ try{const P=await cargarPaddle();
+  // El precio en la moneda de quien paga (RD$, MX$…), si Paddle lo sabe.
+  P.PricePreview?.({items:[{priceId:cfg.priceId,quantity:1}]}).then(r=>{const x=r?.data?.details?.lineItems?.[0]?.formattedTotals?.total;if(x){precioLocal=x;if(page==='room')renderRoom();}}).catch(()=>{});
+  P.Checkout.open({items:[{priceId:cfg.priceId,quantity:1}],customData:{profile_id:profile.id},settings:{displayMode:'overlay',theme:'dark',locale:idioma()==='en'?'en':'es',allowLogout:false}});
+ }catch{toast(t('pagosNoCargo'));}}
+/* Paddle avisa al servidor por su lado; aquí se espera a que el servidor lo confirme. */
+async function pagoHecho(){toast(t('confirmandoPago'));
+ for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,2000));await cargarPagos();if(pagosCfg?.cuenta?.desbloqueada){vibrar(VIBRA.gano);toast(t('mesaDesbloqueadaYa'));if(page==='room'&&view)renderRoom();return;}}
+ toast(t('pagoTarda'));}
 
 /* ── El público ───────────────────────────────────────────────────────────── */
 function visibleMessages(){return (crowd.chat||[]).filter(m=>!muted.has(m.sender)&&!(crowdMuted&&m.role==='spectator'));}
@@ -249,9 +285,9 @@ function reveal(){openModal(t('manosAbiertas'),`<div class="reveal-hands">${view
 
 /* ── Cuentas ──────────────────────────────────────────────────────────────── */
 async function api(path,input){const r=await fetch('/api/'+path,{method:input?'POST':'GET',credentials:'include',headers:input?{'content-type':'application/json'}:{},body:input?JSON.stringify(input):undefined});let b={};try{b=await r.json();}catch{}if(!r.ok)throw Error(b.error||'Please try again.');return b;}
-async function loadProfile(){try{profile=(await api('me')).profile;}catch{profile=null;}}
+async function loadProfile(){try{profile=(await api('me')).profile;}catch{profile=null;}await cargarPagos();if(page==='room'&&view&&mesaInfo?.pagos&&!modal.open)renderRoom();}
 async function showProfile(){await loadProfile();if(!profile){showAuth();return;}openModal(t('tuLugar'),`<div class="eyebrow">@${esc(profile.username)} · ${t('miembroDesde',{n:new Date(profile.createdAt).getFullYear()})}</div><div class="profile-stats"><div><b>${profile.games}</b><span>${t('series')}</span></div><div><b>${profile.wins}</b><span>${t('victorias')}</span></div><div><b>${profile.losses}</b><span>${t('derrotas')}</span></div></div><form id="profile-form"><label class="field">${t('nombrePantalla')}<input name="name" value="${esc(profile.name)}" maxlength="24" required></label><label class="field">${t('pais')}<input name="country" value="${esc(profile.country)}" maxlength="40" placeholder="República Dominicana"></label><label class="field">${t('edad')}<select name="ageBand">${['','18–24','25–34','35–44','45–54','55–64','65+'].map(x=>`<option value="${x}" ${profile.ageBand===x?'selected':''}>${x||t('prefieroNo')}</option>`).join('')}</select></label><button class="g-button primary full">${t('guardarPerfil')}</button><p class="form-error" id="account-error"></p></form><button class="text-link" data-action="logout">${t('salirCuenta')}</button>`);}
-function showAuth(){openModal(t('guardaTuSilla'),`<div class="profile-tabs"><button data-auth="login" class="${authMode==='login'?'active':''}">${t('entrarCuenta')}</button><button data-auth="signup" class="${authMode==='signup'?'active':''}">${t('crearPerfil')}</button></div><p class="modal-copy">${t('invitadosPueden')}</p><form id="auth-form">${authMode==='signup'?`<label class="field">${t('nombrePantalla')}<input name="name" maxlength="24" autocomplete="nickname" required></label>`:''}<label class="field">${t('usuario')}<input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" required></label><label class="field">${t('clave')}<input name="password" type="password" minlength="12" maxlength="128" autocomplete="${authMode==='signup'?'new-password':'current-password'}" required></label><button class="g-button primary full">${authMode==='signup'?t('crearPerfil'):t('entrarCuenta')}</button><p class="form-error" id="account-error"></p></form>`);}
+function showAuth(nota=''){openModal(t('guardaTuSilla'),`<div class="profile-tabs"><button data-auth="login" class="${authMode==='login'?'active':''}">${t('entrarCuenta')}</button><button data-auth="signup" class="${authMode==='signup'?'active':''}">${t('crearPerfil')}</button></div><p class="modal-copy">${nota||t('invitadosPueden')}</p><form id="auth-form">${authMode==='signup'?`<label class="field">${t('nombrePantalla')}<input name="name" maxlength="24" autocomplete="nickname" required></label>`:''}<label class="field">${t('usuario')}<input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" required></label><label class="field">${t('clave')}<input name="password" type="password" minlength="8" maxlength="128" autocomplete="${authMode==='signup'?'new-password':'current-password'}" required></label><button class="g-button primary full">${authMode==='signup'?t('crearPerfil'):t('entrarCuenta')}</button><p class="form-error" id="account-error"></p></form>`);}
 async function copyLink(watch=false){try{await navigator.clipboard.writeText(inviteUrl(watch));toast(watch?t('copiadoPublico'):t('copiado'));}catch{openModal(t('copiado'),`<label class="field"><input readonly value="${esc(inviteUrl(watch))}" onclick="this.select()"></label>`);}}
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
 
@@ -285,6 +321,9 @@ document.addEventListener('click',async e=>{
  else if(a==='camera'){cameraIndex=(cameraIndex+1)%4;world?.setCamera(['table','overhead','close','seat'][cameraIndex]);toast([t('vistaMesa'),t('vistaTablero'),t('vistaCerca'),t('vistaSilla')][cameraIndex]);}
  else if(a==='fullscreen'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.().catch(()=>toast(t('noPantallaCompleta')));}
  else if(a==='profile')showProfile();
+ else if(a==='cuenta-crear'){authMode='signup';showAuth(t('conCuentaGratis',{n:mesaInfo?.gratis||3}));}
+ else if(a==='cuenta-entrar'){authMode='login';showAuth(t('conCuentaGratis',{n:mesaInfo?.gratis||3}));}
+ else if(a==='desbloquear')desbloquear();
  else if(a==='logout'){try{await api('logout',{});profile=null;toast(t('sesionCerrada'));authMode='login';showAuth();}catch(err){toast(err.message);}}
  else if(a==='music'){musicMuted=!musicMuted;music.muted=musicMuted;if(!musicMuted)music.play().catch(()=>{});settings();}
  else if(a==='reveal')reveal();
@@ -305,7 +344,11 @@ document.addEventListener('submit',async e=>{
  else if(f.id==='auth-form'||f.id==='profile-form'){
   const b=f.querySelector('button[type="submit"],button');b.disabled=true;$('#account-error').textContent='';try{
    const payload=f.id==='auth-form'?{username:data.get('username'),password:data.get('password'),name:data.get('name')}:{name:data.get('name'),country:data.get('country'),ageBand:data.get('ageBand'),avatar:profile.avatar};
-   profile=(await api(f.id==='auth-form'?authMode:'profile',payload)).profile;almacen.set('mesa-name',profile.name);await showProfile();toast(f.id==='auth-form'?t('perfilListo'):t('perfilGuardado'));
+   profile=(await api(f.id==='auth-form'?authMode:'profile',payload)).profile;almacen.set('mesa-name',profile.name);
+   if(f.id==='auth-form'&&page==='room'&&room&&!practice){
+    // Sentado en una mesa: se reconecta para que el cuarto sepa de la cuenta, y de vuelta a la mesa.
+    await cargarPagos();modal.close();conexion.intentos=0;connect();toast(t('perfilListo'));
+   }else{await showProfile();toast(f.id==='auth-form'?t('perfilListo'):t('perfilGuardado'));}
   }catch(error){$('#account-error').textContent=error.message;b.disabled=false;}
  }
 });

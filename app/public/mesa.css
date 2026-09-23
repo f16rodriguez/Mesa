@@ -92,8 +92,8 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .loading-error{position:absolute;top:40%;left:50%;transform:translateX(-50%);width:min(420px,86vw);background:var(--vidrio-fuerte);padding:1.4rem;border:1px solid var(--coral);border-radius:var(--radio);pointer-events:auto;font-size:.85rem;line-height:1.7}
 
 /* Si nadie toca nada, la tele queda limpia: solo la mesa, el marcador y el turno. */
-body.quieto .game-tools,body.quieto .game-bottom,body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}
-.game-tools,.game-bottom,.crowd-toggle,.hand-mark,#voice-hud{transition:opacity .35s}
+body.quieto .game-tools,body.quieto .game-bottom>:not(.patrocinio),body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}
+.game-tools,.game-bottom>*,.crowd-toggle,.hand-mark,#voice-hud{transition:opacity .35s}
 body.quieto{cursor:none}
 
 /* ── Portada ───────────────────────────────────────────────────────────────── */
@@ -313,6 +313,23 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .resultado .sale{margin-top:.8rem;font:italic 500 1rem var(--serif);color:var(--ambar)}
 .resultado .acciones{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-top:1.3rem}
 .resultado .acciones p{font-size:.88rem;color:var(--tenue)}
+
+/* ── El desbloqueo ─────────────────────────────────────────────────────────── */
+.aviso-pago{padding:1rem 1.1rem;margin-bottom:.4rem;border-radius:16px;background:linear-gradient(180deg,rgba(255,77,141,.18),rgba(255,77,141,.06));border:1px solid rgba(255,77,141,.55);box-shadow:0 0 40px rgba(255,77,141,.18);text-align:left;animation:subir .4s both}
+.aviso-pago h3{font:400 1.25rem/1.15 var(--display);color:#ffd1e2;letter-spacing:.01em;margin-bottom:.35rem}
+.aviso-pago p{font-size:.88rem;color:var(--marfil2);line-height:1.5}
+.resultado .aviso-pago{margin:1rem 0 0}
+.gratis-nota{font-size:.75rem;color:var(--suave);text-align:center;margin-top:.1rem}
+.patrocinio{font:600 .66rem var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--suave);padding:.45em .9em;border-radius:999px;background:var(--vidrio);border:1px solid var(--linea)}
+.cuenta-mesa{width:min(100%,22rem);margin-top:1.4rem;padding:1rem;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--linea-fuerte);text-align:center}
+.cuenta-mesa p{font-size:.92rem;color:var(--marfil2);margin-bottom:.7rem}
+.cuenta-mesa p.listo{color:var(--turquesa);margin:0}
+.cuenta-mesa .fila{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap}
+.cuenta-mesa .g-button{margin-top:0}
+.cuenta-mesa small{display:block;margin-top:.5rem;font-size:.75rem;color:var(--tenue)}
+.cuenta-mesa.bloqueada{background:linear-gradient(180deg,rgba(255,77,141,.2),rgba(255,77,141,.06));border-color:rgba(255,77,141,.6);box-shadow:0 0 40px rgba(255,77,141,.2)}
+.cuenta-mesa h3{font:400 1.2rem/1.15 var(--display);color:#ffd1e2;margin-bottom:.5rem}
+.phone-wait .cuenta-mesa .g-button{max-width:none;min-height:3rem;font-size:.95rem}
 
 /* ── El público ────────────────────────────────────────────────────────────── */
 #crowd-ui{position:absolute;inset:0;pointer-events:none}

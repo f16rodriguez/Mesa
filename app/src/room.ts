@@ -5,6 +5,7 @@ import { accountFor, cleanName, cleanText, recordSeries } from './accounts';
 import {botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
 import {joinVoice,setVoicePublish} from './voice';
+import {SERIES_GRATIS,pagosActivos,patrocinar} from './pagos';
 
 /** A seat must be away or silent this long before a bot may play for it. */
 export const COVER_MS=20000;
@@ -35,7 +36,11 @@ type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];f
  pendingRecords?:{seriesId:string;participants:Participant[]}[];retryAt?:number;
  /** When the current hand closed, for the automatic deal. */
  closedAt?:number;
- lastCrowd?:number;botDue?:number;botKey?:string};
+ lastCrowd?:number;botDue?:number;botKey?:string;
+ /** Quién cubre la serie en curso (nombre, no id: esto se manda a todos). */
+ patrocinio?:{nombre:string;tipo:'unlock'|'trial';quedan:number}|null;
+ /** Por qué no se pudo repartir: nadie sentado tiene cuenta, o a nadie le quedan series gratis. */
+ bloqueo?:'sinCuenta'|'sinSeries'};
 type Table={state:any;members:Record<string,Member|undefined>};
 
 const present=(m:Member|undefined,now:number)=>!!m&&!m.away&&now-m.lastSeen<PRESENT_MS;
@@ -125,7 +130,7 @@ export class Room extends DurableObject<Env>{
   const now=Date.now(),viewers=this.spectators(g);
   for(const ws of this.ctx.getWebSockets()){
    const id=ws.deserializeAttachment()?.id;if(!id||!g.members[id])continue;
-   this.send(ws,{type:'state',view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
+   this.send(ws,{type:'state',mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
   }
  }
  /** Bot turn and hand-closing bookkeeping. Returns whether anything changed. */
@@ -177,6 +182,23 @@ export class Room extends DurableObject<Env>{
    await this.commit(g,{broadcast:false});
   });
  }
+ /**
+  * ¿Alguien en la mesa cubre esta serie? (ver pagos.ts). Candidatos: la tele si
+  * tiene sesión y después cada silla con persona y cuenta. Cuatro bots no gastan.
+  * Esta sí consulta D1 dentro del candado: no se puede repartir sin la respuesta.
+  */
+ private async cubrir(g:Store,serie:string){
+  const s=g.state;
+  if(!pagosActivos(this.env)){delete g.bloqueo;return true;}
+  const personas=s.players.filter((_:string,i:number)=>!s.bots[i]);
+  if(!personas.length){delete g.bloqueo;g.patrocinio=null;return true;}
+  const candidatos=[s.hostId,...personas].map((id:string)=>g.members[id]?.profileId).filter((p:string|undefined):p is string=>!!p).map((profileId:string)=>({profileId}));
+  try{
+   const p=await patrocinar(this.env,serie,candidatos);
+   if(!p){g.bloqueo=candidatos.length?'sinSeries':'sinCuenta';return false;}
+   g.patrocinio={nombre:cleanName(p.nombre)||'Mesa',tipo:p.tipo,quedan:p.quedan};delete g.bloqueo;return true;
+  }catch(err){console.error('no se pudo comprobar quién cubre la serie; va gratis',err);delete g.bloqueo;return true;}
+ }
  /** External calls (D1, voice) run after the lock is released, one by one. */
  private async runLater(tasks:Later){for(const task of tasks){try{await task();}catch(err){console.error('deferred task failed',err);}}}
  override async webSocketMessage(ws:WebSocket,raw:string|ArrayBuffer){
@@ -207,6 +229,11 @@ export class Room extends DurableObject<Env>{
      g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;
     }
     g.members[id]={id,publicId:crypto.randomUUID(),name,role,lastSeen:now,away:false,...(att?.profileId?{profileId:att.profileId}:{})};
+   }
+   else if(att?.profileId&&!g.members[id]!.profileId&&!Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId)){
+    // Alguien sentado acaba de crear su cuenta o entrar a ella: la silla se queda
+    // con la cuenta, y si la mesa estaba parada por eso, se puede volver a repartir.
+    g.members[id]!.profileId=att.profileId;delete g.bloqueo;
    }
    touch(g.members[id]!,now);
    // Seat ownership and associated profile remain fixed for this series.
@@ -243,8 +270,12 @@ export class Room extends DurableObject<Env>{
   if(msg.type!=='action')return this.error(ws,'Unknown action.');
   const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
   const type=msg.action.type,dealing=['start','next','newSeries'].includes(type);
+  if(type==='start'||type==='newSeries'){
+   const serie=type==='newSeries'?crypto.randomUUID():g.seriesId;
+   if(!await this.cubrir(g,serie)){await this.commit(g);return;}
+   if(type==='newSeries'){g.seriesId=serie;g.recorded=false;}
+  }
   if(dealing)g.state.seed=freshSeed();
-  if(type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
   g.state=logic.applyAction(g.state,id,msg.action);
   if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
   const queued=this.queueSeries(g,now);

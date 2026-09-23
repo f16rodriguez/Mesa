@@ -10,7 +10,8 @@
     "check:logic": "bun run scripts/check-logic.mjs",
     "check:bots": "bun run scripts/check-bot-lines.mjs",
     "deploy:cloudflare": "bun run build && wrangler deploy -c wrangler.cloudflare.jsonc",
-    "check:page": "bun run scripts/check-page.mjs"
+    "check:page": "bun run scripts/check-page.mjs",
+    "informe": "bun run scripts/informe.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.20.1",

@@ -201,7 +201,7 @@ document.addEventListener('change',e=>{
  if(e.target.id==='music-file'&&e.target.files[0]){radio.stop();if(music){music.pause();URL.revokeObjectURL(music.src);}music=new Audio(URL.createObjectURL(e.target.files[0]));music.volume=.18;music.loop=true;musicMuted=false;music.play().catch(()=>toast('Tap play to start your soundtrack.'));settings();}
 });
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});
-document.addEventListener('visibilitychange',()=>{if(ws?.readyState===1)wire({type:document.hidden?'away':'heartbeat'});if(document.hidden){ambience.pause();radio.stop();}else{if(ambientOn&&role!=='player'&&audioContext)ambience.play().catch(()=>{});if(audioContext||botChatter.context)radio.start();}});
+document.addEventListener('visibilitychange',()=>{if(ws?.readyState===1)wire({type:document.hidden?'away':'heartbeat'});if(!document.hidden){if(ambientOn&&role!=='player'&&audioContext)ambience.play().catch(()=>{});if(audioContext||botChatter.context)radio.start();}});
 setInterval(()=>{if(ws?.readyState===1&&!document.hidden)wire({type:'heartbeat'});},5000);
 window.addEventListener('popstate',()=>location.reload());
 if(localStorage.getItem('mesa-motion')==='off')document.documentElement.classList.add('reduced');

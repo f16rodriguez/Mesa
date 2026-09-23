@@ -58,7 +58,11 @@ def gestos(path, rasgo):
                     u, v = guv(k); muestras.append(tex.getpixel((min(tex.width - 1, int(u * tex.width)), min(tex.height - 1, int(v * tex.height)))))
     if muestras:
         extra['parpado'] = [round(sum(m[i] for m in muestras) / len(muestras) / 255, 3) for i in range(3)]
-    mesh.setdefault('extras', {}).update({'ojos': extra['ojos'], 'parpado': extra['parpado']})
+    # Boca: centro entre las comisuras, sobre la superficie (para beber a la boca de verdad).
+    bx, by = (boca[0][0] + boca[1][0]) / 2, (boca[0][1] + boca[1][1]) / 2
+    cerca = [k for k in range(cnt) if abs(V[k][0] - bx) < .01 and abs(V[k][1] - by) < .006 and Nn[k][2] > .15 and V[k][2] > zc - .08]
+    extra['boca'] = [bx, by, max(V[k][2] for k in cerca) if cerca else zc - .02]
+    mesh.setdefault('extras', {}).update({'ojos': extra['ojos'], 'parpado': extra['parpado'], 'boca': extra['boca']})
     if 'targets' in pr:
         escribir(path, j, bin_); print('  solo extras', extra); return
 

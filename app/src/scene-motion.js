@@ -178,7 +178,8 @@ function manoEnTrago(actor,e,reposo,out){
  _agarre.copy(b.home);_agarre.y+=b.alto;_agarre.addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fa,-.03);
  // Boca: bajo la nariz. El eje de la bebida inclinada (arriba hacia la cara) va
  // de la mano al borde; la mano queda "boca" más allá, por fuera de la cara.
- actor.front.getWorldPosition(_boca);_boca.y-=.075;_boca.addScaledVector(_ejeZ,.012);
+ // La boca de verdad (vértice de la boca de cada modelo, ya deformado); si no, bajo la nariz.
+ if(actor.bocaMundo){actor.bocaMundo(_boca);_boca.addScaledVector(_ejeZ,.006);}else{actor.front.getWorldPosition(_boca);_boca.y-=.075;_boca.addScaledVector(_ejeZ,.012);}
  const a=b.inclina;_eje2.copy(Y).multiplyScalar(Math.cos(a)).addScaledVector(_ejeZ,-Math.sin(a));
  _boca.addScaledVector(_eje2,-b.boca).addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fb,-.03);
  let dedos;
@@ -258,7 +259,9 @@ function objetivoMirada(actor,time,ctx,out){
   if(gano&&ctx.cabezas[(i+2)%4])return out.copy(ctx.cabezas[(i+2)%4]);
   return enAsiento(actor,0,DIM.surfaceY,DIM.seatDistance-DIM.rackRadius,out);
  }
- if(actor.trago&&actor.bebida){const e=time-actor.trago.t0;if(e<1.1||(e>3.4&&e<4.3))return out.copy(actor.bebida.home);}
+ if(actor.trago&&actor.bebida){const e=actor.trago.fijo??time-actor.trago.t0;if(e<1.1||(e>3.4&&e<4.3))return out.copy(actor.bebida.home);
+  // Bebiendo se mira al frente, no a otro: la cabeza que gira se aleja del vaso.
+  if(e<=3.4){actor.head.getWorldPosition(out);return out.addScaledVector(_ejeZ,1).addScaledVector(Y,-.15);}}
  if(ctx.foco&&time-ctx.foco.t<1.4)return out.copy(ctx.foco.p);
  for(const s of ctx.habla)if(s!==i&&ctx.cabezas[s])return out.copy(ctx.cabezas[s]);
  if(ctx.jugando&&ctx.turno===i){
@@ -341,7 +344,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
    else if(brazo.lado==='Left')actor.gesto=Math.max(0,(actor.gesto||0)-(ctx?.dt||1)*2);
    if(brazo.lado==='Left'&&actor.gesto>0){const g=suave(actor.gesto);o.addScaledVector(_ejeZ,.06*g).addScaledVector(_ejeX,-.07*g);o.y+=.07*g+Math.sin(time*5.2)*.012*g;}
    if(brazo.lado==='Right'&&!jugando&&fin&&i%2===ctx.fin.team){const e=time-ctx.fin.t;if(e<1.1)o.y+=Math.max(0,Math.sin(Math.min(1,e/.9)*Math.PI))*.13;}
-   objetivos.push({brazo,o,jugando,dedos});
+   objetivos.push({brazo,o,jugando,dedos,reposo:reposo.clone()});
   }
  }
  // Inclinación: base + lo que pida la mano que más lejos tenga que llegar.
@@ -380,7 +383,10 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
  // A small, bounded acknowledgment belongs only to the acting player.
  if(vivo&&actor.reaction&&actor.head){const elapsed=time-actor.reaction.time;if(elapsed>=0&&elapsed<1.2){const amount=Math.sin(elapsed/1.2*Math.PI)*.035;giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,amount));}}
 
- for(const {brazo,o,jugando,dedos} of objetivos){
+ for(const {brazo,o,jugando,dedos,reposo} of objetivos){
+  // El trago se vuelve a apuntar aquí, con la cabeza ya inclinada y girada:
+  // calculado antes, la boca se había movido y el vaso le daba en el cuello.
+  if(dedos)dedos.copy(manoEnTrago(actor,trago,reposo,o));
   const lado=brazo.lado==='Left'?1:-1;
   // Polo: el codo va abajo, afuera y atrás, que es como apoya quien juega.
   // Alcanzando, más afuera y menos atrás: el codo se abre, no se clava en las costillas.

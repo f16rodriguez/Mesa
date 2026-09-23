@@ -49,8 +49,10 @@ function morir(){
 function cafe(){
  const g=new THREE.Group(),loza=new THREE.MeshStandardMaterial({color:'#efe9da',roughness:.22});
  const plato=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.008,28),loza);plato.position.y=.004;g.add(plato);
- const taza=new THREE.Mesh(new THREE.CylinderGeometry(.028,.021,.048,24),loza);taza.position.y=.032;g.add(taza);
- const cafe=new THREE.Mesh(new THREE.CircleGeometry(.025,20),new THREE.MeshStandardMaterial({color:'#2a160c',roughness:.2}));cafe.rotation.x=-Math.PI/2;cafe.position.y=.0545;g.add(cafe);
+ // Taza abierta por arriba: con la tapa cerrada el café quedaba debajo y se veía vacía.
+ const loza2=new THREE.MeshStandardMaterial({color:'#efe9da',roughness:.22,side:THREE.DoubleSide});
+ const taza=new THREE.Mesh(new THREE.CylinderGeometry(.028,.021,.048,24,1,true),loza2);const fondoT=new THREE.Mesh(new THREE.CircleGeometry(.021,20),loza);fondoT.rotation.x=-Math.PI/2;fondoT.position.y=.0085;g.add(fondoT);taza.position.y=.032;g.add(taza);
+ const cafe=new THREE.Mesh(new THREE.CircleGeometry(.0262,24),new THREE.MeshStandardMaterial({color:'#2a160c',roughness:.15}));cafe.rotation.x=-Math.PI/2;cafe.position.y=.049;g.add(cafe);
  const asa=new THREE.Mesh(new THREE.TorusGeometry(.012,.0035,6,12,Math.PI*1.3),loza);asa.position.set(.03,.034,0);asa.rotation.z=-Math.PI*.65;g.add(asa);
  // El plato se queda en la mesa: se levanta solo la taza.
  g.remove(plato);
@@ -60,7 +62,7 @@ export function servirBebidas(scene){
  const out=[];
  for(let i=0;i<4;i++){
   const tipo=TIPOS[i],b=tipo==='presidente'?presidente():tipo==='morir'?morir():cafe();
-  const [sx,sz,ang]=seats[i],esq=DIM.tableWidth/2-.042,tope=DIM.tableCenterY+DIM.tableThickness/2;
+  const [sx,sz,ang]=seats[i],esq=DIM.tableWidth/2-.055,tope=DIM.tableCenterY+DIM.tableThickness/2;
   // Esquina a la derecha de quien se sienta (-X del asiento), del lado de la mesa.
   const home=new THREE.Vector3(-esq,0,DIM.seatDistance-esq).applyAxisAngle(new THREE.Vector3(0,1,0),ang).add(new THREE.Vector3(sx,0,sz));home.y=tope;
   b.g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});

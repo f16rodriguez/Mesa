@@ -140,6 +140,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   let sm=null;actor.root.traverse(o=>{if(o.isSkinnedMesh&&o.morphTargetDictionary&&!sm)sm=o;});
   if(!sm||sm.morphTargetDictionary.parpadeo==null)return;
   actor.cara={mesh:sm,iP:sm.morphTargetDictionary.parpadeo,iS:sm.morphTargetDictionary.sonrisa};
+  const pos0=sm.geometry.attributes.position,bocaD=sm.userData?.boca;
+  if(bocaD){let m=1e9,kb=0;for(let i=0;i<pos0.count;i++){const d=(pos0.getX(i)-bocaD[0])**2+(pos0.getY(i)-bocaD[1])**2+(pos0.getZ(i)-bocaD[2])**2;if(d<m){m=d;kb=i;}}actor.bocaMundo=out=>{sm.skeleton.update();return sm.getVertexPosition(kb,out).applyMatrix4(sm.matrixWorld);};}
   const ojos=sm.userData?.ojos,color=sm.userData?.parpado;if(!ojos||!color)return;
   const pos=sm.geometry.attributes.position,cerca=o=>{let m=1e9,k=0;for(let i=0;i<pos.count;i++){const d=(pos.getX(i)-o[0])**2+(pos.getY(i)-o[1])**2+(pos.getZ(i)-o[2])**2;if(d<m){m=d;k=i;}}return k;};
   const geo=new THREE.PlaneGeometry(.027,.0125,8,4);geo.translate(0,-.00625,0);

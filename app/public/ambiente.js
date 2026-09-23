@@ -8,7 +8,8 @@
  *  - Tono de la sala: ruido marrón muy grave.
  *  - Calle lejana: banda media que respira despacio.
  *  - El abanico del techo: soplido con el pulso de las aspas.
- *  - Grillos: varios, cada uno a su ritmo y en su lado, con pausas al azar.
+ *  - Grillos: varios, cada uno a su ritmo y en su lado, con pausas al azar
+ *    (búferes en bucle: siguen sonando con la pestaña en segundo plano).
  *  - De vez en cuando, un motor que pasa por la calle (al azar, 40–120 s).
  */
 const R=Math.random;
@@ -35,16 +36,21 @@ export const ambiente={
   for(let k=0;k<4;k++)this.grillo(3900+R()*1100,(k%2?1:-1)*(.35+R()*.55),.0035+R()*.004);
   this.moto();
  },
+ /* Cada grillo es un búfer propio que se repite (17–29 s, distinto para cada
+    uno: juntos no se oye el bucle). Sin temporizadores: en una pestaña en
+    segundo plano el navegador frena los setTimeout y los grillos se callaban. */
  grillo(freq,pan,vol){
-  const ctx=this.ctx,o=ctx.createOscillator(),g=ctx.createGain(),p=ctx.createStereoPanner();o.frequency.value=freq;g.gain.value=0;p.pan.value=pan;
-  o.connect(g).connect(p).connect(this.master);o.start();this.nodos.push(o);
-  const ritmo=.28+R()*.5,pulsos=2+Math.floor(R()*3);
-  const tanda=()=>{if(!this.on)return;const t0=ctx.currentTime+.05;
-   // Tandas de chirridos; de vez en cuando se calla un rato.
+  const ctx=this.ctx,sr=ctx.sampleRate,seg=17+R()*12,b=ctx.createBuffer(1,Math.floor(sr*seg),sr),d=b.getChannelData(0);
+  const ritmo=.28+R()*.5,pulsos=2+Math.floor(R()*3),w=2*Math.PI*freq/sr;
+  let t=R()*1.5;
+  while(t<seg-1){
    const callado=R()<.12,dur=callado?2+R()*6:1.2+R()*2.5;
-   if(!callado)for(let t=0;t<dur;t+=ritmo*(.9+R()*.2))for(let q=0;q<pulsos;q++){const a=t0+t+q*.034;g.gain.setValueAtTime(0,a);g.gain.linearRampToValueAtTime(vol,a+.006);g.gain.linearRampToValueAtTime(0,a+.022);}
-   this.timers.push(setTimeout(tanda,dur*1000));};
-  this.timers.push(setTimeout(tanda,R()*1500));
+   if(!callado)for(let u=0;u<dur&&t+u<seg-.1;u+=ritmo*(.9+R()*.2))for(let q=0;q<pulsos;q++){
+    const a=Math.floor((t+u+q*.034)*sr),n=Math.floor(.022*sr);
+    for(let k=0;k<n&&a+k<d.length;k++){const env=k<.006*sr?k/(.006*sr):1-(k-.006*sr)/(.016*sr);d[a+k]+=Math.sin(w*(a+k))*Math.max(0,env);}}
+   t+=dur;}
+  const s=ctx.createBufferSource(),g=ctx.createGain(),p=ctx.createStereoPanner();s.buffer=b;s.loop=true;g.gain.value=vol;p.pan.value=pan;
+  s.connect(g).connect(p).connect(this.master);s.start(ctx.currentTime+R()*.5);this.nodos.push(s);
  },
  moto(){
   const ctx=this.ctx,espera=40000+R()*80000;

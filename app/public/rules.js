@@ -126,6 +126,9 @@ export function applyAction(state,p,a) {
   }
   s.passes=0;s.lastPlay=seat;s.event={type:'play',seat,tile:tile.id};s.moves.push({type:'play',seat,tile:tile.id,side:a.side});
   if(!s.hands[seat].length) return closeHand(s,'domino',seat,capicua);
+  // Trancado: no tile left in any hand fits either end. Close it now instead
+  // of making four people press "paso" in turn; whoever just played trancó.
+  if(!s.hands.some(h=>h.some(t=>t.a===s.left||t.b===s.left||t.a===s.right||t.b===s.right))) return closeHand(s,'tranque',seat);
   s.turn=(seat+1)%4;return s;
 }
 export function isGameOver(s) {

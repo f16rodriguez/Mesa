@@ -12,7 +12,7 @@ function options(s, seat) {
   });
 }
 export function setup(players) {
-  return {version:1,phase:'lobby',hostId:'host',players:Array.from({length:4},(_,i)=>players[i]||'bot-'+i),names:['Seat 1','Seat 2','Seat 3','Seat 4'],bots:[0,1,2,3].map(i=>!players[i]),seed:617263,settings:{target:200,capicua:25,tie:'blocker',allPips:false},scores:[0,0],hands:[[],[],[],[]],chain:[],left:null,right:null,turn:0,opener:0,handNo:0,passes:0,lastPlay:0,event:null,history:[],moves:[],deal:[],result:null};
+  return {version:1,phase:'lobby',hostId:'host',players:Array.from({length:4},(_,i)=>players[i]||'bot-'+i),names:['Seat 1','Seat 2','Seat 3','Seat 4'],bots:[0,1,2,3].map(i=>!players[i]),seed:617263,settings:{target:200,capicua:25,tie:'blocker',allPips:false,capicuaDistinct:false},scores:[0,0],hands:[[],[],[],[]],chain:[],left:null,right:null,turn:0,opener:0,handNo:0,passes:0,lastPlay:0,event:null,history:[],moves:[],deal:[],result:null};
 }
 /*
  * The shuffle. A table is only fair if nobody can predict or reconstruct the
@@ -80,7 +80,7 @@ export function validateAction(s,p,a) {
     if(a.type==='settings'){
       if(s.phase!=='lobby') return fail('House rules are locked after the first deal.');
       const x=a.settings;
-      if(!x||![100,200,300].includes(x.target)||![0,25,50].includes(x.capicua)||!['blocker','none'].includes(x.tie)||typeof x.allPips!=='boolean') return fail('Choose valid house rules.');
+      if(!x||typeof x!=='object'||![100,200,300].includes(x.target)||![0,25,50].includes(x.capicua)||!['blocker','none'].includes(x.tie)||typeof x.allPips!=='boolean'||!['boolean','undefined'].includes(typeof x.capicuaDistinct)) return fail('Choose valid house rules.');
     }
     return {ok:true};
   }
@@ -98,15 +98,19 @@ function closeHand(s, type, seat, capicua=false) {
   if(type==='tranque') team=totals[0]===totals[1]?(s.settings.tie==='blocker'?s.lastPlay%2:null):(totals[0]<totals[1]?0:1);
   const base=team===null?0:(s.settings.allPips?totals[0]+totals[1]:totals[1-team]);
   const bonus=capicua?s.settings.capicua:0, points=base+bonus;
+  // 'capicua' is what cues the dramatic cut; with the bonus off it is a plain dominó.
   const scores=[...s.scores]; if(team!==null) scores[team]+=points;
   const series=team!==null&&scores[team]>=s.settings.target;
-  const result={type:capicua?'capicua':type,seat,team,base,bonus,points,pips,totals,zapato:series&&scores[1-team]===0};
+  const result={type:bonus>0?'capicua':type,seat,team,base,bonus,points,pips,totals,zapato:series&&scores[1-team]===0};
   const record={handNo:s.handNo,result,deal:s.deal,moves:s.moves};
   return {...s,scores,phase:series?'seriesEnd':'handEnd',opener:type==='tranque'?s.lastPlay:seat,result,event:{type:result.type,seat},history:[...s.history,record].slice(-30)};
 }
 export function applyAction(state,p,a) {
   const s=JSON.parse(JSON.stringify(state));
-  if(a.type==='settings') return {...s,settings:{...a.settings}};
+  // Field by field: whatever else a client packs into `settings` never reaches
+  // the state, the storage or the other phones. An older client that does not
+  // know capicuaDistinct leaves it as it was.
+  if(a.type==='settings'){const x=a.settings;return {...s,settings:{target:x.target,capicua:x.capicua,tie:x.tie,allPips:x.allPips,capicuaDistinct:typeof x.capicuaDistinct==='boolean'?x.capicuaDistinct:s.settings.capicuaDistinct===true}};}
   if(a.type==='start'||a.type==='next') return deal(s);
   if(a.type==='newSeries') return {...setup(s.players),hostId:s.hostId,names:s.names,bots:s.bots,seed:s.seed,settings:s.settings};
   const seat=s.players.indexOf(p);
@@ -116,7 +120,9 @@ export function applyAction(state,p,a) {
     s.turn=(seat+1)%4;return s;
   }
   const index=s.hands[seat].findIndex(t=>t.id===a.tile),tile=s.hands[seat].splice(index,1)[0];
-  const capicua=s.chain.length>0&&(tile.a===s.left||tile.b===s.left)&&(tile.a===s.right||tile.b===s.right);
+  // Capicúa: the last tile fits both ends. Some houses also want the two ends
+  // to differ (closing on a 3 at both ends does not count): capicuaDistinct.
+  const capicua=s.chain.length>0&&(tile.a===s.left||tile.b===s.left)&&(tile.a===s.right||tile.b===s.right)&&!(s.settings.capicuaDistinct&&s.left===s.right);
   let x=tile.a,y=tile.b;
   if(!s.chain.length){s.left=x;s.right=y;s.chain.push({...tile,x,y,seat});}
   else if(a.side==='left'){

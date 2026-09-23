@@ -27,6 +27,24 @@ describe('Dominican double-six rules',()=>{
  it('redacts seed, deal, player IDs, and all other hands from player/host/spectator views',()=>{const s=start();for(const id of ['a','host','spectator']){const v:any=L.viewFor(s,id);expect(v.seed).toBeUndefined();expect(v.deal).toBeUndefined();expect(v.hands).toBeUndefined();expect(v.players).toBeUndefined();expect(v.revealed).toBeNull();expect(v.replay).toBeNull();expect(v.hand.length).toBe(id==='a'?7:0);}});
  it('scores domino from opponents only and lets winner open any tile next',()=>{let s=start();s.handNo=2;s.chain=[{...t(1,2),x:1,y:2}];s.left=1;s.right=2;s.turn=0;s.hands=[[t(2,4)],[t(3,6)],[t(5,5)],[t(0,3)]];s=play(s,'a',{type:'play',tile:'2-4',side:'right'});expect(s.phase).toBe('handEnd');expect(s.result.points).toBe(12);expect(s.opener).toBe(0);s=play(s,'host',{type:'next'});expect(s.turn).toBe(0);expect((L.viewFor(s,'a') as any).legal.length).toBe(7);});
  it('awards capicua +25 when final tile fits both pre-play ends',()=>{let s=start();s.chain=[{...t(2,3),x:2,y:3}];s.left=2;s.right=3;s.turn=0;s.hands=[[t(2,3)],[t(1,4)],[t(5,5)],[t(1,6)]];s=play(s,'a',{type:'play',tile:'2-3',side:'right'});expect(s.result.type).toBe('capicua');expect(s.result.points).toBe(37);});
+ it('calls it capicúa only when the bonus is on, and can require two different ends',()=>{
+  const last=(settings:any,left:number,right:number,tile:any)=>{let s=start();Object.assign(s.settings,settings);s.chain=[{...t(left,right),x:left,y:right}];s.left=left;s.right=right;s.turn=0;s.hands=[[tile],[t(1,4)],[t(5,5)],[t(1,6)]];return play(s,'a',{type:'play',tile:tile.id,side:'right'}).result;};
+  let r=last({capicua:0},2,3,t(2,3));                       // fits both ends, but the house plays without the bonus
+  expect(r.type).toBe('domino');expect(r.bonus).toBe(0);expect(r.points).toBe(12);
+  r=last({},3,3,t(3,4));expect(r.type).toBe('capicua');expect(r.bonus).toBe(25);
+  r=last({capicuaDistinct:true},3,3,t(3,4));expect(r.type).toBe('domino');expect(r.bonus).toBe(0);
+  r=last({capicuaDistinct:true},2,3,t(2,3));expect(r.type).toBe('capicua');
+ });
+ it('keeps only the known house rules, each validated',()=>{
+  const s=initial(),ok={target:100,capicua:0,tie:'none',allPips:true};
+  for(const bad of [null,'x',[],{...ok,target:150},{...ok,capicua:10},{...ok,tie:'split'},{...ok,allPips:'yes'},{...ok,capicuaDistinct:1}])
+   expect(L.validateAction(s,'host',{type:'settings',settings:bad}).ok).toBe(false);
+  const next:any=play(s,'host',{type:'settings',settings:{...ok,capicuaDistinct:true,huge:'x'.repeat(3000),bots:[false,false,false,false]}});
+  expect(next.settings).toEqual({...ok,capicuaDistinct:true});expect(next.bots).toEqual(s.bots);
+  // a client that does not know the newer field leaves it as it was
+  expect((play(next,'host',{type:'settings',settings:ok}) as any).settings.capicuaDistinct).toBe(true);
+  expect((L.applyAction(s,'host',{type:'settings',settings:ok}) as any).settings.capicuaDistinct).toBe(false);
+ });
  it('handles all-hands scoring and configurable bonus',()=>{let s=start();s.settings.allPips=true;s.settings.capicua=50;s.chain=[{...t(2,3),x:2,y:3}];s.left=2;s.right=3;s.turn=0;s.hands=[[t(2,3)],[t(1,4)],[t(5,5)],[t(1,6)]];s=play(s,'a',{type:'play',tile:'2-3',side:'right'});expect(s.result.points).toBe(72);});
  it('four legal passes close a tranque and the blocker opens next',()=>{let s=start();s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.lastPlay=3;s.hands=[[t(0,1)],[t(3,4)],[t(1,2)],[t(4,5)]];for(let i=0;i<4;i++)s=play(s,s.players[s.turn],{type:'pass'});expect(s.result.type).toBe('tranque');expect(s.result.team).toBe(0);expect(s.result.points).toBe(16);expect(s.opener).toBe(3);});
  it('closes a tranque the moment nobody holds either end, with the player who closed it as blocker',()=>{

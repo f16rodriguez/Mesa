@@ -131,15 +131,42 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.20,.006,5,38),new THREE.MeshBasicMaterial({color:'#e8bf70',transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.027;scene.add(ring);
  const characters=[],templates=[],crowd=[],drinks=[];const loader=new GLTFLoader();let loaded=0,total=4,failed=[];
  drinks.push(...servirBebidas(scene));
+ /* Párpados de verdad. Con tan pocos vértices en los ojos, el morph de parpadeo
+  solo entrecierra: un párpado del color de la piel de cada quien (guardado en
+  el modelo) baja por encima del ojo y lo tapa. Se ubica cada cuadro en el
+  vértice del ojo ya deformado por el esqueleto. */
+ const _pv=v3(),_pr=v3(),_pu=v3(),_pf=v3(),_pm=new THREE.Matrix4(),_ph=v3(),_pfr=v3();
+ function ponerCara(actor){
+  let sm=null;actor.root.traverse(o=>{if(o.isSkinnedMesh&&o.morphTargetDictionary&&!sm)sm=o;});
+  if(!sm||sm.morphTargetDictionary.parpadeo==null)return;
+  actor.cara={mesh:sm,iP:sm.morphTargetDictionary.parpadeo,iS:sm.morphTargetDictionary.sonrisa};
+  const ojos=sm.userData?.ojos,color=sm.userData?.parpado;if(!ojos||!color)return;
+  const pos=sm.geometry.attributes.position,cerca=o=>{let m=1e9,k=0;for(let i=0;i<pos.count;i++){const d=(pos.getX(i)-o[0])**2+(pos.getY(i)-o[1])**2+(pos.getZ(i)-o[2])**2;if(d<m){m=d;k=i;}}return k;};
+  const geo=new THREE.PlaneGeometry(.027,.0125,8,4);geo.translate(0,-.00625,0);
+  const pa=geo.attributes.position,cols=[];for(let i=0;i<pa.count;i++){const x=pa.getX(i)/.0135,y=-pa.getY(i)/.0125;pa.setZ(i,.0032*Math.cos(x*Math.PI/2)*(.5+.5*y));const f=y>.85?.45:1;cols.push(f,f,f);}
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));geo.computeVertexNormals();
+  const matP=new THREE.MeshStandardMaterial({color:new THREE.Color().setRGB(...color,THREE.SRGBColorSpace),roughness:.7,vertexColors:true});
+  actor.parpados=ojos.map(o=>{const m=new THREE.Mesh(geo,matP);m.visible=false;m.frustumCulled=false;scene.add(m);return {m,k:cerca(o)};});
+ }
+ function moverParpados(actor){
+  const P=actor.parpados;if(!P||!actor.cara)return;const s=actor.parpadeo||0;
+  if(s<.03){for(const p of P)p.m.visible=false;return;}
+  const sm=actor.cara.mesh;sm.skeleton.update();
+  const a=sm.getVertexPosition(P[0].k,_pv).applyMatrix4(sm.matrixWorld).clone(),b=sm.getVertexPosition(P[1].k,_pv).applyMatrix4(sm.matrixWorld).clone();
+  actor.head.getWorldPosition(_ph);actor.front.getWorldPosition(_pfr);_pf.subVectors(_pfr,_ph).normalize();
+  _pr.subVectors(b,a).normalize();_pu.crossVectors(_pf,_pr).normalize();if(_pu.y<0)_pu.negate();_pr.crossVectors(_pu,_pf).normalize();
+  _pm.makeBasis(_pr,_pu,_pf);
+  for(const [p,o] of [[P[0],a],[P[1],b]]){p.m.visible=true;p.m.quaternion.setFromRotationMatrix(_pm);p.m.position.copy(o).addScaledVector(_pu,.0052).addScaledVector(_pf,.0024);p.m.scale.set(1,s,1);}
+ }
  async function loadPerson(index,name){try{onProgress(`Seating ${['Don Rafa','Marisol','Luis','Carmen'][index]}…`,loaded/total);const gltf=await loader.loadAsync(`/models/${name}.glb`);templates[index]=gltf;
   const root=gltf.scene,holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(gltf.animations[0])mixer.clipAction(gltf.animations.find(a=>a.name==='Seated')||gltf.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material.roughness=.83;}});
   // Keep the models' anatomical scale; anchor the pelvis over the chair and
   // ground the feet at a measured neutral pose, not an arbitrary loop frame.
   const b=new THREE.Box3().setFromObject(root),hips=root.getObjectByName('Hips'),hp=hips?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,-b.min.y,-hp.z);const [x,z,a]=seats[index];holder.position.set(x,0,z);holder.rotation.y=a;scene.add(holder);
-  characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips:root.getObjectByName('Hips'),lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
+  characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips:root.getObjectByName('Hips'),lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
  }catch(e){failed.push(name);console.error('Character load failed',name,e);onProgress(`Could not load ${name}. Reload to retry.`,loaded/total);}}
  const ready=Promise.all(['rafa-upright','marisol','luis-upright','carmen'].map((name,i)=>loadPerson(i,name)));
- let foco=null,fin=null,finKey='';const habla=new Set(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active)habla.add(d.seat);else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
+ let foco=null,fin=null,finKey='';const habla=new Set(),hablaTipo=new Map(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active){habla.add(d.seat);hablaTipo.set(d.seat,d.type);}else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
  let currentView=null,currentCrowd=0,boardKey='',lastHand=0,mode='attract',camTween=null,animations=[],lastMove=0,dealUntil=0;
  function clear(group){while(group.children.length){const c=group.children.pop();c.parent=null;c.traverse(o=>{if(o.isMesh&&!sharedGeometry.has(o.geometry))o.geometry.dispose();if(o.isMesh&&!sharedMaterials.has(o.material))o.material.dispose();});}}
  function setCrowd(count){currentCrowd=count;const target=Math.min(8,count);for(let i=crowd.length-1;i>=target;i--){scene.remove(crowd[i].holder);crowd.pop();}
@@ -149,15 +176,30 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // A tamaño real una ficha mide 5 cm, así que las vistas de juego van cerca:
  // 'table' encuadra la mesa y a los cuatro; 'overhead' pone el tablero a
  // pantalla llena; 'close' mira por encima del hombro; 'seat', desde la silla.
+ /* Corte dramático (solo dominó, capicúa y tranque): cámara baja, al ras de la
+  mesa, mirando la ficha que cerró la mano; a los 3,4 s vuelve a donde estaba. */
+ let sacudida=-1,vuelta=null;
+ function corte(p,seat,golpe){
+  if(document.documentElement.classList.contains('reduced'))return;
+  const [sx,sz]=seats[seat],lado=v3(-sz,0,sx).normalize(),pos=p.clone().addScaledVector(lado,.42).addScaledVector(v3(sx,0,sz).normalize(),-.12);pos.y=DIM.surfaceY+(golpe?.13:.2);
+  controls.minDistance=.25;
+  vuelta={pos:vuelta?.pos||camera.position.clone(),target:vuelta?.target||controls.target.clone(),at:clock.elapsedTime+3.4};
+  camTween={from:camera.position.clone(),to:pos,fromTarget:controls.target.clone(),toTarget:p.clone().setY(p.y+.01),t:0,dur:.45};
+ }
  function setCamera(which='table'){
   controls.minDistance=which==='seat'||which==='close'?.3:.7;controls.minPolarAngle=which==='overhead'?.01:.25;
   let pos,target=v3(0,.80,0);
   if(which==='attract'){pos=v3(2.2,1.95,2.75);target=v3(0,.92,-.2);}else if(which==='overhead'){pos=v3(.001,1.72,.30);target=v3(0,DIM.surfaceY,.02);}else if(which==='seat'){pos=v3(0,1.28,DIM.seatDistance-.17);target=v3(0,.80,-.1);}else if(which==='close'){pos=v3(.62,1.30,1.0);target=v3(-.03,.85,-.08);}else pos=v3(.95,1.78,1.30);
-  camTween={from:camera.position.clone(),to:pos,fromTarget:controls.target.clone(),toTarget:target,t:0};
+  vuelta=null;camTween={from:camera.position.clone(),to:pos,fromTarget:controls.target.clone(),toTarget:target,t:0};
  }
  function update(view,crowdCount=0){currentView=view;{const cerrada=view&&(view.phase==='handEnd'||view.phase==='seriesEnd')&&view.result,k=cerrada?view.handNo+':'+view.phase:'';if(k&&k!==finKey)fin={t:clock.elapsedTime+.5,team:view.result.team??null};if(!cerrada)fin=null;finKey=k;}if(currentCrowd!==crowdCount)setCrowd(crowdCount);
   const nextKey=view?view.handNo+':'+view.moves.length+':'+view.phase:'attract';if(nextKey!==boardKey){boardKey=nextKey;clear(tileGroup);animations=[];const n=view?.chain.length||0;
-   if(n){const layout=chainLayout(view.chain,view.moves);view.chain.forEach((tile,i)=>{const d=domino(tile.x,tile.y);d.position.copy(boardPosition(layout[i]));d.rotation.y=layout[i].yaw;tileGroup.add(d);if(view.event?.type==='play'&&tile.id===view.event.tile){const [sx,sz]=seats[tile.seat],from=v3(sx,0,sz).multiplyScalar(DIM.rackRadius/DIM.seatDistance).setY(DIM.surfaceY+.05);const hasta=d.position.clone(),anim={obj:d,from,to:hasta,elapsed:0,duration:.45};animations.push(anim);d.position.copy(from);lastMove=performance.now();const c=characters[tile.seat];foco={p:hasta,t:clock.elapsedTime+anim.duration};if(c){c.reaction={time:clock.elapsedTime};c.jugada={t0:clock.elapsedTime,obj:d,anim,hasta};}}});}
+   if(n){const layout=chainLayout(view.chain,view.moves);
+    // Al cerrar la mano el servidor cambia el evento a domino/capicua/tranque y ya no
+    // dice qué ficha fue: es la última jugada. Antes esa ficha aparecía sin animación.
+    const ev=view.event,cierre=['domino','capicua','tranque'].includes(ev?.type),ultima=view.moves[view.moves.length-1],golpe=ev?.type==='domino'||ev?.type==='capicua';
+    const jugadaId=ev?.type==='play'?ev.tile:cierre&&ultima?.type==='play'?ultima.tile:null;
+    view.chain.forEach((tile,i)=>{const d=domino(tile.x,tile.y);d.position.copy(boardPosition(layout[i]));d.rotation.y=layout[i].yaw;tileGroup.add(d);if(jugadaId&&tile.id===jugadaId){const [sx,sz]=seats[tile.seat],from=v3(sx,0,sz).multiplyScalar(DIM.rackRadius/DIM.seatDistance).setY(DIM.surfaceY+.05);const hasta=d.position.clone(),anim={obj:d,from,to:hasta,elapsed:0,duration:golpe?.62:.45,golpe};if(cierre)corte(hasta,tile.seat,golpe);animations.push(anim);d.position.copy(from);lastMove=performance.now();const c=characters[tile.seat];foco={p:hasta,t:clock.elapsedTime+anim.duration};if(c){c.reaction={time:clock.elapsedTime};c.jugada={t0:clock.elapsedTime,obj:d,anim,hasta};}}});}
    else if(!view||view.phase==='lobby'){for(let i=0;i<28;i++){const d=domino(0,0,true);d.position.set(((i*37)%23-11)*.016,DIM.surfaceY+DIM.tileThickness*(.55+(i%3)*.9),((i*13)%19-9)*.016);d.rotation.y=i*1.73;tileGroup.add(d);}}
    if(view?.phase==='playing'&&view.handNo!==lastHand&&view.moves.length===0){lastHand=view.handNo;dealUntil=performance.now()+3400;for(let i=0;i<28;i++){const d=domino(0,0,true),start=v3(((i*37)%23-11)*.015,DIM.surfaceY+.012,((i*13)%19-9)*.015),[sx,sz]=seats[i%4];d.position.copy(start);tileGroup.add(d);animations.push({obj:d,from:start,to:v3(sx,0,sz).multiplyScalar(DIM.rackRadius/DIM.seatDistance).setY(DIM.surfaceY+.015),elapsed:-i*.065,duration:1.2,remove:true,shuffle:true});}}
   }
@@ -169,21 +211,24 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  }
  const clock=new THREE.Clock();let frame=0,fpsFrames=0,fpsTime=0,fps=60,disposed=false,frameId,quality='high',visualTime=null;
  function animate(){if(disposed)return;frameId=requestAnimationFrame(animate);const rawDt=clock.getDelta(),dt=Math.min(rawDt,.06),t=visualTime??clock.elapsedTime,now=performance.now();fpsFrames++;fpsTime+=rawDt;if(fpsTime>1){fps=fpsFrames/fpsTime;fpsFrames=0;fpsTime=0;}frame++;
-  const reduced=document.documentElement.classList.contains('reduced');if(camTween){camTween.t=Math.min(1,camTween.t+dt/1.1);const q=camTween.t*camTween.t*(3-2*camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,q);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,q);if(camTween.t===1)camTween=null;}
+  const reduced=document.documentElement.classList.contains('reduced');if(vuelta&&clock.elapsedTime>vuelta.at){camTween={from:camera.position.clone(),to:vuelta.pos,fromTarget:controls.target.clone(),toTarget:vuelta.target,t:0,dur:1.2};vuelta=null;}
+  if(sacudida>=0){const e=clock.elapsedTime-sacudida;tileGroup.position.y=e<.3?Math.sin(e/.3*Math.PI)*.004*(1-e/.3):0;if(e>=.3)sacudida=-1;}
+  if(camTween){camTween.t=Math.min(1,camTween.t+dt/(camTween.dur||1.1));const q=camTween.t*camTween.t*(3-2*camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,q);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,q);if(camTween.t===1)camTween=null;}
   if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);}moto.visible=true;moto.position.set(-4.7,.05,2.80);moto.rotation.y=-.28;
-  const v=currentView,ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
-  for(const c of characters.filter(Boolean))applySeatedMotion(c,t,reduced,ctx);
+  const v=currentView,ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
+  for(const c of characters.filter(Boolean)){applySeatedMotion(c,t,reduced,ctx);moverParpados(c);}
   for(const c of crowd)applySeatedMotion(c,t,reduced,ctx);
-  animations=animations.filter(a=>{a.elapsed+=dt;if(a.elapsed<0)return true;const p=Math.min(1,a.elapsed/a.duration),q=p*p*(3-2*p);a.obj.position.lerpVectors(a.from,a.to,q);a.obj.position.y+=Math.sin(p*Math.PI)*(a.shuffle?.03:.07);if(a.shuffle)a.obj.rotation.y=Math.sin(p*TAU)*.6;if(p===1&&a.remove){tileGroup.remove(a.obj);return false;}return p<1;});
+  animations=animations.filter(a=>{a.elapsed+=dt;if(a.elapsed<0)return true;const p=Math.min(1,a.elapsed/a.duration),q=p*p*(3-2*p);if(a.golpe){/* El golpe del dominó: sube alto, se sostiene y baja de un tirón. */const h=Math.min(1,p/.62);a.obj.position.lerpVectors(a.from,a.to,h*h*(3-2*h));a.obj.position.y+=p<.62?Math.sin(h*Math.PI/2)*.17:.17*(1-((p-.62)/.38)**2);if(p===1&&!a.sono){a.sono=true;sacudida=clock.elapsedTime;}}else{a.obj.position.lerpVectors(a.from,a.to,q);a.obj.position.y+=Math.sin(p*Math.PI)*(a.shuffle?.03:.07);}if(a.shuffle)a.obj.rotation.y=Math.sin(p*TAU)*.6;if(p===1&&a.remove){tileGroup.remove(a.obj);return false;}return p<1;});
   rackGroup.visible=now>=dealUntil;
   controls.update();renderer.render(scene,camera);
-  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],anchor=characters[i]?.head?.getWorldPosition(v3()).add(v3(0,.23,0))||v3(x,1.45,z),p=anchor.project(camera);/* Con las cámaras cerca, la etiqueta de quien se sienta al fondo caía por encima de la pantalla: se queda en el borde de arriba, bajo la barra. */const py=Math.min(p.y,.74);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-py*.5+.5)*innerHeight}px) translate(-50%,-100%)`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||p.y<-1.15?'hidden':'visible';}}
+  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],anchor=characters[i]?.head?.getWorldPosition(v3()).add(v3(0,.23,0))||v3(x,1.45,z);let p=anchor.project(camera),abajo=false;/* Con las cámaras cerca, la etiqueta de quien se sienta al fondo se salía por arriba; pegada al borde le tapaba los ojos. Si no cabe arriba de la cabeza, va debajo de la barbilla. */if(p.y>.8&&characters[i]?.head){p=characters[i].head.getWorldPosition(v3()).add(v3(0,-.1,0)).project(camera);abajo=true;}const py=Math.min(p.y,.8);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-py*.5+.5)*innerHeight}px) translate(-50%,${abajo?'0':'-100%'})`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||p.y<-1.15?'hidden':'visible';}}
   if(frame%10===0||frame===1){window.mesaRigDebug=characters.filter(Boolean).map(c=>({index:c.index,head:c.head?.getWorldPosition(v3()).toArray(),hip:c.root.getObjectByName('Hips')?.getWorldPosition(v3()).toArray(),rootScale:c.root.scale.toArray()}));window.mesaDiagnostics={fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};const el=document.querySelector('#perf');if(el)el.textContent=`${Math.round(fps)} fps · ${renderer.info.render.calls} draws`;}
  }
  // Para capturas y pruebas: que alguien beba ya, sin esperar su turno de sed.
+ window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
  window.mesaBeber=(i,fijo)=>{const c=characters[i];if(c&&c.bebida&&!c.jugada)c.trago={t0:clock.elapsedTime,fijo};};
  update(null);animate();
  const resize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);};window.addEventListener('resize',resize);
- controls.addEventListener('start',()=>{camTween=null;});
+ controls.addEventListener('start',()=>{camTween=null;vuelta=null;});
  return {update,setCrowd,setCamera,ready,sampleTime(time){visualTime=time;for(const c of [...characters.filter(Boolean),...crowd])applySeatedMotion(c,time,false);renderer.render(scene,camera);},setMode(m){mode=m;setCamera(m==='attract'?'attract':'table');},quality(q){quality=q;renderer.shadowMap.enabled=q!=='low'&&!software;renderer.setPixelRatio(software?.65:q==='low'?1:Math.min(devicePixelRatio,1.5,1920/innerWidth));},dispose(){disposed=true;window.removeEventListener('mesa:botvoice',alHablar);cancelAnimationFrame(frameId);window.removeEventListener('resize',resize);controls.dispose();renderer.dispose();container.replaceChildren();}};
 }

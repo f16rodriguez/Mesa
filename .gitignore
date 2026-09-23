@@ -6,3 +6,4 @@ app/.wrangler/
 app/qa/
 .nfs*
 __pycache__/
+app/public/audio/musica/lista.json

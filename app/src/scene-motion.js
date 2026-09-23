@@ -140,8 +140,9 @@ function manoEnJugada(actor,time,reposo){
  if(j.aterrizo==null)j.aterrizo=time;
  const e=time-j.aterrizo;
  puntoAgarre(actor,j.hasta,_fic);
- if(e<SUELTA)return _fic;
- const v=(e-SUELTA)/VUELTA;
+ const sostiene=a.golpe?.7:SUELTA;// tras el golpe la mano se queda un rato encima de la ficha
+ if(e<sostiene)return _fic;
+ const v=(e-sostiene)/VUELTA;
  if(v>=1){actor.jugada=null;return null;}
  return _fic.lerp(reposo,suave(v));
 }
@@ -199,6 +200,31 @@ function vasoEnMano(actor,e){
  b.group.quaternion.setFromAxisAngle(_ejeX,-b.inclina*d);
  _arr.set(0,1,0).applyQuaternion(b.group.quaternion);
  b.group.position.copy(_mano).addScaledVector(_pal,b.radio+.015).addScaledVector(_ded,.03).addScaledVector(_arr,-b.alto);
+}
+
+/**
+ * La cara: parpadeo y sonrisa (objetivos de morph añadidos con
+ * scripts/manos/gestos.py). Parpadeo al azar cada 2–6 s, a veces doble, de
+ * 160 ms. Sonrisa: grande al ganar la mano o al decir la línea de ganar, boca
+ * caída al perder, y de vez en cuando una media sonrisa suelta. Todo suavizado.
+ */
+function cara(actor,time,ctx){
+ const c=actor.cara;if(!c)return 0;
+ if(actor.proxParpadeo==null)actor.proxParpadeo=time+1+Math.random()*4;
+ if(time>=actor.proxParpadeo){actor.parpadeoT0=time;actor.proxParpadeo=time+(Math.random()<.15?.32:2+Math.random()*4);}
+ const e=time-(actor.parpadeoT0??-9),p=e<0?0:e<.06?e/.06:e<.09?1:e<.16?1-(e-.09)/.07:0;
+ if(actor.caraFija){const f=actor.caraFija,inf=c.mesh.morphTargetInfluences;if(inf){inf[c.iP]=f.p*.85;inf[c.iS]=f.s;}actor.parpadeo=f.p;return f.p;}
+ const i=actor.index;let objetivo=0;
+ if(ctx?.fin&&ctx.fin.team!=null&&time-ctx.fin.t<5&&time>=ctx.fin.t)objetivo=i%2===ctx.fin.team?.95:-.7;
+ else if(ctx?.habla?.has(i))objetivo=ctx.hablaTipo?.get(i)==='win'?.85:.2;
+ else{
+  if(actor.casual==null)actor.casual=time+8+Math.random()*30;
+  if(time>actor.casual+2.5)actor.casual=time+15+Math.random()*45;
+  if(time>=actor.casual)objetivo=.45;
+ }
+ actor.sonrisa=(actor.sonrisa??0)+(objetivo-(actor.sonrisa??0))*(1-Math.exp(-(ctx?.dt||.016)*3.5));
+ const inf=c.mesh.morphTargetInfluences;if(inf){inf[c.iP]=p*.85;inf[c.iS]=actor.sonrisa;}
+ actor.parpadeo=p;return p;
 }
 
 /**
@@ -339,6 +365,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
  }
 
  mirar(actor,time,ctx);
+ cara(actor,time,ctx);
  // El vaivén de idleMotion va DESPUÉS de la mirada: antes, la mirada lo corregiría y la cabeza quedaría clavada.
  if(actor.head){
   actor.head.quaternion.multiply(delta.setFromAxisAngle(Y,motion.headYaw*.5));actor.head.quaternion.multiply(delta.setFromAxisAngle(X,motion.headNod));

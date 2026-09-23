@@ -19,3 +19,5 @@
 .seat-label.active.pair-a small{color:#8e2c1f}.seat-label.active.pair-b small{color:#1f4f86}
 .hud-score .team.pair-a{color:#f19a88}.hud-score .team.pair-b{color:#9cc2f0}
 .hud-score .team.pair-a b{border-bottom:3px solid #d4533f}.hud-score .team.pair-b b{border-bottom:3px solid #4a86cf}
+
+@keyframes aparecer{from{opacity:0;transform:translate(-50%,calc(-50% + 8px));pointer-events:none}to{opacity:1;transform:translate(-50%,-50%)}}

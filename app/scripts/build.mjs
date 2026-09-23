@@ -62,6 +62,11 @@ const rhythm = await Bun.build({entrypoints:[resolve(app,'src/bot-rhythm.ts')],o
 if(!rhythm.success)throw new Error('Bot timing build failed');
 await cp(resolve(app,'src/bot-chatter.js'),resolve(app,'public/bot-chatter.js'));
 await cp(resolve(app,'src/ambiente.js'),resolve(app,'public/ambiente.js'));
+// La música: lo que haya en public/audio/musica entra solo a la lista. Un
+// servidor estático no puede listar carpetas, así que la lista se escribe aquí.
+{const dir=resolve(app,'public/audio/musica');await mkdir(dir,{recursive:true});
+ const canciones=(await readdir(dir)).filter(f=>/\.(mp3|m4a|ogg|wav)$/i.test(f)).sort();
+ await Bun.write(resolve(dir,'lista.json'),JSON.stringify(canciones));console.log(`música: ${canciones.length} canción(es)`);}
 await cp(resolve(app,'src/proximity-voice.js'),resolve(app,'public/proximity-voice.js'));
 const voice=await Bun.build({entrypoints:[resolve(app,'scripts/voice-entry.js')],outdir:resolve(app,'public'),naming:'voice-sdk.js',target:'browser',format:'esm',minify:true});
 if(!voice.success)throw new Error('Voice client build failed');

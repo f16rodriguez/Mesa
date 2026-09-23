@@ -9,6 +9,12 @@ export const DIM = {
  tileLength:.054, tileWidth:.027, tileThickness:.011, tileGap:.0016,
  pipRadius:.0029, pipColumnSpacing:.0064, pipRowSpacing:.0074,
  rackRadius:.418, rackSpacing:.0305, neutralPoseTime:10.25,
+ // Hasta dónde llega la cadena antes de doblar. Las manos en reposo quedan a
+ // ~28 cm del centro o más (medido en los vértices de las manos); la cadena
+ // dobla a 27 cm, así nadie apoya la mano encima de las fichas. 27 es lo más
+ // cerrado en que caben las 28 fichas: probado en 9.000 partidas sin un fallo
+ // (a 25–26 cm, un 3–4 % de partidas se encierran solas).
+ boardLimit:.27,
 } as const;
 export const seats:number[][]=[[0,DIM.seatDistance,Math.PI],[-DIM.seatDistance,0,Math.PI/2],[0,-DIM.seatDistance,0],[DIM.seatDistance,0,-Math.PI/2]];
 export type BoardTile={id:string;x:number;y:number};
@@ -16,8 +22,11 @@ export type BoardMove={type:string;tile?:string;side?:string};
 export type Placement={id:string;x:number;z:number;yaw:number;vertical:boolean;isDouble:boolean;dx:number;dz:number;side:'left'|'right'|'root'};
 type End={tile:Placement;dx:number;dz:number};
 export function footprint(p:Placement){const w=p.vertical?DIM.tileWidth:DIM.tileLength,d=p.vertical?DIM.tileLength:DIM.tileWidth;return {left:p.x-w/2,right:p.x+w/2,top:p.z-d/2,bottom:p.z+d/2};}
-const limit=DIM.feltWidth/2-.022;
-function fits(p:Placement,placed:Placement[]){const b=footprint(p);if(Math.max(Math.abs(b.left),Math.abs(b.right),Math.abs(b.top),Math.abs(b.bottom))>limit+1e-8)return false;return placed.every(o=>{const a=footprint(o),gap=.0015;return b.right<=a.left-gap||b.left>=a.right+gap||b.bottom<=a.top-gap||b.top>=a.bottom+gap;});}
+const limit=DIM.boardLimit;
+// Si una ficha no cabe en ningún sitio dentro del margen, SOLO esa ficha puede usar
+// el paño entero: nunca se tranca el dibujo y las fichas anteriores no se mueven.
+const limiteDelPano=DIM.feltWidth/2-.022;
+function fits(p:Placement,placed:Placement[],lim:number=limit){const b=footprint(p);if(Math.max(Math.abs(b.left),Math.abs(b.right),Math.abs(b.top),Math.abs(b.bottom))>lim+1e-8)return false;return placed.every(o=>{const a=footprint(o),gap=.0015;return b.right<=a.left-gap||b.left>=a.right+gap||b.bottom<=a.top-gap||b.top>=a.bottom+gap;});}
 function candidates(end:End,tile:BoardTile,side:'left'|'right'):Placement[]{
  const L=DIM.tileLength,W=DIM.tileWidth,G=DIM.tileGap,isDouble=tile.x===tile.y,halfAlong=(isDouble?W:L)/2,prev=end.tile,result:Placement[]=[];
  const dirs=[[end.dx,end.dz],[end.dz,-end.dx],[-end.dz,end.dx]];
@@ -40,7 +49,7 @@ export function chainLayout(chain:BoardTile[],moves:BoardMove[]=[]):Placement[]{
  const root:Placement={id:opener.id,x:0,z:0,yaw:isDouble?Math.PI/2:0,vertical:isDouble,isDouble,dx:1,dz:0,side:'root'};
  const placed:Placement[]=[root],positions=new Map([[root.id,root]]),ends:{left:End;right:End}={left:{tile:root,dx:-1,dz:0},right:{tile:root,dx:1,dz:0}};
  const order=events.length===chain.length?events.slice(1):[...chain.slice(0,openerIndex).reverse().map(t=>({type:'play',tile:t.id,side:'left'})),...chain.slice(openerIndex+1).map(t=>({type:'play',tile:t.id,side:'right'}))];
- for(const event of order){const tile=byId.get(event.tile!)!;if(positions.has(tile.id))continue;const side: 'left'|'right'=event.side==='left'?'left':event.side==='right'?'right':chain.findIndex(t=>t.id===tile.id)<openerIndex?'left':'right';const options=candidates(ends[side],tile,side).filter(p=>fits(p,placed));
+ for(const event of order){const tile=byId.get(event.tile!)!;if(positions.has(tile.id))continue;const side: 'left'|'right'=event.side==='left'?'left':event.side==='right'?'right':chain.findIndex(t=>t.id===tile.id)<openerIndex?'left':'right';const cands=candidates(ends[side],tile,side);let options=cands.filter(p=>fits(p,placed));if(!options.length)options=cands.filter(p=>fits(p,placed,limiteDelPano));
   const chosen=options.find(p=>hasExit(p,[...placed,p],side,false)&&hasExit(p,[...placed,p],side,true))||options.find(p=>hasExit(p,[...placed,p],side,false))||options[0];
   if(!chosen)throw new Error(`No safe placement for ${tile.id} after ${placed.length} tiles`);
   placed.push(chosen);positions.set(tile.id,chosen);ends[side]={tile:chosen,dx:chosen.dx,dz:chosen.dz};

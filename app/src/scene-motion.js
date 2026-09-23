@@ -114,7 +114,7 @@ function reposoMano(actor,brazo,time){
   DIM.surfaceY+.026,
   // El clip sentado trae el tronco algo girado: el hombro izquierdo queda más
   // atrás, así que esa mano se apoya un poco más cerca para que el codo doble igual.
-  borde+(lado>0?.05:.075)+Math.cos(v*1.3)*.012+Math.sin(time*.17+v*2)*.004,_obj);
+  borde+(lado>0?.035:.06)+Math.cos(v*1.3)*.012+Math.sin(time*.17+v*2)*.004,_obj);
 }
 
 /**

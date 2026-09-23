@@ -300,17 +300,18 @@ function mirar(actor,time,ctx){
  * echa hacia allá y gira un poco en vez de estirar el brazo como un palo.
  */
 const INCLINACION=.23;
-// Repartida entre cadera y las tres vértebras, como se dobla una persona: si
-// toda la inclinación cae en una sola vértebra, la piel de la barriga se
-// pliega ahí y la camisa se ve aplastada. La cadera gira y los muslos se
-// contra-giran, así las piernas no se mueven de la silla.
-const REPARTO=[['hips',.35],['lomo',.25],['spine',.22],['chest',.18]],_inv=new THREE.Quaternion();
+// Repartida entre las tres vértebras, como se dobla una espalda: si toda la
+// inclinación cae en una sola, la piel de la barriga se pliega ahí y la camisa
+// se ve aplastada. La cadera NO se gira: con los muslos contra-girados para
+// dejarlos en la silla, las nalgas y el ruedo de la camisa se estiraban y se
+// rompían por detrás (se veía desde atrás y de lado).
+const REPARTO=[['lomo',.4],['spine',.34],['chest',.26]],_inv=new THREE.Quaternion();
 function inclinar(actor,angulo,giro=0){
  if(!actor.spine||!actor.spine.parent)return;
  _eje.copy(_ejeX);
  if(actor.hips&&actor.lomo){
   for(const [k,f] of REPARTO){const h=actor[k];if(!h)continue;giraEnMundo(h,_lean.setFromAxisAngle(_eje,angulo*f));
-   if(k==='hips')for(const m of actor.muslos||[])if(m)giraEnMundo(m,_inv.setFromAxisAngle(_eje,-angulo*f));}
+}
  }else giraEnMundo(actor.spine,_lean.setFromAxisAngle(_eje,angulo));
  if(giro)giraEnMundo(actor.spine,_lean.setFromAxisAngle(Y,giro));
 }

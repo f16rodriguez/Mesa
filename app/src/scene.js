@@ -227,6 +227,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   if(frame%10===0||frame===1){window.mesaRigDebug=characters.filter(Boolean).map(c=>({index:c.index,head:c.head?.getWorldPosition(v3()).toArray(),hip:c.root.getObjectByName('Hips')?.getWorldPosition(v3()).toArray(),rootScale:c.root.scale.toArray()}));window.mesaDiagnostics={fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};const el=document.querySelector('#perf');if(el)el.textContent=`${Math.round(fps)} fps · ${renderer.info.render.calls} draws`;}
  }
  // Para capturas y pruebas: que alguien beba ya, sin esperar su turno de sed.
+ window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;controls.minDistance=.1;camera.position.set(...p);controls.target.set(...t);controls.update();};
  window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
  window.mesaBeber=(i,fijo)=>{const c=characters[i];if(c&&c.bebida&&!c.jugada)c.trago={t0:clock.elapsedTime,fijo};};
  update(null);animate();

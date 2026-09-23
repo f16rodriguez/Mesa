@@ -9,7 +9,21 @@ describe('Dominican double-six rules',()=>{
  it('is deterministic and leaves input state immutable',()=>{const s=initial(),before=JSON.stringify(s);expect(L.applyAction(s,'host',{type:'start'})).toEqual(L.applyAction(s,'host',{type:'start'}));expect(JSON.stringify(s)).toBe(before);});
  it('requires double six for first opening and refuses voluntary pass',()=>{const s=start(),id=s.players[s.turn],other=s.hands[s.turn].find((x:any)=>x.id!=='6-6');expect(L.validateAction(s,id,{type:'play',tile:other.id,side:'right'}).ok).toBe(false);expect(L.validateAction(s,id,{type:'pass'}).ok).toBe(false);expect(L.validateAction(s,id,{type:'play',tile:'6-6',side:'right'}).ok).toBe(true);});
  it('rejects spectators, wrong turn, wrong end and nonexistent tile',()=>{const s=start();for(const [id,a] of [['spy',{type:'play',tile:'6-6',side:'right'}],[s.players[(s.turn+1)%4],{type:'pass'}],[s.players[s.turn],{type:'play',tile:'6-6',side:'up'}],[s.players[s.turn],{type:'play',tile:'9-9',side:'right'}]])expect(L.validateAction(s,id as string,a).ok).toBe(false);});
- it('locks house rules and restricts dealing to host',()=>{const s=start();expect(L.validateAction(s,'a',{type:'next'}).ok).toBe(false);expect(L.validateAction(s,'host',{type:'settings',settings:s.settings}).ok).toBe(false);expect(L.validateAction(initial(),'host',{type:'settings',settings:{target:999,capicua:25,tie:'none',allPips:false}}).ok).toBe(false);});
+ it('lets any seated human deal the next hand or series, but keeps opening and house rules to the host',()=>{
+  const base:any=L.setup(['a','b']);base.hostId='host';
+  expect(L.validateAction(base,'a',{type:'start'}).ok).toBe(false);
+  expect(L.validateAction(base,'a',{type:'settings',settings:base.settings}).ok).toBe(false);
+  const ended={...(L.applyAction(base,'host',{type:'start'}) as any),phase:'handEnd'};
+  for(const p of ['host','a','b'])expect(L.validateAction(ended,p,{type:'next'}).ok).toBe(true);
+  for(const p of ['bot-2','bot-3','spectator'])expect(L.validateAction(ended,p,{type:'next'}).ok).toBe(false);
+  const dealt:any=L.applyAction(ended,'b',{type:'next'});expect(dealt.phase).toBe('playing');expect(dealt.handNo).toBe(2);
+  const over={...ended,phase:'seriesEnd'};
+  expect(L.validateAction(over,'a',{type:'newSeries'}).ok).toBe(true);
+  expect(L.validateAction(over,'bot-3',{type:'newSeries'}).ok).toBe(false);
+  const fresh:any=L.applyAction(over,'a',{type:'newSeries'});expect(fresh.phase).toBe('lobby');expect(fresh.hostId).toBe('host');
+  expect((L.viewFor(ended,'a') as any).canDeal).toBe(true);expect((L.viewFor(ended,'spectator') as any).canDeal).toBe(false);
+ });
+ it('locks house rules once the hand is dealt',()=>{const s=start();expect(L.validateAction(s,'a',{type:'next'}).ok).toBe(false);expect(L.validateAction(s,'host',{type:'settings',settings:s.settings}).ok).toBe(false);expect(L.validateAction(initial(),'host',{type:'settings',settings:{target:999,capicua:25,tie:'none',allPips:false}}).ok).toBe(false);});
  it('redacts seed, deal, player IDs, and all other hands from player/host/spectator views',()=>{const s=start();for(const id of ['a','host','spectator']){const v:any=L.viewFor(s,id);expect(v.seed).toBeUndefined();expect(v.deal).toBeUndefined();expect(v.hands).toBeUndefined();expect(v.players).toBeUndefined();expect(v.revealed).toBeNull();expect(v.replay).toBeNull();expect(v.hand.length).toBe(id==='a'?7:0);}});
  it('scores domino from opponents only and lets winner open any tile next',()=>{let s=start();s.handNo=2;s.chain=[{...t(1,2),x:1,y:2}];s.left=1;s.right=2;s.turn=0;s.hands=[[t(2,4)],[t(3,6)],[t(5,5)],[t(0,3)]];s=play(s,'a',{type:'play',tile:'2-4',side:'right'});expect(s.phase).toBe('handEnd');expect(s.result.points).toBe(12);expect(s.opener).toBe(0);s=play(s,'host',{type:'next'});expect(s.turn).toBe(0);expect((L.viewFor(s,'a') as any).legal.length).toBe(7);});
  it('awards capicua +25 when final tile fits both pre-play ends',()=>{let s=start();s.chain=[{...t(2,3),x:2,y:3}];s.left=2;s.right=3;s.turn=0;s.hands=[[t(2,3)],[t(1,4)],[t(5,5)],[t(1,6)]];s=play(s,'a',{type:'play',tile:'2-3',side:'right'});expect(s.result.type).toBe('capicua');expect(s.result.points).toBe(37);});

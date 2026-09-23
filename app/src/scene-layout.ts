@@ -1,10 +1,14 @@
+// A tamaño real. Una ficha dominicana mide ~5,4 × 2,7 × 1,1 cm y la mesa de
+// colmado ~92 cm de lado; antes todo iba a 2,2× y la mesa a 1,40 m, así que las
+// fichas parecían ladrillos y nadie llegaba al centro sin estirar el brazo
+// entero. Para leer el tablero están las cámaras cercanas, no fichas gigantes.
 export const DIM = {
- tableWidth:1.40, tableCenterY:.724, tableThickness:.09,
- feltWidth:1.17, feltCenterY:.776, surfaceY:.782,
- chairSeatY:.51, chairSeatWidth:.56, seatDistance:1.01,
- tileLength:.12, tileWidth:.06, tileThickness:.025, tileGap:.0035,
- pipRadius:.0068, pipColumnSpacing:.0136, pipRowSpacing:.0175,
- rackRadius:.635, rackSpacing:.065, neutralPoseTime:10.25,
+ tableWidth:.92, tableCenterY:.724, tableThickness:.09,
+ feltWidth:.78, feltCenterY:.776, surfaceY:.782,
+ chairSeatY:.51, chairSeatWidth:.56, seatDistance:.77,
+ tileLength:.054, tileWidth:.027, tileThickness:.011, tileGap:.0016,
+ pipRadius:.0029, pipColumnSpacing:.0064, pipRowSpacing:.0074,
+ rackRadius:.418, rackSpacing:.0305, neutralPoseTime:10.25,
 } as const;
 export const seats:number[][]=[[0,DIM.seatDistance,Math.PI],[-DIM.seatDistance,0,Math.PI/2],[0,-DIM.seatDistance,0],[DIM.seatDistance,0,-Math.PI/2]];
 export type BoardTile={id:string;x:number;y:number};

@@ -23,7 +23,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // habitación sintética (va en el bundle, no hay que bajar nada) les da forma
  // y brillo; bajita, porque es de noche y la luz la pone el bombillo.
  {const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;scene.environmentIntensity=.3;pmrem.dispose();}
- const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=2.3;controls.maxDistance=8;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
+ const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=.8;controls.maxDistance=8;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
  // El relleno de hemisferio a 1.05 lo aplastaba todo: misma luz por todos lados,
  // cero volumen. Baja a .42 y el bombillo pasa a ser la luz que manda.
  scene.add(new THREE.HemisphereLight('#b9c9dd','#4a3b30',.42));const moon=new THREE.DirectionalLight('#9fb6d6',.55);moon.position.set(-5,9,5);scene.add(moon);
@@ -87,8 +87,13 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // Physical game table.
  const tableTop=new THREE.Mesh(new RoundedBoxGeometry(DIM.tableWidth,DIM.tableThickness,DIM.tableWidth,3,.035),wood);tableTop.position.y=DIM.tableCenterY;tableTop.castShadow=true;tableTop.receiveShadow=true;scene.add(tableTop);
  const felt=new THREE.Mesh(new RoundedBoxGeometry(DIM.feltWidth,.012,DIM.feltWidth,2,.02),new THREE.MeshStandardMaterial({color:'#284e3e',roughness:1}));felt.position.y=DIM.feltCenterY;felt.receiveShadow=true;scene.add(felt);
- for(const x of [-.49,.49])for(const z of [-.49,.49])box(x,.35,z,.095,.68,.095,darkwood);
- for(const x of [-.602,.602])for(const z of [-.602,.602])cylinder(x,.771,z,.044,.044,.006,'#231c15',20);
+ const pata=DIM.tableWidth/2-.07;for(const x of [-pata,pata])for(const z of [-pata,pata])box(x,.35,z,.075,.68,.075,darkwood);
+ // Parejas a simple vista: cada pareja tiene su color (rojo y azul, los de la
+ // bandera) en las sillas, en un filete del paño delante de cada uno y en su
+ // etiqueta. Los compañeros se sientan enfrente, así que el paño queda con dos
+ // lados rojos enfrentados y dos azules: se lee de un vistazo quién va con quién.
+ const TEAM=['#b8412f','#2f67a6'];
+ for(let i=0;i<4;i++){const [x,z,ang]=seats[i],r=DIM.feltWidth/2-.012,band=new THREE.Mesh(new THREE.PlaneGeometry(DIM.feltWidth*.72,.009),new THREE.MeshStandardMaterial({color:TEAM[i%2],roughness:.9}));band.rotation.set(-Math.PI/2,0,ang);band.position.set(x*r/DIM.seatDistance,DIM.surfaceY+.0006,z*r/DIM.seatDistance);band.receiveShadow=true;scene.add(band);}
  // Guano: el asiento tejido de palma de la silla de colmado. Cuadros alternos de
  // tres hebras, en horizontal y en vertical, con variación de tono por hebra.
  const guano=new THREE.MeshStandardMaterial({roughness:.92,map:texture((c,w,h)=>{c.fillStyle='#8f7446';c.fillRect(0,0,w,h);const n=12,t=w/n;
@@ -96,10 +101,10 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    c.fillStyle=`rgb(${tono+30},${tono+8},${tono-45})`;const o=k*t/3+t*.04,g=t/3-t*.08;
    if(horiz)c.fillRect(gx*t+1,gy*t+o,t-2,g);else c.fillRect(gx*t+o,gy*t+1,g,t-2);}}
   c.fillStyle='rgba(40,28,14,.18)';for(let q=0;q<=n;q++){c.fillRect(q*t-1,0,2,h);c.fillRect(0,q*t-1,w,2);}},256,256)});
- for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#6e4b33':'#5f412d');const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
+ for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#2f5f94':'#a63d2d',.62);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
  function sign(text,width,height,bg,fg,size=60){const t=texture((c,w,h)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.font=`bold ${size}px Georgia`;c.fillText(text,w/2,h/2);},1024,256);return new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:t}));}
  const storeSign=sign('COLMADO  LA ESQUINA',4.8,.38,'#a05d42','#f8e8b9',64);storeSign.position.set(0,2.94,-2.33);scene.add(storeSign);
- const tableLogo=sign('MESA',.18,.048,'#284e3e','#81906b',77);tableLogo.rotation.x=-Math.PI/2;tableLogo.position.set(0,DIM.surfaceY+.001,.46);scene.add(tableLogo);
+ const tableLogo=sign('MESA',.11,.029,'#284e3e','#81906b',77);tableLogo.rotation.x=-Math.PI/2;tableLogo.position.set(0,DIM.surfaceY+.001,.30);scene.add(tableLogo);
  // Shop fan, rotating in actual scene coordinates.
  const fan=new THREE.Group();fan.position.set(0,2.62,-2.20);fan.rotation.x=-Math.PI/2;scene.add(fan);cylinder(0,2.90,-2.20,.015,.015,.56,'#777a68',8);cylinder(0,3.18,-2.20,.075,.075,.025,'#767763',12);const hub=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),mat('#41493d'));fan.add(hub);for(let i=0;i<5;i++){const blade=new THREE.Mesh(new THREE.BoxGeometry(.13,.50,.025),mat('#85856e',.88,.05));blade.position.set(Math.sin(i*TAU/5)*.285,Math.cos(i*TAU/5)*.285,0);blade.rotation.z=-i*TAU/5;fan.add(blade);}
  // A quiet moto crossing the street. It is a visible passing prop, not traffic AI.
@@ -109,23 +114,26 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // Merge static architecture by material instead of hundreds of draw calls.
  for(const {material,geos} of batches.values()){const merged=mergeGeometries(geos,false);if(merged){const mesh=new THREE.Mesh(merged,material);mesh.receiveShadow=true;mesh.castShadow=true;scene.add(mesh);}geos.forEach(g=>g.dispose());}
  const tileGroup=new THREE.Group(),rackGroup=new THREE.Group();scene.add(tileGroup,rackGroup);
- const tileGeo=new RoundedBoxGeometry(DIM.tileLength,DIM.tileThickness,DIM.tileWidth,2,.005),ivory=mat('#f3edda',.75),dark=mat('#d9d4c1',.75);
+ const tileGeo=new RoundedBoxGeometry(DIM.tileLength,DIM.tileThickness,DIM.tileWidth,2,.0022),ivory=mat('#f3edda',.75),dark=mat('#d9d4c1',.75);
  const ink=new THREE.MeshBasicMaterial({color:'#090d0c',toneMapped:false}),seamMat=new THREE.MeshBasicMaterial({color:'#111410',toneMapped:false});
- const pipGeo=new THREE.CylinderGeometry(DIM.pipRadius,DIM.pipRadius,.0015,14),seamGeo=new THREE.BoxGeometry(.0035,.001,DIM.tileWidth*.82);
+ const pipGeo=new THREE.CylinderGeometry(DIM.pipRadius,DIM.pipRadius,.0007,14),seamGeo=new THREE.BoxGeometry(.0014,.0005,DIM.tileWidth*.8);
  const sharedGeometry=new Set([tileGeo,pipGeo,seamGeo]),sharedMaterials=new Set([ivory,dark,ink,seamMat]);
  function domino(a,b,back=false){
   const g=new THREE.Group(),body=new THREE.Mesh(tileGeo,back?dark:ivory);body.castShadow=true;body.receiveShadow=true;g.add(body);
   if(!back){
-   const positions=[];[a,b].forEach((n,part)=>pips[n].forEach(k=>positions.push(v3((part===0?-1:1)*DIM.tileLength/4+(k%3-1)*DIM.pipColumnSpacing,DIM.tileThickness/2+.002, (Math.floor(k/3)-1)*DIM.pipRowSpacing))));
+   const positions=[];[a,b].forEach((n,part)=>pips[n].forEach(k=>positions.push(v3((part===0?-1:1)*DIM.tileLength/4+(k%3-1)*DIM.pipColumnSpacing,DIM.tileThickness/2+.0005, (Math.floor(k/3)-1)*DIM.pipRowSpacing))));
    if(positions.length){const dots=new THREE.InstancedMesh(pipGeo,ink,positions.length),m=new THREE.Matrix4();positions.forEach((p,i)=>dots.setMatrixAt(i,m.makeTranslation(p.x,p.y,p.z)));g.add(dots);}
-   const seam=new THREE.Mesh(seamGeo,seamMat);seam.position.y=DIM.tileThickness/2+.0015;g.add(seam);
+   const seam=new THREE.Mesh(seamGeo,seamMat);seam.position.y=DIM.tileThickness/2+.0004;g.add(seam);
   }return g;
  }
  function boardPosition(p){return v3(p.x,DIM.surfaceY+DIM.tileThickness/2+.001,p.z);}
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.20,.006,5,38),new THREE.MeshBasicMaterial({color:'#e8bf70',transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.027;scene.add(ring);
  const characters=[],templates=[],crowd=[],drinks=[];const loader=new GLTFLoader();let loaded=0,total=4,failed=[];
  function drink(index){const group=new THREE.Group(),type=['coffee','juice','beer','water'][index];if(type==='beer'){const m=new THREE.Mesh(bottleGeo,mat('#62421e',.23,.05));m.scale.setScalar(.85);group.add(m);}else{const cup=new THREE.Mesh(new THREE.CylinderGeometry(.047,.037,.105,18),mat(type==='coffee'?'#e4dfc8':type==='juice'?'#bfa478':'#719b9c',.3));cup.position.y=.055;group.add(cup);const fill=new THREE.Mesh(new THREE.CircleGeometry(.041,20),mat(type==='coffee'?'#24150e':type==='juice'?'#ebbd72':'#9cbfc0',.16));fill.rotation.x=-Math.PI/2;fill.position.y=.110;group.add(fill);if(type==='coffee'){const saucer=new THREE.Mesh(new THREE.CylinderGeometry(.075,.07,.012,20),mat('#ded9c3',.25));group.add(saucer);const handle=new THREE.Mesh(new THREE.TorusGeometry(.024,.006,6,12),mat('#e4dfc8',.3));handle.position.set(.052,.062,0);group.add(handle);}}
-  group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});const [sx,sz,ang]=seats[index],p=v3(-.44,.773,.39).applyAxisAngle(v3(0,1,0),ang).add(v3(sx,0,sz));p.x=THREE.MathUtils.clamp(p.x,-.62,.62);p.z=THREE.MathUtils.clamp(p.z,-.62,.62);group.position.copy(p);scene.add(group);drinks.push({group,home:p,index});
+  group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});// A 92 cm de mesa no cabe un vaso sin que la cadena le pase por encima: la
+  // bebida va en una mesita a la derecha de la silla, a la altura del brazo, para
+  // que la puedan agarrar de verdad (ver el trago en scene-motion.js).
+  const [sx,sz,ang]=seats[index],p=v3(-.40,0,.05).applyAxisAngle(v3(0,1,0),ang).add(v3(sx,0,sz));const banco=new THREE.Group(),pieza=(w,h,d,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;banco.add(o);};for(const [lx,lz] of [[-.075,-.075],[.075,-.075],[-.075,.075],[.075,.075]])pieza(.025,.6,.025,lx,.3,lz,darkwood);pieza(.2,.022,.2,0,.611,0,wood);banco.position.set(p.x,0,p.z);banco.rotation.y=ang;scene.add(banco);p.y=.622;group.scale.setScalar(.85);group.position.copy(p);scene.add(group);drinks.push({group,home:p,index});
  }
  for(let i=0;i<4;i++)drink(i);
  async function loadPerson(index,name){try{onProgress(`Seating ${['Don Rafa','Marisol','Luis','Carmen'][index]}…`,loaded/total);const gltf=await loader.loadAsync(`/models/${name}.glb`);templates[index]=gltf;
@@ -133,26 +141,30 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   // Keep the models' anatomical scale; anchor the pelvis over the chair and
   // ground the feet at a measured neutral pose, not an arbitrary loop frame.
   const b=new THREE.Box3().setFromObject(root),hips=root.getObjectByName('Hips'),hp=hips?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,-b.min.y,-hp.z);const [x,z,a]=seats[index];holder.position.set(x,0,z);holder.rotation.y=a;scene.add(holder);
-  characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
+  characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
  }catch(e){failed.push(name);console.error('Character load failed',name,e);onProgress(`Could not load ${name}. Reload to retry.`,loaded/total);}}
  const ready=Promise.all(['rafa-upright','marisol','luis-upright','carmen'].map((name,i)=>loadPerson(i,name)));
+ let foco=null,fin=null,finKey='';const habla=new Set(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active)habla.add(d.seat);else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
  let currentView=null,currentCrowd=0,boardKey='',lastHand=0,mode='attract',camTween=null,animations=[],lastMove=0,dealUntil=0;
  function clear(group){while(group.children.length){const c=group.children.pop();c.parent=null;c.traverse(o=>{if(o.isMesh&&!sharedGeometry.has(o.geometry))o.geometry.dispose();if(o.isMesh&&!sharedMaterials.has(o.material))o.material.dispose();});}}
  function setCrowd(count){currentCrowd=count;const target=Math.min(8,count);for(let i=crowd.length-1;i>=target;i--){scene.remove(crowd[i].holder);crowd.pop();}
   while(crowd.length<target&&templates.filter(Boolean).length){const idx=crowd.length,source=templates[idx%4]||templates.find(Boolean),root=cloneSkeleton(source.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(source.animations[0])mixer.clipAction(source.animations.find(a=>a.name==='Seated')||source.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=false;o.frustumCulled=false;}});const b=new THREE.Box3().setFromObject(root),hp=root.getObjectByName('Hips')?.getWorldPosition(v3())||b.getCenter(v3());root.position.x-=hp.x;root.position.y-=b.min.y;root.position.z-=hp.z;holder.position.set(-2.5+(idx%4)*1.66,0,-2.5-Math.floor(idx/4)*.65);holder.rotation.y=0;scene.add(holder);
-   const chair=new THREE.Mesh(new THREE.BoxGeometry(.56,.06,.54),cream);chair.position.set(0,DIM.chairSeatY,0);holder.add(chair);crowd.push({root,holder,pose:capturePose(root),head:root.getObjectByName('Head'),spine:root.getObjectByName('Spine01'),index:idx+4});}
+   const chair=new THREE.Mesh(new THREE.BoxGeometry(.56,.06,.54),cream);chair.position.set(0,DIM.chairSeatY,0);holder.add(chair);crowd.push({root,holder,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),spine:root.getObjectByName('Spine01'),index:idx+4});}
  }
+ // A tamaño real una ficha mide 5 cm, así que las vistas de juego van cerca:
+ // 'table' encuadra la mesa y a los cuatro; 'overhead' pone el tablero a
+ // pantalla llena; 'close' mira por encima del hombro; 'seat', desde la silla.
  function setCamera(which='table'){
-  controls.minDistance=which==='seat'?.4:1.8;controls.minPolarAngle=which==='overhead'?.01:.25;
+  controls.minDistance=which==='seat'||which==='close'?.3:.7;controls.minPolarAngle=which==='overhead'?.01:.25;
   let pos,target=v3(0,.80,0);
-  if(which==='attract'){pos=v3(2.9,2.40,3.65);target=v3(0,.90,-.23);}else if(which==='overhead'){pos=v3(.001,3.1,.02);target=v3(0,DIM.surfaceY,0);}else if(which==='seat'){pos=v3(0,1.36,.86);target=v3(0,.83,-.15);}else pos=v3(1.25,2.25,1.90);
+  if(which==='attract'){pos=v3(2.2,1.95,2.75);target=v3(0,.92,-.2);}else if(which==='overhead'){pos=v3(.001,1.72,.30);target=v3(0,DIM.surfaceY,.02);}else if(which==='seat'){pos=v3(0,1.28,DIM.seatDistance-.17);target=v3(0,.80,-.1);}else if(which==='close'){pos=v3(.62,1.30,1.0);target=v3(-.03,.85,-.08);}else pos=v3(.95,1.78,1.30);
   camTween={from:camera.position.clone(),to:pos,fromTarget:controls.target.clone(),toTarget:target,t:0};
  }
- function update(view,crowdCount=0){currentView=view;if(currentCrowd!==crowdCount)setCrowd(crowdCount);
+ function update(view,crowdCount=0){currentView=view;{const cerrada=view&&(view.phase==='handEnd'||view.phase==='seriesEnd')&&view.result,k=cerrada?view.handNo+':'+view.phase:'';if(k&&k!==finKey)fin={t:clock.elapsedTime+.5,team:view.result.team??null};if(!cerrada)fin=null;finKey=k;}if(currentCrowd!==crowdCount)setCrowd(crowdCount);
   const nextKey=view?view.handNo+':'+view.moves.length+':'+view.phase:'attract';if(nextKey!==boardKey){boardKey=nextKey;clear(tileGroup);animations=[];const n=view?.chain.length||0;
-   if(n){const layout=chainLayout(view.chain,view.moves);view.chain.forEach((tile,i)=>{const d=domino(tile.x,tile.y);d.position.copy(boardPosition(layout[i]));d.rotation.y=layout[i].yaw;tileGroup.add(d);if(view.event?.type==='play'&&tile.id===view.event.tile){const [sx,sz]=seats[tile.seat],from=v3(sx*.55,DIM.surfaceY+.08,sz*.55);const hasta=d.position.clone(),anim={obj:d,from,to:hasta,elapsed:0,duration:.45};animations.push(anim);d.position.copy(from);lastMove=performance.now();const c=characters[tile.seat];if(c){c.reaction={time:clock.elapsedTime};c.jugada={t0:clock.elapsedTime,obj:d,anim,hasta};}}});}
-   else if(!view||view.phase==='lobby'){for(let i=0;i<28;i++){const d=domino(0,0,true);d.position.set(((i*37)%23-11)*.035,DIM.surfaceY+.019+(i%3)*.006,((i*13)%19-9)*.031);d.rotation.y=i*1.73;tileGroup.add(d);}}
-   if(view?.phase==='playing'&&view.handNo!==lastHand&&view.moves.length===0){lastHand=view.handNo;dealUntil=performance.now()+3400;for(let i=0;i<28;i++){const d=domino(0,0,true),start=v3(((i*37)%23-11)*.032,DIM.surfaceY+.02,((i*13)%19-9)*.031),[sx,sz]=seats[i%4];d.position.copy(start);tileGroup.add(d);animations.push({obj:d,from:start,to:v3(sx*.57,DIM.surfaceY+.03,sz*.57),elapsed:-i*.065,duration:1.2,remove:true,shuffle:true});}}
+   if(n){const layout=chainLayout(view.chain,view.moves);view.chain.forEach((tile,i)=>{const d=domino(tile.x,tile.y);d.position.copy(boardPosition(layout[i]));d.rotation.y=layout[i].yaw;tileGroup.add(d);if(view.event?.type==='play'&&tile.id===view.event.tile){const [sx,sz]=seats[tile.seat],from=v3(sx,0,sz).multiplyScalar(DIM.rackRadius/DIM.seatDistance).setY(DIM.surfaceY+.05);const hasta=d.position.clone(),anim={obj:d,from,to:hasta,elapsed:0,duration:.45};animations.push(anim);d.position.copy(from);lastMove=performance.now();const c=characters[tile.seat];foco={p:hasta,t:clock.elapsedTime+anim.duration};if(c){c.reaction={time:clock.elapsedTime};c.jugada={t0:clock.elapsedTime,obj:d,anim,hasta};}}});}
+   else if(!view||view.phase==='lobby'){for(let i=0;i<28;i++){const d=domino(0,0,true);d.position.set(((i*37)%23-11)*.016,DIM.surfaceY+DIM.tileThickness*(.55+(i%3)*.9),((i*13)%19-9)*.016);d.rotation.y=i*1.73;tileGroup.add(d);}}
+   if(view?.phase==='playing'&&view.handNo!==lastHand&&view.moves.length===0){lastHand=view.handNo;dealUntil=performance.now()+3400;for(let i=0;i<28;i++){const d=domino(0,0,true),start=v3(((i*37)%23-11)*.015,DIM.surfaceY+.012,((i*13)%19-9)*.015),[sx,sz]=seats[i%4];d.position.copy(start);tileGroup.add(d);animations.push({obj:d,from:start,to:v3(sx,0,sz).multiplyScalar(DIM.rackRadius/DIM.seatDistance).setY(DIM.surfaceY+.015),elapsed:-i*.065,duration:1.2,remove:true,shuffle:true});}}
   }
   // Rebuilt every update on purpose. It is one InstancedMesh of at most 28
   // instances, so the memo it used to carry saved nothing measurable and could
@@ -164,18 +176,19 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  function animate(){if(disposed)return;frameId=requestAnimationFrame(animate);const rawDt=clock.getDelta(),dt=Math.min(rawDt,.06),t=visualTime??clock.elapsedTime,now=performance.now();fpsFrames++;fpsTime+=rawDt;if(fpsTime>1){fps=fpsFrames/fpsTime;fpsFrames=0;fpsTime=0;}frame++;
   const reduced=document.documentElement.classList.contains('reduced');if(camTween){camTween.t=Math.min(1,camTween.t+dt/1.1);const q=camTween.t*camTween.t*(3-2*camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,q);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,q);if(camTween.t===1)camTween=null;}
   if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);}moto.visible=true;moto.position.set(-4.7,.05,2.80);moto.rotation.y=-.28;
-  for(const c of characters.filter(Boolean))applySeatedMotion(c,t,reduced);
-  for(const c of crowd)applySeatedMotion(c,t,reduced);
-  // Drinks remain physically on the table until reach/grip animation has a
-  // separately tested collision-safe implementation. No floating props.
-  animations=animations.filter(a=>{a.elapsed+=dt;if(a.elapsed<0)return true;const p=Math.min(1,a.elapsed/a.duration),q=p*p*(3-2*p);a.obj.position.lerpVectors(a.from,a.to,q);a.obj.position.y+=Math.sin(p*Math.PI)*(a.shuffle?.06:.13);if(a.shuffle)a.obj.rotation.y=Math.sin(p*TAU)*.6;if(p===1&&a.remove){tileGroup.remove(a.obj);return false;}return p<1;});
+  const v=currentView,ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
+  for(const c of characters.filter(Boolean))applySeatedMotion(c,t,reduced,ctx);
+  for(const c of crowd)applySeatedMotion(c,t,reduced,ctx);
+  animations=animations.filter(a=>{a.elapsed+=dt;if(a.elapsed<0)return true;const p=Math.min(1,a.elapsed/a.duration),q=p*p*(3-2*p);a.obj.position.lerpVectors(a.from,a.to,q);a.obj.position.y+=Math.sin(p*Math.PI)*(a.shuffle?.03:.07);if(a.shuffle)a.obj.rotation.y=Math.sin(p*TAU)*.6;if(p===1&&a.remove){tileGroup.remove(a.obj);return false;}return p<1;});
   rackGroup.visible=now>=dealUntil;
   controls.update();renderer.render(scene,camera);
-  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],anchor=characters[i]?.head?.getWorldPosition(v3()).add(v3(0,.23,0))||v3(x,1.45,z),p=anchor.project(camera);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px) translate(-50%,-100%)`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||Math.abs(p.y)>1.15?'hidden':'visible';}}
+  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],anchor=characters[i]?.head?.getWorldPosition(v3()).add(v3(0,.23,0))||v3(x,1.45,z),p=anchor.project(camera);/* Con las cámaras cerca, la etiqueta de quien se sienta al fondo caía por encima de la pantalla: se queda en el borde de arriba, bajo la barra. */const py=Math.min(p.y,.74);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-py*.5+.5)*innerHeight}px) translate(-50%,-100%)`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||p.y<-1.15?'hidden':'visible';}}
   if(frame%10===0||frame===1){window.mesaRigDebug=characters.filter(Boolean).map(c=>({index:c.index,head:c.head?.getWorldPosition(v3()).toArray(),hip:c.root.getObjectByName('Hips')?.getWorldPosition(v3()).toArray(),rootScale:c.root.scale.toArray()}));window.mesaDiagnostics={fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};const el=document.querySelector('#perf');if(el)el.textContent=`${Math.round(fps)} fps · ${renderer.info.render.calls} draws`;}
  }
+ // Para capturas y pruebas: que alguien beba ya, sin esperar su turno de sed.
+ window.mesaBeber=(i,fijo)=>{const c=characters[i];if(c&&c.bebida&&!c.jugada)c.trago={t0:clock.elapsedTime,fijo};};
  update(null);animate();
  const resize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);};window.addEventListener('resize',resize);
  controls.addEventListener('start',()=>{camTween=null;});
- return {update,setCrowd,setCamera,ready,sampleTime(time){visualTime=time;for(const c of [...characters.filter(Boolean),...crowd])applySeatedMotion(c,time,false);renderer.render(scene,camera);},setMode(m){mode=m;setCamera(m==='attract'?'attract':'table');},quality(q){quality=q;renderer.shadowMap.enabled=q!=='low'&&!software;renderer.setPixelRatio(software?.65:q==='low'?1:Math.min(devicePixelRatio,1.5,1920/innerWidth));},dispose(){disposed=true;cancelAnimationFrame(frameId);window.removeEventListener('resize',resize);controls.dispose();renderer.dispose();container.replaceChildren();}};
+ return {update,setCrowd,setCamera,ready,sampleTime(time){visualTime=time;for(const c of [...characters.filter(Boolean),...crowd])applySeatedMotion(c,time,false);renderer.render(scene,camera);},setMode(m){mode=m;setCamera(m==='attract'?'attract':'table');},quality(q){quality=q;renderer.shadowMap.enabled=q!=='low'&&!software;renderer.setPixelRatio(software?.65:q==='low'?1:Math.min(devicePixelRatio,1.5,1920/innerWidth));},dispose(){disposed=true;window.removeEventListener('mesa:botvoice',alHablar);cancelAnimationFrame(frameId);window.removeEventListener('resize',resize);controls.dispose();renderer.dispose();container.replaceChildren();}};
 }

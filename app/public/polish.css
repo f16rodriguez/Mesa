@@ -11,3 +11,11 @@
 @media(max-width:550px){.title-screen{width:calc(100vw - 44px);max-width:330px;left:22px;top:99px;bottom:67px}.title-screen h1{font-size:clamp(45px,12.5vw,64px);letter-spacing:-2px;margin:14px 0 17px}.title-screen p{display:block;font-size:11px}.title-actions{margin-top:18px;width:225px;max-width:100%}.title-actions .g-button{min-height:41px;padding:12px 14px}.title-secondary{margin-top:14px}}
 @media(max-height:670px){.title-screen{top:86px;bottom:53px;justify-content:center}.title-screen h1{font-size:clamp(45px,5.6vw,65px);margin:11px 0 13px}.title-screen .eyebrow{margin-bottom:0}.title-actions{margin-top:13px;gap:6px}.title-actions .g-button{min-height:36px;padding:10px 13px}.title-secondary{margin-top:8px}.title-screen p{font-size:10px;line-height:1.65}}
 @media(max-height:470px){.title-screen{top:72px;bottom:39px;justify-content:flex-start}.title-screen h1{font-size:43px;line-height:.98;margin:8px 0}.title-screen p{display:none}.title-actions{margin-top:7px;gap:4px}.title-actions .g-button{padding:8px 12px;min-height:32px}.title-secondary{margin-top:5px}.title-secondary button{font-size:9px;padding:4px 0}.game-bottom{bottom:11px}}
+
+/* Parejas: el mismo rojo y azul de las sillas y del paño. Una franja a la
+   izquierda de cada etiqueta y el nombre de la pareja en su color en el marcador. */
+.seat-label.pair-a{border-left:4px solid #d4533f}.seat-label.pair-b{border-left:4px solid #4a86cf}
+.seat-label.pair-a small{color:#f19a88;opacity:1}.seat-label.pair-b small{color:#9cc2f0;opacity:1}
+.seat-label.active.pair-a small{color:#8e2c1f}.seat-label.active.pair-b small{color:#1f4f86}
+.hud-score .team.pair-a{color:#f19a88}.hud-score .team.pair-b{color:#9cc2f0}
+.hud-score .team.pair-a b{border-bottom:3px solid #d4533f}.hud-score .team.pair-b b{border-bottom:3px solid #4a86cf}

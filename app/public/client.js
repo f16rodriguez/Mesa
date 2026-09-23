@@ -7,6 +7,7 @@ import {chooseMove} from './bot.js';
 import {proximityVoice} from './proximity-voice.js';
 import {t,idioma,ponerIdioma,LECCIONES} from './textos.js';
 import {sonidos,vibrar,VIBRA} from './sonidos.js';
+import {telemetria} from './telemetria.js';
 // El mismo reloj de pensar que usa el servidor: la voz sabe cuánto le queda al bot.
 botChatter.pensar=botThinkingMs;
 
@@ -33,11 +34,12 @@ let page='home',view=null,room='',role='host',ws=null,practice=null,selected=nul
 let sound=almacen.get('mesa-sound')!=='off',ambientOn=almacen.get('mesa-ambience')!=='off',music=null,musicMuted=false,pendiente=false,pendienteTimer=null,wakeLock=null,vozDisponible=false,turnoVisto='',ultimoMensaje=0,finVisto={k:'',t:0},revelado=null,movsVistos='';
 const conexion={gen:0,timer:null,intentos:0,nombre:''};
 // El desbloqueo: lo que dice el cuarto (mesaInfo) y lo que tiene mi cuenta (pagosCfg.cuenta).
-let mesaInfo=null,pagosCfg=null,precioLocal='';
+let mesaInfo=null,pagosCfg=null,precioLocal='',bloqueoVisto='';
 // La tele rehace su HTML en cada jugada: esto recuerda qué ya entró, para no repetir la animación.
 const visto={fin:'',turno:'',tantos:''};
 const muted=new Set(almacen.json('mesa-muted',[]));let crowdMuted=almacen.get('mesa-crowd-muted')==='yes';
 const q=new URLSearchParams(location.search);room=normSala(q.get('room')||'');role=q.get('role')||'player';
+telemetria.iniciar({rol:()=>role});
 
 /* ── Sonido ───────────────────────────────────────────────────────────────── */
 sonidos.activo=sound;
@@ -76,8 +78,8 @@ let nivel=NIVELES[almacen.get('mesa-nivel')]?almacen.get('mesa-nivel'):'normal';
 const masPesada=v=>{const r=v.legal.map(o=>({...o,w:v.hand.find(x=>x.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));return {type:'play',tile:r[0].tile,side:r[0].side};};
 function jugadaBot(v){if(!v.legal.length)return {type:'pass'};return Math.random()<NIVELES[nivel].ruido?masPesada(v):chooseMove(v);}
 function practicaGuardada(){const p=almacen.json('mesa-practice',null);return p&&p.phase&&p.phase!=='lobby'?p:null;}
-function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||t('tu'),BOTS[1],BOTS[2],BOTS[3]];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];action({type:'start'});}
-function seguirPractica(){const p=practicaGuardada();if(!p){startPractice();return;}disconnect();practice=p;role='practice';room='';view=null;lastHand=p.handNo;page='room';history.pushState({},'','?practice=1');receive(rules.viewFor(practice,'local'));scheduleBot();}
+function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||t('tu'),BOTS[1],BOTS[2],BOTS[3]];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];telemetria.evento('practica',{nivel});action({type:'start'});}
+function seguirPractica(){const p=practicaGuardada();if(!p){startPractice();return;}telemetria.evento('practica',{nivel,sigue:1});disconnect();practice=p;role='practice';room='';view=null;lastHand=p.handNo;page='room';history.pushState({},'','?practice=1');receive(rules.viewFor(practice,'local'));scheduleBot();}
 function scheduleBot(){clearTimeout(botTimer);if(!practice||page!=='room')return;
  if(practice.phase!=='playing'||practice.turn===0)return;
  const v0=rules.viewFor(practice,practice.players[practice.turn]),pasa=!v0.legal.length;
@@ -89,7 +91,7 @@ function scheduleBot(){clearTimeout(botTimer);if(!practice||page!=='room')return
 function token(){const key='mesa-seat-'+room+'-'+role;let x=almacen.get(key);if(!x){x=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');almacen.set(key,x);}return x;}
 function cerrarSocket(){conexion.gen++;clearTimeout(conexion.timer);if(ws){ws.onclose=null;ws.onmessage=null;try{ws.close();}catch{}ws=null;}}
 function disconnect(){proximityVoice.disconnect();clearTimeout(botTimer);cerrarSocket();connected=false;liberarWakeLock();}
-function createRoom(){disconnect();practice=null;view=null;crowd={count:0,chat:[],viewers:[],muted:[],featured:false};room=nuevoCodigo();role='host';history.pushState({},'',`?room=${room}&role=host`);connect();}
+function createRoom(){disconnect();practice=null;view=null;crowd={count:0,chat:[],viewers:[],muted:[],featured:false};room=nuevoCodigo();role='host';telemetria.evento('mesa_abierta');history.pushState({},'',`?room=${room}&role=host`);connect();}
 function connect(name=conexion.nombre){
  page='room';conexion.nombre=name;cerrarSocket();
  if(role==='player')hideWorld();else ensureWorld('game');
@@ -123,11 +125,13 @@ fetch('/api/voice-config').then(r=>r.ok?r.json():{}).then(c=>{vozDisponible=!!c.
 /* ── Mundo 3D ─────────────────────────────────────────────────────────────── */
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}
- if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad');if(cal)world.quality(cal);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);container.innerHTML=`<div class="loading-error">${esc(e.message)}</div>`;});
+ if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad');if(cal)world.quality(cal);
+  // Una muestra de cómo corre la escena en esta tele, al minuto.
+  setTimeout(()=>{const d=window.mesaDiagnostics;if(d&&role!=='player')telemetria.evento('fps',{fps:d.fps,calidad:d.quality,llamadas:d.drawCalls});},60000);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);telemetria.error(e,'escena');container.innerHTML=`<div class="loading-error">${esc(e.message)}</div>`;});
  world?.resume?.();
  if(lastMode!==mode){lastMode=mode;cameraIndex=0;world?.setMode(mode);}if(world)world.update(page==='home'?null:view,page==='home'?0:crowd.count);
 }
-addEventListener('mesa:calidad',e=>almacen.set('mesa-calidad',e.detail));
+addEventListener('mesa:calidad',e=>{almacen.set('mesa-calidad',e.detail);if(e.detail==='low')telemetria.evento('calidad_baja',{fps:window.mesaDiagnostics?.fps??0});});
 // De mando, el teléfono no dibuja la mesa: la tele ya lo hace, y así no se calienta ni gasta batería.
 function hideWorld(){document.body.classList.add('phone-mode');world?.pause?.();ambience.pause();radio.stop();}
 
@@ -141,7 +145,7 @@ function home(){disconnect();page='home';view=null;practice=null;revelado=null;e
   <main class="title-screen"><div class="eyebrow">${t('subtitulo')}</div><h1><span>${t('titulo1')}</span><span>${t('titulo2')}</span></h1><p>${t('lema')}</p>
   <div class="title-actions">${esTelefono?button(t('entrarCodigo'),'join','primary','phone'):button(t('abrirMesa'),'host','primary','screen')}${sigue?button(t('seguirPractica'),'continuar','','people'):''}${button(t('practica'),'practice','','people')}${esTelefono?button(t('abrirMesa'),'host','','screen'):button(t('entrarCodigo'),'join','','phone')}</div>
   <div class="title-secondary"><button data-action="school">${t('escuelita')} ↗</button></div></main>
-  ${esTelefono?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}<footer class="game-bottom"><span class="corner-copy">${t('lema2')}</span></footer></div>`;}
+  ${esTelefono?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}<footer class="game-bottom"><span class="corner-copy">${t('lema2')}</span></footer></div>`;telemetria.evento('portada');}
 
 /* ── Recibir estado ───────────────────────────────────────────────────────── */
 function receive(v,presence=[]){
@@ -152,12 +156,14 @@ function receive(v,presence=[]){
  // Sonidos de la mesa (en la tele). La ficha suena al aterrizar (evento de la escena); aquí va lo demás.
  const mv=`${v.handNo}:${v.moves.length}`;
  if(mv!==movsVistos){const u=v.moves[v.moves.length-1];if(movsVistos&&u?.type==='pass'&&role!=='player')sonidos.toque();movsVistos=mv;}
- if(v.handNo!==lastHand&&v.phase==='playing'){lastHand=v.handNo;if(role!=='player')sonidos.barajar();}
+ if(v.handNo!==lastHand&&v.phase==='playing'){lastHand=v.handNo;if(role!=='player')sonidos.barajar();if(role==='host'||role==='practice')telemetria.evento('reparto',{mano:v.handNo});}
+ if(role==='host'&&mesaInfo?.bloqueo&&mesaInfo.bloqueo!==bloqueoVisto)telemetria.evento('bloqueo',{motivo:mesaInfo.bloqueo});bloqueoVisto=mesaInfo?.bloqueo||'';
  if(role!=='player'&&antes&&v.phase==='lobby'&&v.bots.filter(b=>!b).length>antes.bots.filter(b=>!b).length)sonidos.llegada();
  // En el teléfono: cuando pasa a ser tu turno, vibra, suena y la pantalla lo dice en grande.
  if(v.seat>=0&&v.phase==='playing'){const k=`${v.handNo}:${v.moves.length}`;if(v.turn===v.seat&&turnoVisto!==k&&(!antes||antes.turn!==v.seat||antes.handNo!==v.handNo)){turnoVisto=k;vibrar(VIBRA.turno);if(role==='player')sonidos.turno();document.body.classList.remove('te-toca');void document.body.offsetWidth;document.body.classList.add('te-toca');}}
  if(changed){lastEvent=key;}
  if(page==='room'){if(changed||!$('#room-root'))renderRoom();else{renderCrowd();world?.update(view,crowd.count);}}
+ if(v.phase==='seriesEnd'&&antes&&antes.phase!=='seriesEnd'&&(role==='host'||role==='practice'))telemetria.evento('serie_fin',{manos:v.handNo,a:v.scores[0],b:v.scores[1],zapato:v.result?.zapato?1:0});
  if(v.phase==='seriesEnd')loadProfile();
 }
 
@@ -249,7 +255,7 @@ let paddleListo=null;
 function cargarPaddle(){if(paddleListo)return paddleListo;
  paddleListo=new Promise((ok,mal)=>{const sc=document.createElement('script');sc.src='https://cdn.paddle.com/paddle/v2/paddle.js';sc.async=true;sc.onload=()=>{try{const P=window.Paddle;if(pagosCfg.entorno!=='production')P.Environment.set('sandbox');P.Initialize({token:pagosCfg.clientToken,eventCallback:ev=>{if(ev?.name==='checkout.completed')pagoHecho();}});ok(P);}catch(e){mal(e);}};sc.onerror=()=>{paddleListo=null;mal(Error('paddle'));};document.head.appendChild(sc);});
  return paddleListo;}
-async function desbloquear(){
+async function desbloquear(){telemetria.evento('desbloquear',{cuenta:profile?1:0});
  if(!profile){authMode='signup';showAuth(t('primeroCuenta'));return;}
  const cfg=pagosCfg?.activos?pagosCfg:await cargarPagos();if(!cfg?.activos){toast(t('pagosNoDisponibles'));return;}
  try{const P=await cargarPaddle();
@@ -259,7 +265,7 @@ async function desbloquear(){
  }catch{toast(t('pagosNoCargo'));}}
 /* Paddle avisa al servidor por su lado; aquí se espera a que el servidor lo confirme. */
 async function pagoHecho(){toast(t('confirmandoPago'));
- for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,2000));await cargarPagos();if(pagosCfg?.cuenta?.desbloqueada){vibrar(VIBRA.gano);toast(t('mesaDesbloqueadaYa'));if(page==='room'&&view)renderRoom();return;}}
+ for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,2000));await cargarPagos();if(pagosCfg?.cuenta?.desbloqueada){telemetria.evento('pago');vibrar(VIBRA.gano);toast(t('mesaDesbloqueadaYa'));if(page==='room'&&view)renderRoom();return;}}
  toast(t('pagoTarda'));}
 
 /* ── El público ───────────────────────────────────────────────────────────── */
@@ -331,7 +337,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',async e=>{
  const f=e.target;if(!['join-form','link-form','house-form','chat-form','auth-form','profile-form'].includes(f.id))return;e.preventDefault();const data=new FormData(f);
- if(f.id==='join-form'){const name=String(data.get('name')).trim();if(!name)return;almacen.set('mesa-name',name);unlockSound();connect(name);}
+ if(f.id==='join-form'){const name=String(data.get('name')).trim();if(!name)return;almacen.set('mesa-name',name);unlockSound();telemetria.evento(role==='spectator'?'espectador_entro':'telefono_entro');connect(name);}
  else if(f.id==='link-form'){const bruto=String(data.get('code')||'').trim();let r=null,papel='player';
   // Cuatro letras es lo normal; también vale un enlace pegado entero.
   const letras=bruto.replace(/[^A-Za-z]/g,'');
@@ -345,6 +351,7 @@ document.addEventListener('submit',async e=>{
   const b=f.querySelector('button[type="submit"],button');b.disabled=true;$('#account-error').textContent='';try{
    const payload=f.id==='auth-form'?{username:data.get('username'),password:data.get('password'),name:data.get('name')}:{name:data.get('name'),country:data.get('country'),ageBand:data.get('ageBand'),avatar:profile.avatar};
    profile=(await api(f.id==='auth-form'?authMode:'profile',payload)).profile;almacen.set('mesa-name',profile.name);
+   if(f.id==='auth-form'&&authMode==='signup')telemetria.evento('cuenta_creada',{enMesa:page==='room'?1:0});
    if(f.id==='auth-form'&&page==='room'&&room&&!practice){
     // Sentado en una mesa: se reconecta para que el cuarto sepa de la cuenta, y de vuelta a la mesa.
     await cargarPagos();modal.close();conexion.intentos=0;connect();toast(t('perfilListo'));

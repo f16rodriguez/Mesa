@@ -11,7 +11,7 @@ import type {Env} from './env';
  * El cliente (public/telemetria.js) manda lotes chicos por sendBeacon y no lee
  * la respuesta: todo lo que pasa después de validar se traga y contesta 204.
  */
-export const NOMBRES=['portada','mesa_abierta','telefono_entro','espectador_entro','practica','reparto','serie_fin','error','calidad_baja','fps'] as const;
+export const NOMBRES=['portada','mesa_abierta','telefono_entro','espectador_entro','practica','reparto','serie_fin','error','calidad_baja','fps','bloqueo','cuenta_creada','desbloquear','pago'] as const;
 const VALIDOS=new Set<string>(NOMBRES);
 const MAX_CUERPO=8192,MAX_EVENTOS=20,MAX_CLAVES=8,MAX_TEXTO=300,POR_MINUTO=60,RETENCION=90*86400000;
 const VISITANTE=/^[0-9a-f]{32}$/,CLAVE=/^[a-z][a-z0-9_]{0,31}$/i;

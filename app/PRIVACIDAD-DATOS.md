@@ -20,7 +20,7 @@ estas columnas y ninguna otra:
 | --------- | ------ |
 | `ts`      | Hora del **servidor** al recibirlo. La hora del teléfono no se guarda. |
 | `visitor` | 32 caracteres hexadecimales al azar que inventa el navegador y guarda en `localStorage` (`mesa-visitante`). No sale del nombre, la cuenta, el perfil, el aparato ni la IP, y no se cruza con ellos. Borrar los datos del sitio lo cambia. |
-| `name`    | Uno de los diez eventos de abajo. El servidor rechaza cualquier otro. |
+| `name`    | Uno de los catorce eventos de abajo. El servidor rechaza cualquier otro. |
 | `device`  | `tv`, `phone`, `tablet` o `desktop`. El servidor lo deduce del User-Agent al recibir la petición y descarta el User-Agent. |
 | `data`    | Detalles cortos: 8 campos como máximo, textos de 300 caracteres como máximo. |
 
@@ -39,6 +39,10 @@ Los eventos y lo que llevan en `data` (todos llevan además `rol`: `host`, `play
 | `calidad_baja`     | La escena 3D bajó sola la calidad porque no daba | cuadros por segundo |
 | `fps`              | Una muestra al minuto de abrir la escena | cuadros por segundo, calidad, llamadas de dibujo |
 | `error`            | Un error de JavaScript en el navegador | mensaje, archivo, línea, columna, pila corta, página, tipo |
+| `bloqueo`          | La mesa no pudo repartir por el cobro (lo manda la tele) | motivo: sin cuenta o sin series gratis |
+| `cuenta_creada`    | Alguien crea su cuenta | si fue sentado en una mesa |
+| `desbloquear`      | Alguien toca Desbloquear | si tenía sesión |
+| `pago`             | El servidor confirma un desbloqueo pagado | — |
 
 Sobre los errores: el mensaje y la pila se cortan a 300 caracteres; la pila va sin
 dominio, sin ruta y sin parámetros de la URL (así no lleva el código de la mesa);
@@ -89,3 +93,21 @@ su `mesa-visitante` (se ve en las herramientas del navegador):
   (`auth_limits`, en `src/accounts.ts`) guarda un SHA-256 de IP + minuto. Vence a los
   2 minutos y se borra en el siguiente intento de entrar o registrarse de quien sea.
   También va en la política.
+
+# Qué datos guarda Mesa: cuentas y cobro
+
+Aparte de la telemetría. Todo en la misma D1.
+
+- **Cuentas** (`profiles`): usuario, nombre para mostrar, país y rango de edad si la
+  persona los pone, clave cifrada (PBKDF2-SHA256, 100.000 vueltas, con sal), fecha de
+  alta y el récord de series. Sesiones (`sessions`): un SHA-256 del token, 30 días.
+- **Desbloqueo** (`entitlements`): cuántas series gratis gastó la cuenta, cuándo se
+  desbloqueó y con qué transacción.
+- **Compras** (`purchases`): id de transacción y de cliente de Paddle, precio, total,
+  moneda, estado (completada o reembolsada) y fechas. **Ni tarjeta ni dirección ni
+  correo**: eso lo tiene Paddle, que es quien vende (comerciante registrado) y tiene su
+  propia política de privacidad.
+- **Series cubiertas** (`series_sponsors`): qué cuenta cubrió cada serie y si fue
+  gratis o pagada.
+- A Paddle se le manda, al abrir el cobro, el id de la cuenta de Mesa (`custom_data`)
+  para saber a quién desbloquear. Nada más.

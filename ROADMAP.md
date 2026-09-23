@@ -49,7 +49,7 @@ su ruleset difiere lo suficiente para ser un modo aparte.
 
 Aquí entra Supabase, **en el proyecto correcto**. Registro ligero (correo o Google),
 perfil, historial de series, récord. Los invitados siguen sin cuenta. El desbloqueo
-del anfitrión ($14.99) se ata a la cuenta.
+del anfitrión ($9.99, con 3 series gratis) se ata a la cuenta.
 
 ## Hito 7 — Juego en línea · 1 semana
 

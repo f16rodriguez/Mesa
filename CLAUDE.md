@@ -31,10 +31,13 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
 ## Decisiones de producto ya tomadas
 
 - Nombre: **Mesa**. Pendiente verificar disponibilidad en tiendas/marca.
-- Precio: gratis mirar y ser invitado; **$14.99** desbloqueo del anfitrión (una vez);
-  **Liga $4.99/mes o $39/año** para lo en línea (ranked, perfil, repeticiones,
-  coaching). Precio regional ~50 % en RD/LatAm desde el día uno. Sin anuncios,
-  sin cosméticos, sin cobro por mesa.
+- Precio: gratis mirar, practicar y ser invitado. El anfitrión tiene **3 series
+  gratis** y después paga **$9.99** una sola vez (decidido el 23 sep 2026; antes
+  era $14.99). Cobro por **Paddle** (comerciante registrado: impuestos, reembolsos,
+  precio regional). **Liga $4.99/mes o $39/año** para lo en línea (ranked, perfil,
+  repeticiones, coaching) — después del lanzamiento. Precio regional ~50 % en
+  RD/LatAm desde el día uno. Sin anuncios, sin cosméticos, sin cobro por mesa.
+- Kreyòl: fuera por ahora (decidido el 23 sep 2026). Español e inglés.
 - Ranked: parejas **asignadas**, no elegidas. Calificar la **decisión**, no solo el
   resultado — el motor conoce todas las alternativas legales de cada jugada.
 - Voz en línea: **una sola sala abierta**, sin canal privado de pareja. Mute por
@@ -43,7 +46,7 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
 - Espectadores y "partida de la noche": todo sale del **log de jugadas** (reparto +
   lista de movimientos), no de video. Elegida por el motor con un puntaje de drama.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
-- Idiomas: español, inglés, kreyòl. Tablas de cadenas desde ahora, no después.
+- Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

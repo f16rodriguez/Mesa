@@ -43,7 +43,7 @@ tapa dos huecos para llegar antes.
 | 22–28 sep | Lunes: arreglar lo del domingo. Después: servidor en la nube con HTTPS y dominio; códigos de sala desde cualquier red. Extraer cadenas a tabla. | **2** |
 | 29 sep–5 oct | Reparto y barajado animados, sonido, cortes de cámara. Revisar bocetos del artista. | **4** |
 | 6–12 oct | Selector de idioma; mandar la tabla a traducir (EN y kreyòl; verificar ruleset haitiano con jugadores). Abrir proyecto Supabase **nuevo** — no el del Hub. Spike de pagos y decisión. | **5** |
-| 13–19 oct | Cuentas, perfil, historial. Desbloqueo del anfitrión $14.99 cobrable de verdad, con precio regional. | **6** |
+| 13–19 oct | Cuentas, perfil, historial. Desbloqueo del anfitrión $9.99 (3 series gratis) cobrable de verdad, con precio regional. | **6** |
 | 20–26 oct | Salas públicas, navegador de mesas, emparejamiento simple. Liga $4.99/mes. Definir el formato del log de jugadas aunque espectar espere. | **7** |
 | 27 oct–2 nov | Voz: WebRTC en malla, TURN propio, mute pegajoso, frases rápidas. Lo más arriesgado del plan — si TURN se atasca, lo en línea sale con frases rápidas y la voz entra la semana siguiente. | **8** |
 | 3–9 nov | PWA instalable. Integrar el arte comisionado según llegue. (Steam pospuesto — decisión del 18 sep: se retoma después del 75 %, junto con Electron.) | **10** |
@@ -85,7 +85,7 @@ cobro en la web — y el cobro ya está en el hito 6. Decidido:
 
 Un desconocido, con solo el enlace:
 
-- [ ] crea su cuenta y paga los $14.99 sin ayuda
+- [ ] crea su cuenta y paga los $9.99 sin ayuda
 - [ ] abre una sala y su familia entra desde otras redes, cada quien en su idioma
 - [ ] juegan una serie completa a 200 con reglas de casa
 - [ ] un teléfono que se duerme vuelve y recupera su mano, por internet

@@ -5,3 +5,4 @@ app/dist/
 app/.wrangler/
 app/qa/
 .nfs*
+__pycache__/

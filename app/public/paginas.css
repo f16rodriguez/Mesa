@@ -1,0 +1,38 @@
+/* Páginas de texto (precios, términos, privacidad, reembolsos). La misma paleta de la
+   mesa, pero con scroll y para leer: la hoja de la app bloquea el scroll a propósito. */
+:root{--noche:#0f0b1a;--noche2:#1b1430;--marfil:#f5ecd7;--marfil2:#e7dcc2;--suave:#b9aecb;--tenue:#8a7fa0;--ambar:#ffb547;--rosa:#ff4d8d;--turquesa:#2de1c2;--linea:rgba(255,232,196,.14);
+ --serif:'Fraunces',Georgia,serif;--sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--neon:'Yellowtail','Fraunces',cursive;--display:'Bungee','DM Sans',sans-serif;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;background:radial-gradient(120% 50% at 80% -10%,rgba(255,181,71,.16),transparent 60%),linear-gradient(180deg,var(--noche2),var(--noche) 40%);background-attachment:fixed;color:var(--marfil);font:17px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--ambar)}
+a:hover{color:#ffc867}
+.pagina{max-width:46rem;margin:0 auto;padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(60px + env(safe-area-inset-bottom,0px))}
+.arriba{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:2.4rem;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--marfil)}
+.marca svg{width:18px;height:29px;transform:rotate(-12deg)}
+.marca span{font:400 2rem/1 var(--neon);color:#ffe3ef;text-shadow:0 0 2px #fff,0 0 8px var(--rosa),0 0 18px var(--rosa)}
+.lenguas{display:flex;gap:.3rem;padding:.25rem;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--linea)}
+.lenguas a{font:600 .75rem var(--sans);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;color:var(--suave);padding:.4em .9em;border-radius:999px}
+.lenguas a.activa{background:var(--ambar);color:#2a1604}
+h1{font:500 clamp(2.2rem,6vw,3.2rem)/1.08 var(--serif);letter-spacing:-.02em;margin:0 0 .4rem}
+h2{font:500 1.5rem/1.25 var(--serif);margin:2.4rem 0 .6rem}
+h3{font:600 1.05rem var(--sans);margin:1.6rem 0 .3rem;color:var(--marfil2)}
+p,li{color:var(--marfil2)}
+ul{padding-left:1.2rem}
+li{margin:.3rem 0}
+.fecha{color:var(--tenue);font-size:.9rem;margin-bottom:2rem}
+.nota{border-left:3px solid var(--ambar);background:rgba(255,181,71,.07);padding:.8rem 1rem;border-radius:0 10px 10px 0;font-size:.95rem}
+.falta{background:rgba(255,77,141,.18);color:#ffd1e2;padding:0 .3em;border-radius:4px;font-weight:600}
+.precio{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1rem;margin:1.6rem 0}
+.plan{padding:1.3rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--linea)}
+.plan.destacado{border-color:rgba(255,181,71,.55);box-shadow:0 0 50px rgba(255,181,71,.12)}
+.plan h3{margin:0 0 .2rem;font:400 1rem var(--display);letter-spacing:.04em;color:var(--ambar)}
+.plan .monto{font:400 2.6rem/1.1 var(--display);color:var(--marfil)}
+.plan .monto small{font:500 .9rem var(--sans);color:var(--suave)}
+.plan ul{margin:.8rem 0 0}
+.boton{display:inline-flex;align-items:center;gap:.5rem;margin-top:1rem;padding:.8em 1.4em;border-radius:999px;background:linear-gradient(180deg,#ffc867,var(--ambar) 55%,#e0892a);color:#2a1604;font-weight:700;text-decoration:none}
+.pie{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--linea);display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.9rem}
+.pie a{color:var(--suave);text-decoration:none}
+.pie a:hover{color:var(--ambar)}
+[lang="en"] .solo-es,[lang="es"] .solo-en{display:none}

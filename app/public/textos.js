@@ -82,7 +82,9 @@ const ES={
  serieGratisDe:'Serie gratis {k} de {n} · cuenta de {nombre}',mesaDe:'Mesa de {nombre}',
  primeroCuenta:'Primero tu cuenta, así el desbloqueo se queda contigo en cualquier mesa.',confirmandoPago:'Confirmando el pago…',
  mesaDesbloqueadaYa:'¡Listo! Mesa desbloqueada. Ahora sí, repartan.',pagoTarda:'El pago está tardando en llegar. Si ya te cobraron, se desbloquea solo en unos minutos.',
- pagosNoCargo:'No cargó el cobro. Revisa la conexión y prueba otra vez.',pagosNoDisponibles:'El cobro no está disponible ahora mismo.'
+ pagosNoCargo:'No cargó el cobro. Revisa la conexión y prueba otra vez.',pagosNoDisponibles:'El cobro no está disponible ahora mismo.',
+ precios:'Precios',terminos:'Términos',privacidad:'Privacidad',reembolso14:'Reembolso en 14 días.',
+ aceptasTerminos:'Al crear tu cuenta aceptas los <a href="/legal/terminos.html{l}" target="_blank">términos</a> y la <a href="/legal/privacidad.html{l}" target="_blank">política de privacidad</a>.'
 };
 const EN={
  marca:'mesa',ubicacion:'THE COLMADO · SANTO DOMINGO',subtitulo:'DOMINICAN DOMINOES',
@@ -153,7 +155,9 @@ const EN={
  serieGratisDe:'Free series {k} of {n} · {nombre}’s account',mesaDe:'{nombre}’s Mesa',
  primeroCuenta:'Account first, so the unlock stays with you at any table.',confirmandoPago:'Confirming your payment…',
  mesaDesbloqueadaYa:'Done! Mesa is unlocked. Deal away.',pagoTarda:'Your payment is taking a while. If you were charged, it unlocks by itself in a few minutes.',
- pagosNoCargo:'Checkout didn’t load. Check your connection and try again.',pagosNoDisponibles:'Checkout isn’t available right now.'
+ pagosNoCargo:'Checkout didn’t load. Check your connection and try again.',pagosNoDisponibles:'Checkout isn’t available right now.',
+ precios:'Pricing',terminos:'Terms',privacidad:'Privacy',reembolso14:'14-day refund.',
+ aceptasTerminos:'By creating an account you accept the <a href="/legal/terminos.html{l}" target="_blank">terms</a> and the <a href="/legal/privacidad.html{l}" target="_blank">privacy policy</a>.'
 };
 let lengua='es';
 try{const g=localStorage.getItem('mesa-idioma');lengua=g==='en'||g==='es'?g:'es';}catch{}

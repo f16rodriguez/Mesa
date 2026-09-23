@@ -34,10 +34,15 @@ const server = Bun.serve({ port: 0, async fetch(req) {
   return new Response(file, { headers: { 'content-type': tipos[ext] ?? 'application/octet-stream' } });
 }});
 
+// Una comprobación que se cuelga no puede tumbar un despliegue: si en 90 s no
+// ha terminado, lo dice y se aparta.
+setTimeout(() => { console.warn('check-page: SIN COMPROBAR — no terminó en 90 s'); process.exit(0); }, 90000).unref?.();
 const errores = [];
 let navegador;
 try {
-  navegador = await chromium.launch({ args: ['--use-gl=angle', '--enable-unsafe-swiftshader'] });
+  // MESA_CHROMIUM apunta a un Chromium concreto cuando el de playwright no
+  // cuadra con la versión instalada (p. ej. en un sandbox con uno ya puesto).
+  navegador = await chromium.launch({ executablePath: process.env.MESA_CHROMIUM || undefined, args: ['--use-gl=angle', '--enable-unsafe-swiftshader'] });
 } catch (e) {
   console.warn('check-page: SIN COMPROBAR — no arranca Chromium. `bunx playwright install chromium`');
   server.stop(true); process.exit(0);

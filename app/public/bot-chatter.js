@@ -5,7 +5,7 @@ const CAST=['rafa','marisol','luis','carmen'];
    array by type, which silently goes wrong the moment one type has two clips.
    Lists may be uneven: a bot with one `think` and four is handled the same. */
 const LINES={
- rafa:{think:[['think','Déjame ver un chin.'],['think-2','Espérate ahí, déjame ver.'],['think-3','Un momentico.'],['think-4','Tranquilo, que ya voy.']],
+ rafa:{think:[['think','Déjame ver un chin.'],['think-2','Espera, déjame ver.'],['think-3','Un momentico.'],['think-4','Tranquilo, que ya voy.']],
        play:[['play','Ahí va.'],['play-2','Toma eso.'],['play-3','Por aquí va.']],
        pass:[['pass','Paso.']],win:[['win','¡Dominó!']],block:[['block','Se trancó.']]},
  marisol:{think:[['think','Dame un segundito.'],['think-2','Ay, déjame ver.'],['think-3','Un segundito más.'],['think-4','Ya casi, ya casi.']],
@@ -14,7 +14,7 @@ const LINES={
  luis:{think:[['think','Espérate un chin.'],['think-2','Déjame ver eso.'],['think-3','Ya va, ya va.'],['think-4','Un chin más.']],
        play:[['play','Toma esa.'],['play-2','¡Esa!'],['play-3','Por aquí te va.']],
        pass:[['pass','Paso por aquí.']],win:[['win','¡Dominó!']],block:[['block','Esto se trancó.']]},
- carmen:{think:[['think','Con calma, con calma.'],['think-2','Con calma, que no hay prisa.'],['think-3','Déjame pensar.'],['think-4','Ya mismo.']],
+ carmen:{think:[['think','Con calma, con calma.'],['think-2','Ahorita, ahorita.'],['think-3','Déjame pensar.'],['think-4','Ya mismo.']],
        play:[['play','Ahí te va.'],['play-2','Toma.'],['play-3','Por acá.']],
        pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']]},
 };

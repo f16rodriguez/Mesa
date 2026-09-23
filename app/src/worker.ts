@@ -14,6 +14,7 @@ import { Room } from "./room";
 import { accountRoute } from './accounts';
 import {voiceRoute} from './voice';
 import {avisoPaddle,configPagos} from './pagos';
+import {telemetryRoute} from './telemetry';
 
 export { Room };
 
@@ -31,6 +32,8 @@ const DEFAULT_ROOM = "main";
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // Telemetría: pase lo que pase, al cliente le llega un 204 (o un 4xx si el lote no cuadra).
+    if(url.pathname==='/api/t'){try{return await telemetryRoute(request,env);}catch{return new Response(null,{status:204});}}
     if(url.pathname.startsWith('/api/voice-')){try{return await voiceRoute(request,env);}catch{return Response.json({error:'Voice service is unavailable.'},{status:503});}}
     // Paddle llama desde sus servidores (sin Origin): va antes de la comprobación de origen de las cuentas.
     if(url.pathname==='/api/paddle'){try{return await avisoPaddle(request,env);}catch(err){console.error('aviso de Paddle falló',err);return Response.json({error:'Try again'},{status:500});}}

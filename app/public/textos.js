@@ -1,0 +1,150 @@
+/* Todo lo que se lee en pantalla, en español dominicano primero y en inglés. Nada de
+   "usted", nada de emojis. Las claves son cortas y el texto vive aquí, no regado por el código.
+   t('clave',{nombre:'Luis'}) sustituye {nombre}. */
+const ES={
+ marca:'mesa',ubicacion:'EL COLMADO · SANTO DOMINGO',subtitulo:'DOMINÓ DOMINICANO',
+ titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'Siempre hay una silla en la esquina.<br>Trae a los tuyos. Quédate un rato.',
+ abrirMesa:'Abrir una mesa',practica:'Una manita de práctica',seguirPractica:'Seguir la práctica',entrarCodigo:'Entrar con código',
+ escuelita:'La escuelita',ajustes:'Ajustes',miPerfil:'Mi perfil',pantallaCompleta:'Pantalla completa',
+ abriendo:'Abriendo el colmado…',sentando:'Sentando a {nombre}…',sentados:'{n} de 4 sentados',listo:'La mesa está lista.',noCargo:'No cargó {nombre}. Recarga para intentar otra vez.',
+ lema2:'UNA PANTALLA. CUATRO TELÉFONOS. LA ESQUINA ENTERA.',
+ // Unirse
+ buscaTuGente:'Busca tu gente.',escaneaOCodigo:'Escanea el QR de la mesa o escribe las cuatro letras que salen en la pantalla.',codigoMesa:'Código de la mesa',
+ entrar:'Entrar',cuatroLetras:'Cuatro letras, como las de la pantalla.',hayUnaSilla:'HAY UNA SILLA PARA TI',veAMirar:'Ven a mirar<br>la mesa.',bienvenido:'Bienvenido.<br>¿Quién eres?',
+ sinCuenta:'No hace falta cuenta. Solo tu nombre.',tuNombre:'Tu nombre',comoTeDicen:'¿Cómo te dicen?',sentarme:'Sentarme',mirar:'Entrar a mirar',soloMirar:'¿Solo vienes a mirar?',
+ laEsquinaAbierta:'LA ESQUINA ESTÁ ABIERTA',
+ conectando:'Buscándote una silla…',conectandoMesa:'Conectando con la mesa.',reconectando:'Reconectando…',conectado:'Conectado',sinConexion:'Se cayó la conexión',reintentar:'Reintentar',
+ esperaReconexion:'Espera que la mesa te reconecte.',
+ // Lobby
+ mandaleCodigo:'MÁNDALE EL CÓDIGO',arrimaSilla:'Arrima una silla.',escaneaTelefono:'Escanea con el teléfono o escribe estas cuatro letras en mesa.',
+ copiarEnlace:'Copiar el enlace',sillaLibre:'Silla libre · juega {bot}',pareja:'PAREJA {x}',repartirConBots:'Completar con bots y repartir',repartir:'Barajar y repartir',
+ reglasCasa:'Reglas de la casa',tuCompaneroEnfrente:'Tu compañero se sienta enfrente.',haySillaParaTodos:'Hay silla para todo el mundo.',
+ // Mesa (TV)
+ mano:'MANO {n}',tuMesa:'TU MESA',practicaEtq:'PRÁCTICA',sinPresion:'SIN PRESIÓN',
+ leToca:'Le toca a {nombre}',teToca:'¡Te toca!',pensando:'pensando',
+ camara:'Cámara',vistaMesa:'La mesa',vistaTablero:'El tablero',vistaCerca:'De cerca',vistaSilla:'Desde tu silla',
+ arrastraMirar:'Arrastra para mirar alrededor',
+ aDoscientos:'A {n}',
+ // Final de mano
+ domino:'¡Dominó!',capicua:'¡Capicúa!',tranque:'¡Se trancó!',zapato:'¡Zapato!',
+ ganan:'Ganan {a} y {b}',ganaron:'Ganaron {a} y {b} la serie',empate:'Tranque parejo. Nadie se lleva los puntos.',
+ puntos:'+{n}',pipsDetalle:'{n} puntos en la mano del contrario',pipsCapicua:'{n} puntos + {c} de capicúa',
+ sale:'Sale {nombre}',repartirOtra:'Repartir otra',otraSerie:'Otra serie',verManos:'Ver las manos',esperandoReparto:'Esperando que repartan.',
+ serieCompleta:'SERIE COMPLETA',manoCerrada:'MANO {n} · CERRADA',
+ // Teléfono
+ nosotros:'Nosotros',ellos:'Ellos',conCompanero:'con {nombre}',tuCompanera:'tu pareja',
+ soloTusFichas:'SOLO TUS FICHAS',tocaFicha:'Toca una ficha que brille.',porCual:'¿Por cuál punta?',abrirMano:'Salir con esta',
+ paso:'Paso',noLlevas:'No llevas {a} ni {b}.',noLlevasUno:'No llevas {a}.',
+ jugo:'{nombre} puso {a}–{b}',paso3:'{nombre} pasó',sale3:'Sale {nombre}',
+ tuSillaLista:'TU SILLA ESTÁ LISTA',estasEnMesa:'Ya estás en la mesa.',miraArriba:'Mira la tele y saluda.<br>Tus fichas llegan aquí cuando repartan.',
+ ganamos:'¡Ganamos!',perdimos:'Esta se fue.',parejo:'Tranque parejo.',tusPuntos:'Te quedaron {n} puntos.',
+ miraLaTele:'Mira la tele para contar.',proximaMano:'La próxima mano llega aquí.',
+ unaAyudita:'Una ayudita',salirMesa:'Salir de la mesa',salirSeguro:'¿Seguro que te vas de la mesa? Un bot juega por ti.',
+ elBotJugo:'Mientras no estabas, el bot jugó por ti.',
+ // Ajustes
+ ponleAmbiente:'Ponle ambiente.',sonidosMesa:'Sonidos de la mesa',vocesBots:'Voces de los bots',oirVoces:'Oír las cuatro voces',ambienteColmado:'Ambiente del colmado',
+ radioColmado:'Radio del colmado (bachata)',menosMovimiento:'Menos movimiento',calidad:'Calidad de la escena',calidadAlta:'Luz completa',calidadBaja:'Más liviana',
+ idioma:'Idioma',tuMusica:'Tu música',tuMusicaNota:'Un archivo de música de tu equipo. Suena solo aquí.',quitarMutes:'Quitar a los que silencié',
+ reglasJuego:'Las reglas',listo2:'Listo',tocaSonido:'Toca para activar el sonido',
+ // Reglas de la casa
+ tuMesaTusReglas:'Tu mesa. Tus reglas.',acuerdenAntes:'Pónganse de acuerdo antes del primer reparto. Las reglas quedan fijas toda la serie.',
+ puntosGanar:'Puntos para ganar',bonoCapicua:'Bono de capicúa',tranqueParejo:'Tranque parejo',ganaQuienTranco:'Gana la pareja que trancó',nadie:'Nadie se lleva puntos',
+ contarTodas:'Contar las cuatro manos',capicuaDistinta:'Capicúa solo con puntas distintas',ponerReglas:'Poner las reglas',
+ // Reglas
+ asiSeJuega:'Así se juega.',reglasIntro:'28 fichas. Cuatro personas. Parejas fijas, frente a frente. Sin pozo.',
+ primeraMano:'Primera mano',primeraManoTxt:'Sale el doble seis.',dominoTxt:'Se pega la última ficha → los puntos del contrario.',tranqueTxt:'La pareja con menos puntos → los puntos del contrario.',
+ capicuaTxt:'La última ficha pega por las dos puntas → bono.',zapatoTxt:'Una serie sin que el contrario anote.',
+ reglasCierre:'Sale quien ganó la mano. Después de un tranque, sale quien trancó. Las reglas de la casa deciden los tranques parejos.',volverMesa:'Volver a la mesa',
+ manosAbiertas:'Ahora sí se enseñan las manos.',sinFichas:'No le quedaron fichas.',descargarMano:'Descargar la mano',
+ // Escuelita
+ escuelitaTitulo:'La escuelita.',sinApuesta:'Aquí no se apuesta nada. Prueba.',ayudaTelefono:'Esta ayuda se queda en tu teléfono.',ayudaMesa:'Ábrela antes de repartir para aprender juntos.',
+ // Perfil
+ tuLugar:'Tu lugar en la mesa.',miembroDesde:'MIEMBRO DESDE {n}',series:'SERIES',victorias:'GANADAS',derrotas:'PERDIDAS',
+ guardarPerfil:'Guardar perfil',salirCuenta:'Cerrar sesión',guardaTuSilla:'Guarda tu silla.',entrarCuenta:'Entrar',crearPerfil:'Crear perfil',
+ invitadosPueden:'Sin cuenta también se juega, con tu nombre. Un perfil guarda tus resultados en todos tus equipos.',
+ usuario:'Usuario',clave:'Contraseña',nombrePantalla:'Nombre',pais:'País (opcional)',edad:'Edad (opcional · privado)',prefieroNo:'Prefiero no decir',
+ perfilListo:'Tu perfil de Mesa está listo.',perfilGuardado:'Perfil guardado.',sesionCerrada:'Saliste de Mesa.',
+ // Público
+ mirando:'{n} mirando',hablaleMesa:'Háblale a la mesa.',silenciarPublico:'Silenciar al público',oirPublico:'Oír al público',silenciar:'Silenciar',
+ invitarPublico:'Invitar a mirar',diAlgo:'Dile algo a la esquina. Todo el que está en la mesa lo lee.',dimeAVer:'Dime a ver…',
+ desdePublico:'DESDE EL PÚBLICO',enLaMesa:'EN LA MESA',publico:' · PÚBLICO',
+ // Avisos
+ copiado:'Copiado. Mándale el enlace.',copiadoPublico:'Enlace para mirar copiado.',espera:'Espera tu turno.',noPantallaCompleta:'Aquí no hay pantalla completa.',
+ nivel_facil:'Fácil',nivel_normal:'Normal',nivel_duro:'Duro',
+ bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'Tú'
+};
+const EN={
+ marca:'mesa',ubicacion:'THE COLMADO · SANTO DOMINGO',subtitulo:'DOMINICAN DOMINOES',
+ titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'There’s always a chair at the corner.<br>Bring your people. Stay a while.',
+ abrirMesa:'Start a table',practica:'A quiet practice hand',seguirPractica:'Continue practice',entrarCodigo:'Join with a code',
+ escuelita:'La escuelita',ajustes:'Settings',miPerfil:'My profile',pantallaCompleta:'Full screen',
+ abriendo:'Opening the colmado…',sentando:'Seating {nombre}…',sentados:'{n} of 4 seated',listo:'The table is ready.',noCargo:'Could not load {nombre}. Reload to retry.',
+ lema2:'ONE SCREEN. FOUR PHONES. THE WHOLE CORNER.',
+ buscaTuGente:'Find your people.',escaneaOCodigo:'Scan the QR at the table, or type the four letters on the screen.',codigoMesa:'Table code',
+ entrar:'Join',cuatroLetras:'Four letters, like the ones on the screen.',hayUnaSilla:'THERE’S A CHAIR FOR YOU',veAMirar:'Come watch<br>the table.',bienvenido:'Bienvenido.<br>Who’s joining?',
+ sinCuenta:'No account needed. Just your name.',tuNombre:'Your name',comoTeDicen:'What do your people call you?',sentarme:'Take my seat',mirar:'Join the crowd',soloMirar:'Just here to watch?',
+ laEsquinaAbierta:'THE CORNER IS OPEN',
+ conectando:'Pulling up your chair…',conectandoMesa:'Connecting to the table.',reconectando:'Reconnecting…',conectado:'Connected',sinConexion:'Connection lost',reintentar:'Try again',
+ esperaReconexion:'Wait for the table to reconnect.',
+ mandaleCodigo:'SEND THEM THE CODE',arrimaSilla:'Pull up a chair.',escaneaTelefono:'Scan with your phone, or type these four letters.',
+ copiarEnlace:'Copy the link',sillaLibre:'Open chair · {bot} plays',pareja:'PAIR {x}',repartirConBots:'Fill with bots and deal',repartir:'Shuffle and deal',
+ reglasCasa:'House rules',tuCompaneroEnfrente:'Your partner sits across from you.',haySillaParaTodos:'There’s a chair for everyone.',
+ mano:'HAND {n}',tuMesa:'YOUR TABLE',practicaEtq:'PRACTICE',sinPresion:'NO PRESSURE',
+ leToca:'{nombre}’s turn',teToca:'Your turn!',pensando:'thinking',
+ camara:'Camera',vistaMesa:'Table',vistaTablero:'Board',vistaCerca:'Close-up',vistaSilla:'From your seat',
+ arrastraMirar:'Drag to look around',
+ aDoscientos:'TO {n}',
+ domino:'¡Dominó!',capicua:'¡Capicúa!',tranque:'¡Se trancó!',zapato:'¡Zapato!',
+ ganan:'{a} & {b} take it',ganaron:'{a} & {b} win the series',empate:'Even tranque. Nobody scores.',
+ puntos:'+{n}',pipsDetalle:'{n} pips in the other pair’s hands',pipsCapicua:'{n} pips + {c} capicúa',
+ sale:'{nombre} leads',repartirOtra:'Deal the next hand',otraSerie:'Another series',verManos:'Show the hands',esperandoReparto:'Waiting for the deal.',
+ serieCompleta:'SERIES COMPLETE',manoCerrada:'HAND {n} · CLOSED',
+ nosotros:'Us',ellos:'Them',conCompanero:'with {nombre}',tuCompanera:'your partner',
+ soloTusFichas:'JUST YOUR TILES',tocaFicha:'Tap a lit tile.',porCual:'Which end?',abrirMano:'Lead with this',
+ paso:'Pass',noLlevas:'You have no {a} and no {b}.',noLlevasUno:'You have no {a}.',
+ jugo:'{nombre} played {a}–{b}',paso3:'{nombre} passed',sale3:'{nombre} leads',
+ tuSillaLista:'YOUR CHAIR IS READY',estasEnMesa:'You’re at the table.',miraArriba:'Look up and say hello.<br>Your tiles arrive here when the deal starts.',
+ ganamos:'We won it!',perdimos:'Not this one.',parejo:'Even tranque.',tusPuntos:'You were left with {n} pips.',
+ miraLaTele:'Look at the TV for the count.',proximaMano:'Your next hand will appear here.',
+ unaAyudita:'A little help',salirMesa:'Leave the table',salirSeguro:'Leave the table? A bot will play for you.',
+ elBotJugo:'While you were away, the bot played for you.',
+ ponleAmbiente:'Set the mood.',sonidosMesa:'Table sounds',vocesBots:'Bot voices',oirVoces:'Hear the four voices',ambienteColmado:'Colmado ambience',
+ radioColmado:'Colmado radio (bachata)',menosMovimiento:'Reduce motion',calidad:'Scene quality',calidadAlta:'Full lighting',calidadBaja:'Lighter',
+ idioma:'Language',tuMusica:'Your music',tuMusicaNota:'A music file from your device. Plays only here.',quitarMutes:'Unmute people I muted',
+ reglasJuego:'The rules',listo2:'All set',tocaSonido:'Tap to turn on sound',
+ tuMesaTusReglas:'Your table. Your rules.',acuerdenAntes:'Agree before the first deal. Rules stay locked for the series.',
+ puntosGanar:'Points to win',bonoCapicua:'Capicúa bonus',tranqueParejo:'Tied tranque',ganaQuienTranco:'The blocking pair takes it',nadie:'No points',
+ contarTodas:'Count all four hands',capicuaDistinta:'Capicúa only with different ends',ponerReglas:'Set house rules',
+ asiSeJuega:'Así se juega.',reglasIntro:'28 tiles. Four people. Fixed partners across the table. No boneyard.',
+ primeraMano:'First hand',primeraManoTxt:'Double six opens.',dominoTxt:'Last tile out → opponents’ pips.',tranqueTxt:'Lighter pair → opponents’ pips.',
+ capicuaTxt:'Closing tile fits both ends → bonus.',zapatoTxt:'A series with no points conceded.',
+ reglasCierre:'The winner leads the next hand. After a tranque, whoever blocked it leads. House rules settle tied tranques.',volverMesa:'Back to the table',
+ manosAbiertas:'Now we can show our hands.',sinFichas:'No tiles left.',descargarMano:'Download hand record',
+ escuelitaTitulo:'La escuelita.',sinApuesta:'No stakes. Give it a try.',ayudaTelefono:'This help stays on your phone.',ayudaMesa:'Open this before a deal to learn together.',
+ tuLugar:'Your place at the table.',miembroDesde:'MEMBER SINCE {n}',series:'SERIES',victorias:'WINS',derrotas:'LOSSES',
+ guardarPerfil:'Save profile',salirCuenta:'Sign out',guardaTuSilla:'Keep your seat.',entrarCuenta:'Sign in',crearPerfil:'Create profile',
+ invitadosPueden:'Guests can always play with just a name. A profile keeps your results across devices.',
+ usuario:'Username',clave:'Password',nombrePantalla:'Display name',pais:'Country (optional)',edad:'Age band (optional · private)',prefieroNo:'Prefer not to say',
+ perfilListo:'Your Mesa profile is ready.',perfilGuardado:'Profile saved.',sesionCerrada:'Signed out of Mesa.',
+ mirando:'{n} watching',hablaleMesa:'Talk to the table.',silenciarPublico:'Mute crowd',oirPublico:'Unmute crowd',silenciar:'Mute',
+ invitarPublico:'Invite spectators',diAlgo:'Say something to the corner. Everyone at the table can read it.',dimeAVer:'Dime a ver…',
+ desdePublico:'FROM THE CROWD',enLaMesa:'AT THE TABLE',publico:' · CROWD',
+ copiado:'Copied. Mándale el link.',copiadoPublico:'Spectator link copied.',espera:'Wait for your turn.',noPantallaCompleta:'Full screen is not available here.',
+ nivel_facil:'Easy',nivel_normal:'Normal',nivel_duro:'Hard',
+ bot0:'Don Rafa',bot1:'Marisol',bot2:'Luis',bot3:'Carmen',tu:'You'
+};
+let lengua='es';
+try{const g=localStorage.getItem('mesa-idioma');lengua=g==='en'||g==='es'?g:'es';}catch{}
+export const idioma=()=>lengua;
+export function ponerIdioma(l){lengua=l==='en'?'en':'es';try{localStorage.setItem('mesa-idioma',lengua);}catch{}document.documentElement.lang=lengua;}
+export function t(k,v={}){const s=(lengua==='en'?EN:ES)[k]??ES[k]??k;return s.replace(/\{(\w+)\}/g,(_,n)=>v[n]??'');}
+document.documentElement.lang=lengua;
+// Lecciones de la escuelita.
+export const LECCIONES={
+ es:[{tab:'Pegar',title:'Dos puntas. Una regla.',body:'Se pega por cualquiera de las dos puntas abiertas. Si la mesa tiene un 6 en una punta y un 3 en la otra, juega una ficha con 6 o con 3. En la mesa de verdad solo brillan las fichas que pegan.',question:'Las puntas son 6 y 3. ¿Cuál pega?',choices:[{a:2,b:5,ok:false},{a:4,b:6,ok:true},{a:1,b:3,ok:true}],yes:'Eso es. Un 6 o un 3 y estás dentro.',no:'Esa no tiene ni 6 ni 3. Prueba otra.'},
+  {tab:'Leer',title:'Un pase dice algo.',body:'No hay pozo: todas las fichas están en alguna mano. Solo se pasa cuando no pega ninguna punta. Tu compañero está enfrente: acuérdate de lo que no pudo jugar.',question:'Las puntas son 2 y 5. Tu compañero pasa.',choices:[{text:'No tiene ni 2 ni 5.',ok:true},{text:'No tiene dobles.',ok:false},{text:'Quiere que yo pase.',ok:false}],yes:'Exacto. Eso lo sabe toda la mesa y lo puedes usar en tu turno.',no:'Un pase solo prueba que no pega por ninguna punta.'},
+  {tab:'Contar',title:'Se cuenta entre todos.',body:'Pega tu última ficha y te llevas los puntos que le quedan al contrario. En un tranque, la pareja con menos puntos se lleva los del contrario. La última ficha que pega por las dos puntas se lleva el bono de capicúa.',question:'Tu pareja tiene 18 puntos. La otra 31. Tranque. ¿Cuántos ganas?',choices:[{text:'13 puntos',ok:false},{text:'31 puntos',ok:true},{text:'49 puntos',ok:false}],yes:'31. Te llevas sus puntos, no la diferencia.',no:'Se cuentan los puntos del contrario, no la diferencia ni los de las dos parejas.'}],
+ en:[{tab:'Match',title:'Two ends. One simple rule.',body:'Match either open end. When the table shows a 6 at one end and a 3 at the other, play a tile with a 6 or a 3. At the real table, only legal tiles light up.',question:'The ends are 6 and 3. What fits?',choices:[{a:2,b:5,ok:false},{a:4,b:6,ok:true},{a:1,b:3,ok:true}],yes:'Eso es. Match a 6 or a 3, and you’re in.',no:'Neither a 6 nor a 3. Try another.'},
+  {tab:'Read',title:'A pass tells you something.',body:'No boneyard. Every tile is already in someone’s hand. A player only passes when neither open end fits. Your partner sits across from you: remember what they cannot play.',question:'The ends are 2 and 5. Your partner passes.',choices:[{text:'They have no 2 and no 5.',ok:true},{text:'They have no doubles.',ok:false},{text:'They want me to pass.',ok:false}],yes:'Exactly. That is public information you can use on your next turn.',no:'A pass only proves they cannot match either end.'},
+  {tab:'Count',title:'Count it together.',body:'Play your last tile and take the opponents’ remaining pips. In a tranque, the lighter pair wins the opponents’ pips. A closing tile that fits either end earns the capicúa bonus.',question:'Your pair has 18 pips. Theirs has 31. Tranque. How many points do you earn?',choices:[{text:'13 points',ok:false},{text:'31 points',ok:true},{text:'49 points',ok:false}],yes:'31. You take their pips, not the difference.',no:'Count the opponents’ pips, not the difference or both pairs together.'}]
+};

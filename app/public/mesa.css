@@ -1,0 +1,464 @@
+/* Mesa — un colmado de noche.
+   Una sola hoja para la tele, el teléfono y los modales. Reemplaza a style.css, game.css,
+   polish.css y motion.css, que traían tres paletas encima una de otra y medio sitio viejo.
+
+   La paleta sale de la escena: el cielo morado oscuro, la bombilla ámbar sobre la mesa, el
+   neón rosado del letrero, el turquesa del fluorescente del colmado y el marfil de las fichas.
+   Pareja A es roja y pareja B azul, como las sillas. La punta izquierda de la cadena es ámbar
+   y la derecha turquesa, como los marcadores en la mesa 3D. */
+
+:root{
+ --noche:#0f0b1a;--noche2:#1b1430;--noche3:#271d42;
+ --vidrio:rgba(19,14,34,.74);--vidrio-fuerte:rgba(16,11,29,.9);
+ --linea:rgba(255,232,196,.14);--linea-fuerte:rgba(255,232,196,.28);
+ --marfil:#f5ecd7;--marfil2:#e7dcc2;--tinta:#1a1426;--suave:#b9aecb;--tenue:#8a7fa0;
+ --ambar:#ffb547;--ambar-hondo:#e0892a;--rosa:#ff4d8d;--turquesa:#2de1c2;--mango:#ffc93c;--coral:#ff6f59;
+ --rojo:#e0453a;--rojo-claro:#ff8a7d;--azul:#2f7fe0;--azul-claro:#8fbcff;
+ --display:'Bungee','DM Sans',system-ui,sans-serif;--neon:'Yellowtail','Fraunces',cursive;
+ --serif:'Fraunces',Georgia,serif;--sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+ --radio:14px;--sombra:0 18px 60px rgba(0,0,0,.45);
+ --seguro-arriba:env(safe-area-inset-top,0px);--seguro-abajo:env(safe-area-inset-bottom,0px);
+ --seguro-izq:env(safe-area-inset-left,0px);--seguro-der:env(safe-area-inset-right,0px);
+ --margen:clamp(16px,2.2vw,44px);
+ color-scheme:dark;
+}
+/* La tele se lee desde el sofá: el texto crece con la pantalla. En el teléfono, tamaño fijo. */
+html{font-size:clamp(14px,.52vw + 7px,30px);-webkit-text-size-adjust:100%}
+@media (pointer:coarse) and (max-width:950px){html{font-size:16px}}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{background:#05080f;color:var(--marfil);font:1rem/1.5 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{font-weight:500}
+p{line-height:1.6}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+button{border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:disabled{cursor:not-allowed;opacity:.45}
+:focus{outline:none}
+:focus-visible{outline:3px solid var(--ambar);outline-offset:3px;border-radius:8px}
+::selection{background:var(--rosa);color:#fff}
+
+.icon{width:1.15em;height:1.15em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.eyebrow{font:600 .72rem/1.3 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--ambar);display:flex;align-items:center;gap:.6em;margin-bottom:.8em}
+.tiny{font-size:.78rem;color:var(--tenue)}
+.divider{border-top:1px solid var(--linea);margin:1.3rem 0 1rem}
+.text-link{display:inline-flex;align-items:center;gap:.4em;font-size:.82rem;font-weight:600;color:var(--ambar);padding:.6em 0 0}
+.text-link:hover{color:var(--mango)}
+
+/* ── Capas ─────────────────────────────────────────────────────────────────── */
+#world{position:fixed;inset:0;z-index:0;touch-action:none;background:#05080f}
+#world canvas{display:block;width:100%;height:100%}
+#app{position:relative;z-index:2;pointer-events:none;height:100dvh}
+#app button,#app a,#app input,#app select,#app form,#app label,#app .interactive,#app .crowd-chat,#app .cartel,#app .resultado,#app .hand-panel{pointer-events:auto}
+/* Las etiquetas van por encima de la escena y por debajo de todo lo demás (marcador, cartel, resultado). */
+#etiquetas,#burbujas{position:fixed;inset:0;pointer-events:none;z-index:1}
+#burbujas{z-index:30}
+.game-shell{height:100dvh;position:relative}
+
+/* ── Botones ───────────────────────────────────────────────────────────────── */
+.g-button{display:inline-flex;align-items:center;justify-content:center;gap:.6em;min-height:2.75rem;padding:.7em 1.15em;border-radius:999px;border:1px solid var(--linea-fuerte);background:var(--vidrio);color:var(--marfil);font:600 .86rem/1.1 var(--sans);letter-spacing:.01em;backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);transition:transform .16s cubic-bezier(.3,1.6,.5,1),background .2s,border-color .2s,box-shadow .2s,color .2s;white-space:nowrap}
+.g-button:active:not(:disabled){transform:scale(.96)}
+.g-button.primary{background:linear-gradient(180deg,#ffc867,var(--ambar) 55%,var(--ambar-hondo));border-color:#ffd48a;color:#2a1604;box-shadow:0 0 0 1px rgba(255,181,71,.25),0 8px 28px rgba(255,160,50,.32),inset 0 1px 0 rgba(255,255,255,.45)}
+.g-button.full{width:100%}
+.g-button.solo-icono{width:2.75rem;padding:0}
+.g-button svg{width:1.1em;height:1.1em}
+@media (hover:hover){
+ .g-button:hover:not(:disabled){border-color:rgba(255,181,71,.6);background:rgba(40,28,62,.86);box-shadow:0 0 22px rgba(255,181,71,.18)}
+ .g-button.primary:hover:not(:disabled){background:linear-gradient(180deg,#ffd27f,#ffbd58 55%,#ea9535);box-shadow:0 0 0 1px rgba(255,181,71,.4),0 10px 36px rgba(255,170,60,.5),inset 0 1px 0 rgba(255,255,255,.5)}
+}
+
+/* ── Marca: la ficha y el letrero de neón ──────────────────────────────────── */
+.game-brand{display:flex;align-items:center;gap:.55rem;color:var(--marfil);padding:.2rem .3rem .2rem 0}
+.game-brand svg{width:1.05rem;height:1.7rem;transform:rotate(-12deg);filter:drop-shadow(0 0 6px rgba(255,236,200,.35))}
+.neon{font:400 2.2rem/1 var(--neon);color:#ffe3ef;letter-spacing:.01em;padding:0 .12em .08em 0;text-shadow:0 0 2px #fff,0 0 8px var(--rosa),0 0 18px var(--rosa),0 0 38px rgba(255,77,141,.65);animation:zumbido 9s infinite steps(1)}
+@keyframes zumbido{0%,100%{opacity:1}71%{opacity:1}71.5%{opacity:.55}72%{opacity:1}72.6%{opacity:.7}73%{opacity:1}}
+
+/* ── Arriba y abajo ────────────────────────────────────────────────────────── */
+.game-top{position:absolute;top:calc(var(--margen) * .8 + var(--seguro-arriba));left:calc(var(--margen) + var(--seguro-izq));right:calc(var(--margen) + var(--seguro-der));display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;z-index:10}
+.game-top-left,.game-tools{display:flex;align-items:center;gap:.6rem}
+.game-tools{flex:none}
+.location-tag{font:600 .66rem var(--sans);letter-spacing:.26em;color:var(--suave);border-left:1px solid var(--linea-fuerte);padding-left:1rem;margin-left:.6rem}
+.hand-mark{font:600 .7rem/1.5 var(--sans);letter-spacing:.2em;color:var(--suave);margin-left:.9rem;border-left:1px solid var(--linea);padding-left:.9rem}
+.connection{display:flex;align-items:center;gap:.45em;font-size:.66rem;letter-spacing:.12em;color:var(--turquesa);text-transform:uppercase}
+.connection::before{content:'';width:.42em;height:.42em;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.connection.off{color:var(--coral)}
+.connection.off::before{animation:latido 1s infinite}
+.game-bottom{position:absolute;bottom:calc(var(--margen) * .7 + var(--seguro-abajo));left:calc(var(--margen) + var(--seguro-izq));right:calc(var(--margen) + var(--seguro-der));display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;font:600 .66rem var(--sans);letter-spacing:.2em;color:var(--tenue)}
+.load-status{position:absolute;bottom:calc(var(--margen) * .7 + 3.4rem + var(--seguro-abajo));right:calc(var(--margen) + var(--seguro-der));display:flex;align-items:center;gap:.6em;font-size:.76rem;color:var(--suave);background:var(--vidrio);border:1px solid var(--linea);padding:.5em .9em;border-radius:999px;backdrop-filter:blur(10px);transition:opacity .9s .4s}
+.load-status::before{content:'';width:.45em;height:.45em;border-radius:50%;background:var(--ambar);box-shadow:0 0 10px var(--ambar);animation:latido 1.2s infinite}
+.load-status.ready{opacity:0}
+.loading-error{position:absolute;top:40%;left:50%;transform:translateX(-50%);width:min(420px,86vw);background:var(--vidrio-fuerte);padding:1.4rem;border:1px solid var(--coral);border-radius:var(--radio);pointer-events:auto;font-size:.85rem;line-height:1.7}
+
+/* Si nadie toca nada, la tele queda limpia: solo la mesa, el marcador y el turno. */
+body.quieto .game-tools,body.quieto .game-bottom,body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}
+.game-tools,.game-bottom,.crowd-toggle,.hand-mark,#voice-hud{transition:opacity .35s}
+body.quieto{cursor:none}
+
+/* ── Portada ───────────────────────────────────────────────────────────────── */
+.home-shade{position:fixed;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(9,6,18,.9) 0%,rgba(9,6,18,.66) 26%,rgba(9,6,18,0) 62%),linear-gradient(0deg,rgba(5,4,12,.75) 0%,transparent 28%)}
+.portada.sin-3d{background:radial-gradient(120% 70% at 80% 0%,rgba(255,181,71,.22),transparent 55%),radial-gradient(90% 60% at 0% 100%,rgba(45,225,194,.12),transparent 60%),linear-gradient(180deg,var(--noche2),var(--noche) 70%)}
+.portada.sin-3d .home-shade{display:none}
+.title-screen{position:absolute;left:calc(5vw + var(--seguro-izq));top:clamp(90px,16vh,190px);bottom:clamp(60px,9vh,110px);width:min(34rem,46vw);display:flex;flex-direction:column;justify-content:safe center;animation:subir .8s cubic-bezier(.2,.8,.2,1) both}
+.title-screen>*{flex-shrink:0}
+.title-screen h1{font:500 clamp(3.2rem,6.3vw,7.2rem)/.98 var(--serif);letter-spacing:-.035em;margin:.25em 0 .35em;color:var(--marfil);text-shadow:0 4px 40px rgba(0,0,0,.6)}
+.title-screen h1 span{display:block;white-space:nowrap}
+.title-screen h1 span+span{font-style:italic;color:var(--ambar);text-shadow:0 0 30px rgba(255,181,71,.35),0 4px 40px rgba(0,0,0,.6)}
+.title-screen p{font-size:1rem;color:var(--suave);max-width:24rem}
+.title-actions{display:flex;flex-direction:column;gap:.6rem;margin-top:1.8rem;width:min(20rem,100%)}
+.title-actions .g-button{justify-content:flex-start;min-height:3.2rem;padding:.8em 1.3em;font-size:.95rem;animation:subir .7s cubic-bezier(.2,.8,.2,1) both}
+.title-actions .g-button:nth-child(2){animation-delay:.07s}.title-actions .g-button:nth-child(3){animation-delay:.14s}.title-actions .g-button:nth-child(4){animation-delay:.21s}
+.title-secondary{display:flex;gap:1.2rem;margin-top:1.3rem}
+.title-secondary button{font-size:.85rem;color:var(--suave);padding:.4em 0;border-bottom:1px solid var(--linea-fuerte)}
+.title-secondary button:hover{color:var(--ambar);border-color:var(--ambar)}
+.corner-copy{max-width:60vw}
+.arte-fichas{position:absolute;top:calc(92px + var(--seguro-arriba));right:8%;display:flex;gap:10px;align-items:flex-end;pointer-events:none;filter:drop-shadow(0 18px 30px rgba(0,0,0,.55));animation:flotar 7s ease-in-out infinite}
+.arte-fichas .tile{--l:5.6rem}
+.arte-fichas .tile:nth-child(1){transform:rotate(-16deg) translateY(10px)}
+.arte-fichas .tile:nth-child(2){transform:rotate(4deg) translateY(-18px);--l:6.4rem}
+.arte-fichas .tile:nth-child(3){transform:rotate(19deg) translateY(6px)}
+.arte-fichas::before{content:'';position:absolute;inset:-30% -20%;background:radial-gradient(closest-side,rgba(255,181,71,.28),transparent);z-index:-1}
+@keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@media (max-height:700px){.arte-fichas{display:none}}
+
+/* ── Entrar ────────────────────────────────────────────────────────────────── */
+.center-screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(20px + var(--seguro-arriba)) 20px calc(20px + var(--seguro-abajo));pointer-events:auto;overflow:auto}
+.join-screen{width:min(26rem,100%);padding:2rem;background:var(--vidrio-fuerte);border:1px solid var(--linea-fuerte);border-radius:22px;backdrop-filter:blur(22px);box-shadow:var(--sombra),inset 0 1px 0 rgba(255,255,255,.06);animation:subir .5s cubic-bezier(.2,.8,.2,1) both}
+.join-screen h1{font:500 2.4rem/1.05 var(--serif);letter-spacing:-.02em;margin:.2em 0 .5em}
+.join-screen p{font-size:.92rem;color:var(--suave);margin-bottom:1.3rem}
+.join-screen .g-button{margin-top:.4rem}
+
+/* ── Campos ────────────────────────────────────────────────────────────────── */
+.field{display:block;margin-bottom:1.1rem;font-size:.82rem;font-weight:600;color:var(--suave)}
+.field input,.field select{display:block;width:100%;margin-top:.5rem;padding:.8em .95em;font-size:1rem;font-weight:500;border:1px solid var(--linea-fuerte);border-radius:12px;background:rgba(255,255,255,.05);color:var(--marfil);transition:border-color .2s,box-shadow .2s}
+.field input:focus,.field select:focus{border-color:var(--ambar);box-shadow:0 0 0 3px rgba(255,181,71,.2)}
+.field input::placeholder{color:var(--tenue)}
+.field select option{background:var(--noche2)}
+.check{display:flex;gap:.7rem;align-items:center;font-size:.92rem;margin:.9rem 0;cursor:pointer}
+.check input{width:1.2rem;height:1.2rem;accent-color:var(--ambar)}
+.code-input{text-transform:uppercase;letter-spacing:.42em;text-indent:.42em;text-align:center;font:400 2rem var(--display)!important;color:var(--ambar)!important}
+.form-error{color:var(--coral);font-size:.85rem;padding:.6rem 0 0;min-height:1.6em}
+.modal-copy{font-size:.92rem;color:var(--suave);margin-bottom:1.3rem}
+.account-note{font-size:.8rem;color:var(--tenue);line-height:1.7;margin:.8rem 0}
+.notice{border-left:3px solid var(--ambar);padding:.8rem 1rem;background:rgba(255,181,71,.07);border-radius:0 10px 10px 0;font-size:.88rem;line-height:1.7;margin:1.1rem 0;color:var(--marfil2)}
+
+/* ── Modales ───────────────────────────────────────────────────────────────── */
+dialog{border:1px solid var(--linea-fuerte);border-radius:24px;background:linear-gradient(180deg,rgba(35,26,58,.97),rgba(18,13,31,.98));color:var(--marfil);width:min(34rem,calc(100vw - 24px));max-height:min(88dvh,54rem);overflow:auto;overscroll-behavior:contain;padding:1.8rem;box-shadow:0 40px 140px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.07);pointer-events:auto}
+dialog[open]{animation:modal .35s cubic-bezier(.2,.9,.3,1.2) both}
+dialog::backdrop{background:rgba(6,4,14,.62);backdrop-filter:blur(6px)}
+.modal-top{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1.2rem}
+.modal-top h2{font:500 1.9rem/1.1 var(--serif);letter-spacing:-.02em}
+.close{font-size:1.8rem;line-height:1;width:2.6rem;height:2.6rem;border-radius:50%;color:var(--suave);flex:none}
+.close:hover{background:rgba(255,255,255,.08);color:var(--marfil)}
+.history-row{display:grid;grid-template-columns:8rem 1fr;gap:1rem;border-bottom:1px solid var(--linea);font-size:.9rem;padding:.75rem 0}
+.history-row strong{font:400 .8rem var(--display);color:var(--ambar);letter-spacing:.04em}
+.history-row span{color:var(--marfil2)}
+.profile-tabs{display:flex;gap:.5rem;margin-bottom:1.3rem;background:rgba(255,255,255,.05);padding:.3rem;border-radius:999px}
+.profile-tabs button{flex:1;padding:.65em;border-radius:999px;font-size:.88rem;font-weight:600;color:var(--suave)}
+.profile-tabs button.active{background:var(--ambar);color:#2a1604}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;gap:.6rem;margin:1.2rem 0}
+.profile-stats div{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:14px;padding:.9rem .4rem}
+.profile-stats b{display:block;font:400 2rem var(--display);color:var(--ambar)}
+.profile-stats span{font-size:.66rem;letter-spacing:.18em;color:var(--suave)}
+
+/* Escuelita */
+.school-lessons h3{font:500 1.5rem/1.2 var(--serif);margin:.9rem 0 .6rem}
+.school-lessons p{font-size:.95rem;color:var(--suave);line-height:1.75}
+.lesson-tabs{display:flex;gap:.45rem;flex-wrap:wrap;margin-bottom:.6rem}
+.lesson-tab{border:1px solid var(--linea-fuerte);border-radius:999px;font-size:.8rem;font-weight:600;padding:.5em .95em;color:var(--suave)}
+.lesson-tab.active{background:var(--ambar);border-color:var(--ambar);color:#2a1604}
+.school-lessons .hand-tiles{margin:1.2rem 0 .4rem;justify-content:flex-start}
+.exercise-result{font-size:.95rem;color:var(--ambar);min-height:2.6em;padding-top:.6rem}
+
+/* Manos al final */
+.reveal-hands{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.4rem}
+.reveal-row{background:rgba(255,255,255,.04);border:1px solid var(--linea);border-left:4px solid var(--pareja,var(--linea));border-radius:12px;padding:.7rem .8rem}
+.reveal-row strong{display:block;font-size:.85rem;margin-bottom:.5rem}
+.reveal-row>div{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.8rem;color:var(--tenue)}
+.reveal-row .tile{--l:2.6rem}
+
+/* ── Parejas ───────────────────────────────────────────────────────────────── */
+.pareja-a{--pareja:var(--rojo);--pareja-claro:var(--rojo-claro)}
+.pareja-b{--pareja:var(--azul);--pareja-claro:var(--azul-claro)}
+.pareja-n{--pareja:var(--ambar);--pareja-claro:var(--mango)}
+
+/* ── La ficha en DOM ───────────────────────────────────────────────────────── */
+/* Una sola ficha para todo: el teléfono, la escuelita y las manos abiertas. --l es el largo;
+   la ficha va parada (dos mitades una encima de otra) salvo .reveal-row, que va acostada. */
+.tile{--l:5.4rem;--a:calc(var(--l) / 2);position:relative;display:inline-flex;flex-direction:column;width:var(--a);height:var(--l);padding:calc(var(--a) * .07);border-radius:calc(var(--a) * .18);background:radial-gradient(120% 70% at 30% 15%,#fffdf6 0%,#f6eedb 45%,#e4d6b8 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),inset 0 -3px 0 rgba(168,146,104,.55),0 1px 0 #cbb994,0 3px 0 #a8926a,0 6px 12px rgba(0,0,0,.45);color:#1b1422;flex:none}
+.tile::after{content:'';position:absolute;left:14%;right:14%;top:50%;height:1px;background:linear-gradient(90deg,transparent,rgba(90,70,40,.45),transparent);box-shadow:0 1px 0 rgba(255,255,255,.6)}
+.tile .clavo{position:absolute;left:50%;top:50%;width:calc(var(--a) * .13);height:calc(var(--a) * .13);border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 35% 30%,#fff3c4,#c9a24a 55%,#7a5a1c);box-shadow:0 0 0 1px rgba(80,55,15,.35);z-index:1}
+.half{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);place-items:center;flex:1;width:100%;padding:calc(var(--a,3rem) * .1)}
+.pip{width:calc(var(--a,3rem) * .19);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,#3b2c47,#120c18 70%);box-shadow:inset 0 1px 1px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.7)}
+.pip.blank{visibility:hidden}
+.reveal-row .tile{flex-direction:row;width:var(--l);height:var(--a)}
+.reveal-row .tile::after{left:50%;right:auto;top:14%;bottom:14%;width:1px;height:auto;background:linear-gradient(180deg,transparent,rgba(90,70,40,.45),transparent)}
+/* Media ficha suelta (las puntas de la cadena, los botones de lado) */
+.puntas .half,.lados .half{--a:2.3rem;width:var(--a);height:var(--a);flex:none;border-radius:.45rem;background:radial-gradient(120% 90% at 30% 15%,#fffdf6,#eee3c8 70%,#decfaf);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 2px 0 #a8926a,0 4px 10px rgba(0,0,0,.4)}
+
+/* ── La mano ───────────────────────────────────────────────────────────────── */
+.hand-panel{position:relative}
+.hand-heading{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.9rem}
+.hand-heading h3{font:500 1.35rem/1.15 var(--serif);letter-spacing:-.01em}
+.hand-heading h3 b{font-weight:600;color:var(--ambar)}
+.hand-tiles{display:flex;justify-content:center;gap:.55rem;flex-wrap:wrap}
+.tile-button{position:relative;border-radius:.7rem;transition:transform .22s cubic-bezier(.3,1.5,.5,1),filter .25s,opacity .25s;-webkit-user-select:none;user-select:none}
+.tile-button .tile{transition:box-shadow .25s}
+.tile-button.pega{transform:translateY(-.55rem)}
+.tile-button.pega .tile{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),inset 0 -3px 0 rgba(168,146,104,.55),0 1px 0 #cbb994,0 3px 0 #a8926a,0 0 0 2px rgba(255,181,71,.85),0 0 22px rgba(255,181,71,.55),0 12px 20px rgba(0,0,0,.45)}
+.tile-button.pega::after{content:'';position:absolute;left:18%;right:18%;bottom:-.75rem;height:.28rem;border-radius:50%;background:radial-gradient(closest-side,rgba(255,181,71,.7),transparent)}
+.tile-button.no-pega{filter:saturate(.5) brightness(.55);opacity:.8}
+.tile-button.selected{transform:translateY(-1.15rem) scale(1.06)}
+.tile-button.selected .tile{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 3px 0 #a8926a,0 0 0 3px var(--mango),0 0 30px rgba(255,201,60,.7),0 16px 24px rgba(0,0,0,.5)}
+.tile-button.lanzada{animation:lanzar .32s cubic-bezier(.5,0,.9,.4) forwards;pointer-events:none}
+@media (hover:hover){.tile-button.pega:hover{transform:translateY(-.9rem)}}
+.hand-actions{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;min-height:3.4rem;margin-top:1.1rem;text-align:center}
+.nota{font-size:.92rem;color:var(--suave)}
+.nota b{color:var(--marfil)}
+.pregunta{font:500 1.15rem var(--serif)}
+.paso{min-width:12rem;min-height:3.6rem!important;font:400 1.35rem var(--display)!important;letter-spacing:.06em;animation:respira 1.6s ease-in-out infinite}
+body.pendiente .hand-tiles,body.pendiente .hand-actions{pointer-events:none}
+body.pendiente .tile-button:not(.lanzada){opacity:.6}
+
+/* Las puntas abiertas: izquierda ámbar, derecha turquesa, como en la mesa. */
+.puntas{display:flex;align-items:center;gap:.5rem;flex:none}
+.puntas .linea{width:2.2rem;height:2px;background:linear-gradient(90deg,var(--ambar),var(--turquesa));border-radius:2px;opacity:.7}
+.punta{display:flex;border-radius:.55rem;padding:3px}
+.punta.izq{box-shadow:0 0 0 2px var(--ambar),0 0 16px rgba(255,181,71,.55)}
+.punta.der{box-shadow:0 0 0 2px var(--turquesa),0 0 16px rgba(45,225,194,.55)}
+.lados{display:flex;gap:.8rem;justify-content:center}
+.lado{display:flex;align-items:center;gap:.7rem;padding:.7rem 1.1rem;border-radius:18px;background:var(--vidrio);border:2px solid;font:400 1.3rem var(--display);animation:subir .25s both}
+.lado.izq{border-color:var(--ambar);color:var(--ambar);box-shadow:0 0 22px rgba(255,181,71,.3)}
+.lado.der{border-color:var(--turquesa);color:var(--turquesa);box-shadow:0 0 22px rgba(45,225,194,.3);flex-direction:row-reverse}
+.lado:active{transform:scale(.95)}
+
+/* Dock de la mano en la tele (práctica) */
+.game-hand-dock{position:absolute;left:50%;bottom:calc(var(--margen) * .7 + var(--seguro-abajo));transform:translateX(-50%);width:max-content;max-width:min(94vw,64rem);pointer-events:auto;animation:subir-centro .5s cubic-bezier(.2,.8,.2,1) both}
+.game-hand-dock .hand-panel{padding:.9rem 1.3rem 1rem;background:var(--vidrio);border:1px solid var(--linea-fuerte);border-radius:22px;backdrop-filter:blur(18px) saturate(1.3);box-shadow:var(--sombra)}
+.game-hand-dock .hand-panel.mi-turno{border-color:rgba(255,181,71,.55);box-shadow:var(--sombra),0 0 0 1px rgba(255,181,71,.3),0 0 50px rgba(255,181,71,.18)}
+.game-hand-dock .tile{--l:4.3rem}
+.game-hand-dock .hand-tiles{flex-wrap:nowrap;padding-top:.6rem}
+.game-hand-dock .hand-actions{min-height:2.6rem;margin-top:.8rem}
+.game-hand-dock .paso{min-height:2.9rem!important;font-size:1.1rem!important}
+
+/* ── Marcador: la pizarra ──────────────────────────────────────────────────── */
+.pizarra{position:absolute;left:50%;top:0;transform:translateX(-50%);display:flex;align-items:stretch;gap:0;background:var(--vidrio);border:1px solid var(--linea-fuerte);border-radius:20px;backdrop-filter:blur(16px) saturate(1.3);box-shadow:var(--sombra);overflow:hidden;animation:bajar .6s cubic-bezier(.2,.8,.2,1) both}
+.equipo{position:relative;display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;align-items:center;column-gap:.9rem;padding:.55rem 1.3rem .75rem;min-width:11rem;transition:background .4s}
+.equipo::before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--pareja)}
+.equipo.pareja-b{grid-template-columns:auto auto;direction:rtl}
+.equipo.pareja-b::before{inset:0 0 0 auto}
+.equipo>*{direction:ltr}
+.quienes{font:600 .72rem var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--pareja-claro);white-space:nowrap;max-width:12rem;overflow:hidden;text-overflow:ellipsis}
+.tanto{grid-row:span 2;font:400 2.5rem/1 var(--display);color:var(--marfil);text-shadow:0 0 18px color-mix(in srgb,var(--pareja) 60%,transparent);font-variant-numeric:tabular-nums;animation:tanto .7s cubic-bezier(.3,1.6,.5,1)}
+.barra{display:block;height:5px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;align-self:start;margin-top:.1rem}
+.barra i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--pareja),var(--pareja-claro));box-shadow:0 0 10px var(--pareja);transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.equipo.pareja-b .barra i{margin-left:auto}
+.equipo.pareja-b .quienes{text-align:right}
+.equipo.toca{background:linear-gradient(180deg,color-mix(in srgb,var(--pareja) 22%,transparent),transparent)}
+.meta{display:flex;align-items:center;padding:0 .8rem;font:400 .72rem var(--display);letter-spacing:.08em;color:var(--tenue);border-left:1px solid var(--linea);border-right:1px solid var(--linea)}
+.mesa-tv .game-top{min-height:4.4rem}
+
+/* ── El turno, abajo en el centro ──────────────────────────────────────────── */
+.turno-banner{position:absolute;left:50%;bottom:calc(var(--margen) * .7 + var(--seguro-abajo));transform:translateX(-50%);display:flex;align-items:center;gap:.7rem;padding:.7rem 1.4rem .7rem 1.1rem;border-radius:999px;background:var(--vidrio);border:1px solid var(--linea-fuerte);backdrop-filter:blur(16px);font:500 1.2rem var(--serif);white-space:nowrap;box-shadow:var(--sombra);animation:subir-centro .45s cubic-bezier(.2,.8,.2,1) both}
+.turno-banner::before{content:'';width:.7rem;height:.7rem;border-radius:50%;background:var(--pareja);box-shadow:0 0 0 4px color-mix(in srgb,var(--pareja) 30%,transparent),0 0 16px var(--pareja);animation:latido 1.4s infinite}
+.turno-banner b{font-weight:600;color:var(--pareja-claro)}
+.piensa{font:italic 400 .95rem var(--serif);color:var(--tenue)}
+.piensa::after{content:'';display:inline-block;width:1.2em;text-align:left;animation:puntos 1.4s steps(4) infinite}
+.reduced .piensa::after{content:'…';animation:none}
+.scene-help{position:absolute;left:50%;bottom:calc(var(--margen) + var(--seguro-abajo));transform:translateX(-50%);font:italic 500 1.3rem var(--serif);color:var(--marfil);text-shadow:0 2px 16px #000;text-align:center;max-width:80vw}
+
+/* ── Etiquetas de los asientos (las mueve la escena) ───────────────────────── */
+.seat-label{position:absolute;top:0;left:0;display:flex;flex-direction:column;align-items:center;gap:.1rem;padding:.35rem .85rem .4rem;border-radius:14px;background:rgba(14,10,26,.72);border:1px solid var(--linea);border-bottom:3px solid var(--pareja,var(--linea));backdrop-filter:blur(8px);white-space:nowrap;color:var(--marfil);will-change:transform;transition:background .3s,box-shadow .3s,opacity .4s,border-color .3s}
+.seat-label.pair-a{--pareja:var(--rojo);--pareja-claro:var(--rojo-claro)}
+.seat-label.pair-b{--pareja:var(--azul);--pareja-claro:var(--azul-claro)}
+.seat-label .nombre{font:600 .9rem/1.2 var(--sans)}
+.seat-label small{font:600 .58rem var(--sans);letter-spacing:.16em;color:var(--pareja-claro)}
+.seat-label.active{background:linear-gradient(180deg,rgba(255,181,71,.95),rgba(224,137,42,.95));color:#2a1604;border-color:#ffd48a;box-shadow:0 0 0 3px color-mix(in srgb,var(--pareja) 70%,transparent),0 0 30px rgba(255,181,71,.55)}
+.seat-label.active small{color:#5a300a}
+.seat-label.dormido{opacity:.55;filter:grayscale(.6)}
+.seat-label.dormido .nombre::after{content:' · zzz';font-weight:400;color:var(--tenue)}
+.seat-label.speaking{box-shadow:0 0 0 2px var(--turquesa),0 0 22px rgba(45,225,194,.55)}
+
+/* ── El cartel del lobby ───────────────────────────────────────────────────── */
+.cartel{position:absolute;right:calc(var(--margen) + var(--seguro-der));top:calc(var(--margen) * .8 + 4.6rem + var(--seguro-arriba));bottom:calc(var(--margen) * .7 + var(--seguro-abajo));width:min(24rem,40vw);display:flex;flex-direction:column;gap:.5rem;padding:1.4rem;background:var(--vidrio-fuerte);border:1px solid rgba(255,181,71,.35);border-radius:24px;backdrop-filter:blur(22px) saturate(1.3);box-shadow:var(--sombra),0 0 60px rgba(255,181,71,.08),inset 0 1px 0 rgba(255,255,255,.06);overflow-y:auto;scrollbar-width:thin;animation:entrar-der .6s cubic-bezier(.2,.8,.2,1) both}
+.cartel h2{font:500 2rem/1.05 var(--serif);letter-spacing:-.02em}
+.cartel-cuerpo{display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center;margin:.6rem 0 .4rem}
+.cartel-cuerpo p{font-size:.8rem;color:var(--suave);line-height:1.5}
+.qr{width:clamp(7.5rem,9vw,11rem);aspect-ratio:1;padding:.4rem;background:#f7ecd6;border-radius:14px;box-shadow:0 0 0 4px rgba(255,181,71,.25),0 10px 30px rgba(0,0,0,.45)}
+.qr svg{display:block;width:100%;height:100%}
+.table-code{font:400 clamp(2.4rem,3.6vw,4.2rem)/1 var(--display);letter-spacing:.12em;color:var(--ambar);text-shadow:0 0 24px rgba(255,181,71,.45);margin-bottom:.35rem}
+.sillas{display:flex;flex-direction:column;gap:.35rem;margin:.4rem 0 .6rem}
+.silla{display:grid;grid-template-columns:1.7rem 1fr auto;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--linea);font-size:.88rem}
+.silla .num{display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:50%;background:var(--pareja);font:400 .8rem var(--display);color:#fff}
+.silla small{font:600 .6rem var(--sans);letter-spacing:.15em;color:var(--pareja-claro)}
+.silla.libre{color:var(--tenue)}
+.silla.libre .num{background:transparent;border:1.5px dashed var(--pareja);color:var(--pareja-claro)}
+.silla.llego{border-color:color-mix(in srgb,var(--pareja) 45%,transparent);background:color-mix(in srgb,var(--pareja) 12%,transparent);animation:llego .6s cubic-bezier(.3,1.5,.5,1) both}
+.silla.llego span:nth-child(2){font-weight:600}
+.cartel .g-button{margin-top:.25rem}
+.start-caption{font-size:.75rem;color:var(--tenue);text-align:center;margin-top:.3rem}
+
+/* ── El resultado: un sello ────────────────────────────────────────────────── */
+.resultado{position:absolute;top:50%;right:calc(var(--margen) + var(--seguro-der));transform:translateY(-50%);width:min(27rem,38vw);padding:1.8rem 1.8rem 1.5rem;text-align:center;background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--pareja) 30%,transparent),transparent 65%),var(--vidrio-fuerte);border:1px solid color-mix(in srgb,var(--pareja) 55%,transparent);border-radius:28px;backdrop-filter:blur(22px) saturate(1.3);box-shadow:0 40px 140px rgba(0,0,0,.65),0 0 80px color-mix(in srgb,var(--pareja) 25%,transparent);animation:resultado .7s cubic-bezier(.2,.9,.3,1.25) both}
+.resultado:first-child{margin:0}
+.resultado .eyebrow{justify-content:center;color:var(--suave)}
+.sello{display:inline-block;white-space:nowrap;font:400 clamp(1.9rem,3.1vw,3.4rem)/1 var(--display);letter-spacing:.02em;color:var(--marfil);padding:.18em .4em .22em;margin:.2rem 0 .6rem;border:4px solid var(--pareja-claro);border-radius:14px;transform:rotate(-5deg);text-shadow:0 0 30px var(--pareja);box-shadow:0 0 30px color-mix(in srgb,var(--pareja) 45%,transparent),inset 0 0 20px color-mix(in srgb,var(--pareja) 35%,transparent);animation:sello .55s cubic-bezier(.2,1.6,.4,1) both;animation-delay:inherit}
+.quien{font:500 1.35rem/1.3 var(--serif)}
+.resultado .points{font:400 3.2rem/1 var(--display);color:var(--mango);text-shadow:0 0 30px rgba(255,201,60,.55);margin:.7rem 0 .3rem;font-variant-numeric:tabular-nums}
+.detalle{font-size:.88rem;color:var(--suave)}
+.resultado .sale{margin-top:.8rem;font:italic 500 1rem var(--serif);color:var(--ambar)}
+.resultado .acciones{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-top:1.3rem}
+.resultado .acciones p{font-size:.88rem;color:var(--tenue)}
+
+/* ── El público ────────────────────────────────────────────────────────────── */
+#crowd-ui{position:absolute;inset:0;pointer-events:none}
+.crowd-toggle{position:absolute;right:calc(var(--margen) + var(--seguro-der));bottom:calc(var(--margen) * .7 + var(--seguro-abajo))}
+.crowd-led{width:.5rem;height:.5rem;border-radius:50%;background:var(--turquesa);box-shadow:0 0 10px var(--turquesa);animation:latido 1.6s infinite}
+.crowd-chat{position:absolute;right:calc(var(--margen) + var(--seguro-der));bottom:calc(var(--margen) * .7 + 3.6rem + var(--seguro-abajo));width:min(22rem,calc(100vw - 32px));padding:1rem;background:var(--vidrio-fuerte);border:1px solid var(--linea-fuerte);border-radius:20px;backdrop-filter:blur(20px);box-shadow:var(--sombra);animation:subir .3s both}
+.chat-top{display:flex;justify-content:space-between;align-items:center;gap:.6rem;font-size:.9rem}
+.chat-top button{font-size:.75rem;color:var(--suave)}
+.chat-messages{height:clamp(8rem,28vh,15rem);overflow:auto;overscroll-behavior:contain;margin:.7rem 0;font-size:.9rem}
+.chat-message{margin-bottom:.7rem;line-height:1.5;word-break:break-word}
+.chat-message strong{display:flex;align-items:center;gap:.4rem;color:var(--ambar);font-size:.72rem;font-weight:600}
+.chat-message button{font-size:.66rem;color:var(--tenue)}
+.chat-form{display:flex;gap:.4rem}
+.chat-form input{flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid var(--linea-fuerte);border-radius:999px;padding:.6em 1em;font-size:.95rem}
+.chat-form input:focus{border-color:var(--ambar)}
+.chat-form .g-button{width:2.75rem;padding:0}
+.chat-bubble{position:absolute;right:calc(var(--margen) + var(--seguro-der));bottom:calc(var(--margen) * .7 + 3.8rem + var(--seguro-abajo));max-width:min(22rem,80vw);padding:.75rem 1rem;border-radius:18px 18px 4px 18px;background:linear-gradient(180deg,#fff6e2,#f3e3c0);color:var(--tinta);font-size:.95rem;line-height:1.45;box-shadow:0 12px 40px rgba(0,0,0,.45);animation:burbuja 6.5s both}
+.chat-bubble b{display:block;font-size:.62rem;letter-spacing:.14em;color:#8a5a14;margin-bottom:.2rem}
+
+/* ── Voz y subtítulos ──────────────────────────────────────────────────────── */
+.bot-caption{position:fixed;z-index:40;left:50%;top:calc(var(--margen) * .8 + 5.4rem + var(--seguro-arriba));transform:translateX(-50%);max-width:min(80vw,40rem);padding:.5rem 1.1rem;border-radius:12px;background:rgba(8,6,16,.78);color:var(--marfil);font:italic 500 1.05rem/1.4 var(--serif);text-align:center;pointer-events:none;backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(0,0,0,.4);animation:subir-centro .25s both}
+#voice-hud{position:fixed;z-index:35;left:calc(var(--margen) + var(--seguro-izq));bottom:calc(var(--margen) * .7 + 3.4rem + var(--seguro-abajo));pointer-events:auto}
+#voice-hud.phone-voice{left:auto;right:calc(16px + var(--seguro-der));top:calc(64px + var(--seguro-arriba));bottom:auto}
+#voice-hud .g-button{font-size:.8rem;min-height:2.3rem;padding:.4em .9em}
+.voice-participants{max-height:13rem;overflow:auto;margin:1rem 0}
+
+/* ── Avisos ────────────────────────────────────────────────────────────────── */
+#toast{position:fixed;z-index:1000;left:50%;bottom:calc(24px + var(--seguro-abajo));transform:translate(-50%,20px);max-width:min(90vw,32rem);padding:.8rem 1.3rem;border-radius:999px;background:var(--marfil);color:var(--tinta);font-size:.92rem;font-weight:600;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s,transform .3s cubic-bezier(.3,1.5,.5,1)}
+#toast.visible{opacity:1;transform:translate(-50%,0)}
+.chip-sonido{position:fixed;z-index:60;left:50%;top:calc(var(--margen) * .8 + 5.2rem + var(--seguro-arriba));transform:translateX(-50%);display:flex;align-items:center;gap:.6rem;padding:.7rem 1.2rem;border-radius:999px;background:var(--ambar);color:#2a1604;font-weight:700;font-size:.95rem;box-shadow:0 0 0 0 rgba(255,181,71,.6),0 10px 30px rgba(0,0,0,.45);animation:llamar 1.8s infinite}
+.niveles{display:inline-flex;gap:.3rem;padding:.25rem;border-radius:999px;background:var(--vidrio);border:1px solid var(--linea);backdrop-filter:blur(12px)}
+.niveles button{font:600 .72rem var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:.5em 1em;border-radius:999px;color:var(--suave)}
+.niveles button.elegido{background:var(--ambar);color:#2a1604}
+#perf{position:fixed;left:10px;bottom:8px;z-index:20;font-size:10px;color:var(--tenue);pointer-events:none}
+
+/* ── El teléfono: el mando ─────────────────────────────────────────────────── */
+body.phone-mode #world{display:none}
+body.phone-mode{background:radial-gradient(120% 60% at 80% -5%,rgba(255,181,71,.2),transparent 55%),radial-gradient(90% 50% at 0% 105%,rgba(45,225,194,.1),transparent 60%),linear-gradient(180deg,var(--noche2),var(--noche) 70%)}
+body.phone-mode #app{pointer-events:auto}
+.phone-only{position:fixed;inset:0;display:flex;flex-direction:column;align-items:stretch;padding:calc(14px + var(--seguro-arriba)) calc(16px + var(--seguro-der)) calc(12px + var(--seguro-abajo)) calc(16px + var(--seguro-izq));overflow:hidden;pointer-events:auto;background:radial-gradient(140% 60% at 50% -10%,color-mix(in srgb,var(--pareja,var(--ambar)) 26%,transparent),transparent 60%),radial-gradient(120% 50% at 50% 115%,rgba(255,181,71,.16),transparent 60%),linear-gradient(180deg,var(--noche2),var(--noche) 80%);transition:background .5s}
+.control-top{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding-bottom:.8rem;border-bottom:1px solid var(--linea)}
+.yo{display:flex;flex-direction:column;min-width:0}
+.yo b{font:600 1.1rem/1.2 var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yo .pareja{font-size:.78rem;color:var(--pareja-claro);font-weight:600}
+.mini-marcador{display:flex;gap:.4rem;flex:none}
+.mini-marcador span{display:flex;flex-direction:column;align-items:center;min-width:4.2rem;padding:.3rem .6rem;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-top:3px solid var(--pareja);font-size:.62rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--pareja-claro)}
+.mini-marcador b{font:400 1.35rem/1.1 var(--display);color:var(--marfil);letter-spacing:0}
+.ultima{text-align:center;font:italic 500 .98rem var(--serif);color:var(--suave);padding:.7rem 0 0;min-height:2.3rem}
+.control .hand-panel{flex:1;display:flex;flex-direction:column;justify-content:center;padding:.5rem 0}
+.control .hand-heading{flex-direction:column;justify-content:center;text-align:center;gap:.8rem;margin-bottom:1.3rem}
+.control .hand-heading h3{font-size:1.9rem}
+.control.mi-turno .hand-heading h3{color:var(--ambar);text-shadow:0 0 24px rgba(255,181,71,.5)}
+/* Siete fichas en una fila, siempre: el ancho decide el tamaño. */
+.control .hand-tiles{flex-wrap:nowrap;gap:clamp(4px,1.6vw,10px);padding-top:.9rem}
+.control .tile{--l:min(calc((100vw - 32px - 6 * clamp(4px,1.6vw,10px)) / 7 * 2),7.2rem)}
+.control .hand-actions{min-height:4.6rem;margin-top:1.4rem}
+.control .paso{width:min(100%,20rem);min-height:4rem!important;font-size:1.7rem!important}
+.control .lado{padding:.9rem 1.3rem;font-size:1.6rem}
+.control .puntas .half{--a:2rem}
+.phone-bottom{display:flex;justify-content:space-between;align-items:center;gap:.8rem;padding-top:.7rem;border-top:1px solid var(--linea);font-size:.8rem;color:var(--tenue)}
+.phone-bottom button{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--suave);padding:.5rem .2rem;min-height:2.75rem}
+.phone-bottom button .icon{width:1.3rem;height:1.3rem}
+.phone-wait{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.3rem;padding:1rem 0}
+.phone-wait .eyebrow{justify-content:center}
+.phone-wait h1{font:500 2.6rem/1.05 var(--serif);letter-spacing:-.02em;margin:.2rem 0 .6rem}
+.phone-wait p{font-size:1rem;color:var(--suave);max-width:20rem}
+.phone-wait .g-button{margin-top:1.4rem;max-width:20rem;min-height:3.4rem;font-size:1rem}
+.phone-wait .points{font:400 3.6rem/1 var(--display);color:var(--mango);text-shadow:0 0 30px rgba(255,201,60,.5);margin:.2rem 0 .6rem}
+.fin.gano h1{color:var(--mango);text-shadow:0 0 30px rgba(255,201,60,.5);animation:sello .6s cubic-bezier(.2,1.6,.4,1) both}
+.fin.perdio h1{color:var(--suave)}
+/* "¡Te toca!" en grande cuando llega tu turno; se va solo. */
+.te-toca-flash{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;font:400 clamp(3rem,15vw,6rem)/1 var(--display);color:var(--ambar);text-shadow:0 0 40px rgba(255,181,71,.8),0 0 90px rgba(255,120,40,.5);background:radial-gradient(closest-side,rgba(255,181,71,.25),transparent);opacity:0;z-index:5}
+body.te-toca .te-toca-flash{animation:te-toca 1.3s cubic-bezier(.2,.8,.2,1) both}
+body.te-toca .control .hand-tiles{animation:sacudir .5s .35s both}
+
+/* ── Movimiento ────────────────────────────────────────────────────────────── */
+@keyframes subir{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes subir-centro{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes bajar{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes entrar-der{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes modal{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes resultado{from{opacity:0;transform:translate(40px,-50%) scale(.94)}to{opacity:1;transform:translateY(-50%)}}
+@keyframes resultado-centro{from{opacity:0;transform:translate(-50%,-44%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes sello{0%{opacity:0;transform:rotate(-5deg) scale(2.4)}60%{opacity:1;transform:rotate(-5deg) scale(.94)}100%{transform:rotate(-5deg) scale(1)}}
+@keyframes tanto{from{transform:scale(1.35);color:var(--mango)}to{transform:none}}
+@keyframes latido{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes respira{0%,100%{box-shadow:0 0 0 1px rgba(255,181,71,.25),0 8px 28px rgba(255,160,50,.32)}50%{box-shadow:0 0 0 6px rgba(255,181,71,.18),0 8px 40px rgba(255,160,50,.55)}}
+@keyframes llamar{0%{box-shadow:0 0 0 0 rgba(255,181,71,.6),0 10px 30px rgba(0,0,0,.45)}70%{box-shadow:0 0 0 16px rgba(255,181,71,0),0 10px 30px rgba(0,0,0,.45)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0),0 10px 30px rgba(0,0,0,.45)}}
+@keyframes puntos{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+@keyframes llego{from{transform:scale(.94);opacity:.4}to{transform:none;opacity:1}}
+@keyframes lanzar{to{transform:translateY(-60vh) rotate(-8deg) scale(.7);opacity:0}}
+@keyframes te-toca{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1.05)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.1)}}
+@keyframes sacudir{0%,100%{transform:none}20%{transform:translateY(-6px)}40%{transform:translateY(2px)}60%{transform:translateY(-3px)}}
+@keyframes burbuja{0%{opacity:0;transform:translateY(14px) scale(.95)}5%{opacity:1;transform:none}88%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
+
+/* ── Pantallas medianas y chicas ───────────────────────────────────────────── */
+@media (max-width:1100px){
+ .location-tag{display:none}
+ .equipo{min-width:9rem;padding:.5rem 1rem .65rem}
+ .tanto{font-size:2.1rem}
+}
+@media (max-width:900px){
+ .game-tools .tool-label{display:none}
+ .game-tools .g-button{width:2.75rem;padding:0}
+ .hand-mark{display:none}
+ .title-screen{width:min(26rem,56vw)}
+ .cartel{width:min(21rem,48vw)}
+ .quienes{max-width:7rem}
+ .pizarra{top:3.4rem}
+ .mesa-tv .game-top{min-height:0}
+}
+@media (max-width:620px){
+ .neon{font-size:1.9rem}
+ .title-screen{left:calc(20px + var(--seguro-izq));right:20px;width:auto;top:calc(80px + var(--seguro-arriba));bottom:calc(56px + var(--seguro-abajo))}
+ .title-screen h1{font-size:clamp(2.8rem,13vw,4rem)}
+ .title-screen p{font-size:.95rem}
+ .title-actions{width:100%}
+ .home-shade{background:linear-gradient(90deg,rgba(9,6,18,.92),rgba(9,6,18,.7) 60%,rgba(9,6,18,.35)),linear-gradient(0deg,rgba(5,4,12,.8),transparent 40%)}
+ .game-bottom .corner-copy{display:none}
+ .cartel{left:12px;right:12px;width:auto;top:auto;bottom:12px;max-height:62dvh}
+ .pizarra{left:12px;right:12px;transform:none;animation:none}
+ .equipo{flex:1;min-width:0}
+ .meta{display:none}
+ .resultado{padding:1.4rem 1.2rem;left:50%;right:auto;width:min(27rem,94vw);transform:translate(-50%,-50%);animation-name:resultado-centro}
+ .sello{font-size:clamp(1.6rem,8vw,2.4rem)}
+ .reveal-hands{grid-template-columns:1fr}
+ .game-hand-dock .tile{--l:3.5rem}
+ .game-hand-dock{max-width:calc(100vw - 16px)}
+ .game-hand-dock .hand-panel{padding:.7rem .7rem .8rem}
+ .game-hand-dock .hand-tiles{gap:.3rem}
+ .game-hand-dock .hand-heading h3{font-size:1.05rem}
+ .turno-banner{font-size:1rem}
+ .history-row{grid-template-columns:1fr;gap:.2rem}
+}
+/* Teléfono acostado: todo más bajito para que la fila de fichas quepa. */
+@media (max-height:520px) and (orientation:landscape){
+ .control .hand-heading{margin-bottom:.5rem;flex-direction:row;justify-content:space-between}
+ .control .hand-heading h3{font-size:1.4rem}
+ .control .tile{--l:min(calc((100vw - 32px - 6 * 10px) / 7 * 2),calc(100dvh - 12.5rem))}
+ .control .hand-actions{min-height:3rem;margin-top:.5rem}
+ .control .paso{min-height:3rem!important}
+ .ultima{min-height:0;padding-top:.3rem}
+ .phone-wait h1{font-size:2rem}
+ .title-screen{top:64px;bottom:40px}
+ .title-screen p{display:none}
+ .title-actions{margin-top:.8rem;gap:.4rem}
+ .title-actions .g-button{min-height:2.6rem}
+}
+
+/* Menos movimiento: lo pide el sistema o el ajuste de la mesa. */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.reduced *,.reduced *::before,.reduced *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}

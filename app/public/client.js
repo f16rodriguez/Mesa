@@ -4,209 +4,338 @@ import {botThinkingMs} from './bot-rhythm.js';
 import {botChatter} from './bot-chatter.js';
 import {ambiente} from './ambiente.js';
 import {chooseMove} from './bot.js';
+import {proximityVoice} from './proximity-voice.js';
+import {t,idioma,ponerIdioma,LECCIONES} from './textos.js';
+import {sonidos,vibrar,VIBRA} from './sonidos.js';
 // El mismo reloj de pensar que usa el servidor: la voz sabe cuánto le queda al bot.
 botChatter.pensar=botThinkingMs;
-import {proximityVoice} from './proximity-voice.js';
+
+/* ── Utilidades ───────────────────────────────────────────────────────────── */
 const $=s=>document.querySelector(s),app=$('#app'),modal=$('#modal');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const paths={screen:'M3 4h18v12H3z M8 21h8 M12 16v5',phone:'M7 2h10v20H7z M11 18h2',people:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M18 8a3 3 0 0 1 0 6 M22 21v-2a4 4 0 0 0-3-4',sound:'M11 4 5 9H2v6h3l6 5z M15 8a6 6 0 0 1 0 8 M18 4a11 11 0 0 1 0 16',mute:'M11 4 5 9H2v6h3l6 5z M16 9l5 6 M21 9l-5 6',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',book:'M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1z M12 5v15',arrow:'M4 12h16 M14 6l6 6-6 6',lock:'M6 10h12v11H6z M8 10V6a4 4 0 0 1 8 0v4',copy:'M8 8h13v13H8z M16 8V3H3v13h5',expand:'M8 3H3v5 M16 3h5v5 M3 16v5h5 M21 16v5h-5',back:'M20 12H4 M10 6l-6 6 6 6',user:'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M4 21v-3a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v3',camera:'M3 7h4l2-3h6l2 3h4v14H3z M12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8',chat:'M3 3h18v14H9l-6 4z M7 8h10 M7 12h7'};
+// localStorage puede no existir (Safari con cookies bloqueadas, navegadores dentro de apps): nunca debe tumbar la página.
+const almacen={get(k,d=null){try{const v=localStorage.getItem(k);return v===null?d:v;}catch{return d;}},set(k,v){try{localStorage.setItem(k,v);}catch{}},del(k){try{localStorage.removeItem(k);}catch{}},json(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v??d;}catch{return d;}}};
+const paths={screen:'M3 4h18v12H3z M8 21h8 M12 16v5',phone:'M7 2h10v20H7z M11 18h2',people:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M18 8a3 3 0 0 1 0 6 M22 21v-2a4 4 0 0 0-3-4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2',book:'M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1z M12 5v15',arrow:'M4 12h16 M14 6l6 6-6 6',lock:'M6 10h12v11H6z M8 10V6a4 4 0 0 1 8 0v4',copy:'M8 8h13v13H8z M16 8V3H3v13h5',expand:'M8 3H3v5 M16 3h5v5 M3 16v5h5 M21 16v5h-5',user:'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M4 21v-3a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v3',camera:'M3 7h4l2-3h6l2 3h4v14H3z M12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8',chat:'M3 3h18v14H9l-6 4z M7 8h10 M7 12h7',sound:'M11 4 5 9H2v6h3l6 5z M15 8a6 6 0 0 1 0 8 M18 4a11 11 0 0 1 0 16',exit:'M15 3h5v18h-5 M10 17l5-5-5-5 M15 12H3'};
 const icon=n=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[n]||paths.arrow}"/></svg>`;
-const logo=`<svg viewBox="0 0 25 40" aria-hidden="true"><rect x="2" y="1" width="21" height="38" rx="4" fill="currentColor"/><path d="M5 20h15" stroke="#18382c" stroke-width=".7"/><g fill="#18382c"><circle cx="8" cy="9" r="1.5"/><circle cx="17" cy="15" r="1.5"/><circle cx="8" cy="26" r="1.5"/><circle cx="17" cy="26" r="1.5"/><circle cx="8" cy="33" r="1.5"/><circle cx="17" cy="33" r="1.5"/></g></svg>`;
+const logo=`<svg viewBox="0 0 25 40" aria-hidden="true"><rect x="2" y="1" width="21" height="38" rx="4" fill="currentColor"/><path d="M5 20h15" stroke="#1a1426" stroke-width=".7"/><g fill="#1a1426"><circle cx="8" cy="9" r="1.5"/><circle cx="17" cy="15" r="1.5"/><circle cx="8" cy="26" r="1.5"/><circle cx="17" cy="26" r="1.5"/><circle cx="8" cy="33" r="1.5"/><circle cx="17" cy="33" r="1.5"/></g></svg>`;
 const pipPositions=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 const half=n=>`<span class="half">${Array.from({length:9},(_,i)=>`<i class="pip ${pipPositions[n]?.includes(i)?'':'blank'}"></i>`).join('')}</span>`;
-const tile=(a,b)=>`<span class="tile" role="img" aria-label="${a}–${b}">${half(a)}${half(b)}</span>`;
+const tile=(a,b)=>`<span class="tile" role="img" aria-label="${a}–${b}">${half(a)}${half(b)}<i class="clavo"></i></span>`;
+const button=(label,action,type='',ico='')=>`<button class="g-button ${type}" data-action="${action}">${ico?icon(ico):''}${label}</button>`;
+const BOTS=[0,1,2,3].map(i=>t('bot'+i));
+const corto=n=>String(n||'').replace(/^(Don|Doña|Tío|Tía)\s+/i,'').split(/\s+/)[0];
+const nombreDe=i=>view?.bots?.[i]&&view.phase==='lobby'?t('bot'+i):view?.names?.[i]||'';
+const parejaDe=team=>`${esc(corto(nombreDe(team)))} ${idioma()==='en'?'&amp;':'y'} ${esc(corto(nombreDe(team+2)))}`;
+const esTelefono=matchMedia('(pointer:coarse)').matches&&Math.max(innerWidth,innerHeight)<950;
+
+/* ── Estado ───────────────────────────────────────────────────────────────── */
 let page='home',view=null,room='',role='host',ws=null,practice=null,selected=null,lesson=0,connected=false,botTimer=null,toastTimer=null,lastEvent='',lastHand=0,world=null,worldPromise=null,profile=null,chatOpen=false,crowd={count:0,chat:[],viewers:[],muted:[],featured:false},lastBubble='',cameraIndex=0,lastMode='',authMode='login';
-let sound=localStorage.getItem('mesa-sound')!=='off',ambientOn=localStorage.getItem('mesa-ambience')!=='off',audioContext=null,music=null,musicMuted=false;
-/* Radio del colmado: baraja lo que haya en /audio/musica (lista.json la escribe
-   el build), bajito, y se agacha cuando habla alguien. Solo en la tele. */
-const radio={lista:null,audio:null,i:0,base:.16,on:localStorage.getItem('mesa-radio')!=='off',timer:null,
- async start(){if(!this.on||role==='player'||music||(this.audio&&!this.audio.paused))return;
-  if(this.cargando)return;
-  if(!this.lista){this.cargando=true;this.lista=await fetch('/audio/musica/lista.json').then(r=>r.ok?r.json():[]).catch(()=>[]);this.cargando=false;for(let k=this.lista.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[this.lista[k],this.lista[j]]=[this.lista[j],this.lista[k]];}}
-  if(!this.lista.length)return;if(this.audio&&this.audio.paused&&this.audio.currentTime>0&&!this.audio.ended){this.audio.play().catch(()=>{});return;}this.siguiente();},
- siguiente(){clearTimeout(this.timer);const f=this.lista[this.i++%this.lista.length],a=new Audio('/audio/musica/'+encodeURIComponent(f));this.audio?.pause();this.audio=a;a.volume=this.base;a.play().catch(()=>{});
-  a.onended=()=>{this.timer=setTimeout(()=>{if(this.on&&this.audio===a)this.siguiente();},3000+Math.random()*9000);};},
+let sound=almacen.get('mesa-sound')!=='off',ambientOn=almacen.get('mesa-ambience')!=='off',music=null,musicMuted=false,pendiente=false,pendienteTimer=null,wakeLock=null,vozDisponible=false,turnoVisto='',ultimoMensaje=0,finVisto={k:'',t:0},revelado=null,movsVistos='';
+const conexion={gen:0,timer:null,intentos:0,nombre:''};
+const muted=new Set(almacen.json('mesa-muted',[]));let crowdMuted=almacen.get('mesa-crowd-muted')==='yes';
+const q=new URLSearchParams(location.search);room=normSala(q.get('room')||'');role=q.get('role')||'player';
+
+/* ── Sonido ───────────────────────────────────────────────────────────────── */
+sonidos.activo=sound;
+/* Radio del colmado: baraja lo que haya en /audio/musica (lista.json la escribe el build),
+   bajito, y se agacha cuando habla alguien. Solo en la tele. */
+const radio={lista:null,audio:null,i:0,base:.16,on:almacen.get('mesa-radio')!=='off',timer:null,cargando:false,
+ async cargar(){if(this.lista||this.cargando)return this.lista;this.cargando=true;this.lista=await fetch('/audio/musica/lista.json').then(r=>r.ok?r.json():[]).catch(()=>[]);this.cargando=false;for(let k=this.lista.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[this.lista[k],this.lista[j]]=[this.lista[j],this.lista[k]];}return this.lista;},
+ async start(){if(!this.on||role==='player'||music||(this.audio&&!this.audio.paused))return;await this.cargar();if(!this.lista?.length)return;if(this.audio&&this.audio.paused&&this.audio.currentTime>0&&!this.audio.ended){this.audio.play().catch(()=>{});return;}this.siguiente();},
+ siguiente(){clearTimeout(this.timer);const f=this.lista[this.i++%this.lista.length],a=new Audio('/audio/musica/'+encodeURIComponent(f));this.audio?.pause();this.audio=a;a.volume=this.base;a.play().catch(()=>{});a.onended=()=>{this.timer=setTimeout(()=>{if(this.on&&this.audio===a)this.siguiente();},3000+Math.random()*9000);};},
  duck(abajo){if(this.audio)this.audio.volume=abajo?this.base*.35:this.base;},
  stop(){clearTimeout(this.timer);this.audio?.pause();},
- set(v){this.on=v;localStorage.setItem('mesa-radio',v?'on':'off');if(v)this.start();else this.stop();}};
+ set(v){this.on=v;almacen.set('mesa-radio',v?'on':'off');if(v)this.start();else this.stop();}};
 addEventListener('mesa:botvoice',e=>radio.duck(!!e.detail?.active));
-/* Ambiente sintetizado (ver src/ambiente.js). Misma interfaz que el <audio> que reemplaza. */
-let ambienceCtx=null;const ambience={play(){ambienceCtx??=new (window.AudioContext||window.webkitAudioContext)();return ambienceCtx.resume().then(()=>ambiente.start(ambienceCtx));},pause(){ambiente.stop();}};
-const muted=new Set(JSON.parse(localStorage.getItem('mesa-muted')||'[]'));let crowdMuted=localStorage.getItem('mesa-crowd-muted')==='yes';
-const q=new URLSearchParams(location.search);room=normSala(q.get('room')||'');role=q.get('role')||'player';
-function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
-function unlockSound(){botChatter.unlock();if(sound){audioContext??=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume();}if(ambientOn&&role!=='player')ambience.play().catch(()=>{});radio.start();}
-function hit(loud=false){if(role==='player'||!sound||!audioContext)return;const c=audioContext,t=c.currentTime;for(const [f,d,v] of [[130,.12,.11],[1700,.022,.022]]){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.55,t+d);g.gain.setValueAtTime(v*(loud?1.5:1),t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(c.destination);o.start(t);o.stop(t+d);}}
-function shuffleSound(){for(let i=0;i<22;i++)setTimeout(()=>hit(),i*85+(i%3)*19);}
-const button=(label,action,type='',ico='')=>`<button class="g-button ${type}" data-action="${action}">${ico?icon(ico):''}${label}</button>`;
-/* El código de mesa se dice en voz alta y se teclea en un teléfono, así que no
-   lleva I ni O (se leen como 1 y 0). Veinticuatro letras en cuatro posiciones
-   son 331.776 mesas posibles: con cuatro dígitos serían 10.000, y como el
-   nombre de la sala ES el Durable Object, dos mesas con el mismo número caen
-   en la MISMA partida. Cuatro letras hacen ese choque despreciable sin pedirle
-   nada al servidor. */
+const ambience={play(){const c=sonidos.abrir();if(!c)return Promise.resolve();return c.resume().then(()=>ambiente.start(c));},pause(){ambiente.stop();}};
+function unlockSound(){const c=sonidos.abrir();if(c&&!botChatter.context)botChatter.context=c;botChatter.unlock();if(ambientOn&&role!=='player'&&page!=='home'||ambientOn&&role!=='player'&&!esTelefono)ambience.play().catch(()=>{});radio.start();chipSonido();}
+// La primera tecla o toque en cualquier parte desbloquea el audio (una tele recargada directo a su mesa no tiene otro gesto).
+addEventListener('pointerdown',()=>{if(sonidos.suspendido)unlockSound();},{capture:true});
+addEventListener('keydown',()=>{if(sonidos.suspendido)unlockSound();},{capture:true});
+function chipSonido(){const hace=role!=='player'&&sound&&page==='room'&&sonidos.suspendido;let el=$('#chip-sonido');if(hace&&!el){el=document.createElement('button');el.id='chip-sonido';el.className='chip-sonido';el.innerHTML=`${icon('sound')}${t('tocaSonido')}`;document.body.appendChild(el);}if(!hace)el?.remove();}
+// El sonido de la ficha va cuando la ficha AterRIZA en la tele, no cuando llega el mensaje.
+addEventListener('mesa:aterriza',e=>{if(role==='player')return;if(e.detail?.golpe)sonidos.golpe();else sonidos.ficha();});
+
+/* ── Código de mesa ───────────────────────────────────────────────────────── */
+/* El código se dice en voz alta y se teclea en un teléfono: sin I ni O (se leen como 1 y 0).
+   Veinticuatro letras en cuatro posiciones son 331.776 mesas posibles. */
 const ALFABETO='ABCDEFGHJKLMNPQRSTUVWXYZ';
-function nuevoCodigo(){
- let c='';
- while(c.length<4) for(const n of crypto.getRandomValues(new Uint8Array(8))){
-  if(n>=240) continue;              // 240 = 24*10: descarta el sesgo del módulo
-  c+=ALFABETO[n%24];
-  if(c.length===4) break;
- }
- return c;
-}
-/* Las salas nuevas viven en mayúsculas. Las viejas (12 hex en minúscula) se
-   dejan como están: subirlas a mayúscula las mandaría a otro Durable Object. */
-// Declaración de función, no const: esto se llama en la línea 18, al cargar el
-// módulo, y una const ahí arriba todavía está en su zona muerta temporal.
+function nuevoCodigo(){let c='';while(c.length<4)for(const n of crypto.getRandomValues(new Uint8Array(8))){if(n>=240)continue;c+=ALFABETO[n%24];if(c.length===4)break;}return c;}
+// Declaración de función, no const: se llama arriba, al cargar el módulo.
 function normSala(r){return /^[a-zA-Z]{4}$/.test(r)?r.toUpperCase():r;}
 
-/* Tres niveles para la práctica. El "ruido" es la probabilidad de que el bot,
-   ESE turno, se olvide de la lectura y suelte la ficha más pesada — que es
-   exactamente lo que hacía la práctica hasta ahora en TODOS los turnos, contra
-   un rival que en la mesa de verdad ya no existe. Fácil conserva ese bot;
-   Duro es el mismo que juega en el servidor. */
-const NIVELES={facil:{etiqueta:'Fácil',ruido:1},normal:{etiqueta:'Normal',ruido:.35},duro:{etiqueta:'Duro',ruido:0}};
-let nivel=NIVELES[localStorage.getItem('mesa-nivel')]?localStorage.getItem('mesa-nivel'):'normal';
-const masPesada=v=>{const r=v.legal.map(o=>({...o,w:v.hand.find(t=>t.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));return {type:'play',tile:r[0].tile,side:r[0].side};};
-function jugadaBot(v){
- if(!v.legal.length)return {type:'pass'};
- return Math.random()<NIVELES[nivel].ruido?masPesada(v):chooseMove(v);
+/* ── Práctica ─────────────────────────────────────────────────────────────── */
+/* Tres niveles. El "ruido" es la probabilidad de que el bot, ESE turno, suelte la ficha más
+   pesada en vez de pensar. Duro es el mismo bot del servidor. */
+const NIVELES={facil:{ruido:1},normal:{ruido:.35},duro:{ruido:0}};
+let nivel=NIVELES[almacen.get('mesa-nivel')]?almacen.get('mesa-nivel'):'normal';
+const masPesada=v=>{const r=v.legal.map(o=>({...o,w:v.hand.find(x=>x.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));return {type:'play',tile:r[0].tile,side:r[0].side};};
+function jugadaBot(v){if(!v.legal.length)return {type:'pass'};return Math.random()<NIVELES[nivel].ruido?masPesada(v):chooseMove(v);}
+function practicaGuardada(){const p=almacen.json('mesa-practice',null);return p&&p.phase&&p.phase!=='lobby'?p:null;}
+function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||t('tu'),BOTS[1],BOTS[2],BOTS[3]];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];action({type:'start'});}
+function seguirPractica(){const p=practicaGuardada();if(!p){startPractice();return;}disconnect();practice=p;role='practice';room='';view=null;lastHand=p.handNo;page='room';history.pushState({},'','?practice=1');receive(rules.viewFor(practice,'local'));scheduleBot();}
+function scheduleBot(){clearTimeout(botTimer);if(!practice||page!=='room')return;
+ if(practice.phase!=='playing'||practice.turn===0)return;
+ const v0=rules.viewFor(practice,practice.players[practice.turn]),pasa=!v0.legal.length;
+ botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing'||page!=='room')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id);practice=rules.applyAction(practice,id,jugadaBot(v));almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},
+  // Un pase obligado no se piensa: un segundo y ya.
+  pasa?1100:Math.max(practice.moves.length===0?4200:0,botThinkingMs(practice.handNo,practice.moves.length,practice.turn)));}
+
+/* ── Conexión ─────────────────────────────────────────────────────────────── */
+function token(){const key='mesa-seat-'+room+'-'+role;let x=almacen.get(key);if(!x){x=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');almacen.set(key,x);}return x;}
+function cerrarSocket(){conexion.gen++;clearTimeout(conexion.timer);if(ws){ws.onclose=null;ws.onmessage=null;try{ws.close();}catch{}ws=null;}}
+function disconnect(){proximityVoice.disconnect();clearTimeout(botTimer);cerrarSocket();connected=false;liberarWakeLock();}
+function createRoom(){disconnect();practice=null;view=null;crowd={count:0,chat:[],viewers:[],muted:[],featured:false};room=nuevoCodigo();role='host';history.pushState({},'',`?room=${room}&role=host`);connect();}
+function connect(name=conexion.nombre){
+ page='room';conexion.nombre=name;cerrarSocket();
+ if(role==='player')hideWorld();else ensureWorld('game');
+ if(!view)app.innerHTML=`<div class="center-screen"><div class="join-screen"><div class="eyebrow">MESA</div><h1>${t('conectando')}</h1><p>${t('conectandoMesa')}</p></div></div>`;
+ const gen=conexion.gen,s=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/${encodeURIComponent(room)}`);ws=s;
+ s.onopen=()=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();s.send(JSON.stringify({type:'join',role,token:token(),name:name||profile?.name||almacen.get('mesa-name','')}));pedirWakeLock();};
+ s.onmessage=e=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();if(e.data==='__pong')return;let m;try{m=JSON.parse(e.data);}catch{return;}
+  if(m.type==='error'){soltarPendiente();toast(m.error);if(!view)joinScreen(m.error);return;}
+  if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;receive(m.view,m.presence);if(!antes)marcarConexion();}};
+ s.onclose=()=>{if(gen!==conexion.gen)return;connected=false;marcarConexion();reconectar();};
+ s.onerror=()=>{};
 }
-const brand=()=>`<button class="game-brand" data-action="home" aria-label="Mesa home">${logo}mesa</button>`;
+function reconectar(){clearTimeout(conexion.timer);if(page!=='room'||!room||practice)return;const n=conexion.intentos++;
+ if(n>=6){app.innerHTML=`<div class="center-screen"><div class="join-screen"><div class="eyebrow">MESA</div><h1>${t('sinConexion')}</h1><p>${t('conectandoMesa')}</p><button class="g-button primary full" data-action="reintentar">${t('reintentar')}</button></div></div>`;view=null;return;}
+ const espera=Math.min(4000,500*2**n)*(.8+Math.random()*.4);conexion.timer=setTimeout(()=>{if(page==='room')connect();},espera);}
+// Pulso: un ping cada 4 s. Si en 12 s no llegó nada, la conexión está muerta aunque el navegador
+// no se haya enterado (pasa cuando un iPhone se despierta): se cierra y se reconecta ya.
+setInterval(()=>{if(ws?.readyState===1&&!document.hidden){try{ws.send('__ping');}catch{}if(ultimoMensaje&&Date.now()-ultimoMensaje>12000){cerrarSocket();connected=false;marcarConexion();reconectar();}}},4000);
+setInterval(()=>{if(ws?.readyState===1&&!document.hidden)wire({type:'heartbeat'},true);},5000);
+function marcarConexion(){for(const el of document.querySelectorAll('.connection')){el.textContent=practice?t('sinPresion'):connected?t('conectado'):t('reconectando');el.classList.toggle('off',!connected&&!practice);}}
+function wire(msg,silencioso=false){if(ws?.readyState===1){ws.send(JSON.stringify(msg));return true;}if(!silencioso)toast(t('esperaReconexion'));return false;}
+function soltarPendiente(){pendiente=false;clearTimeout(pendienteTimer);document.body.classList.remove('pendiente');}
+// Un doble toque no manda dos veces: la segunda volvía como "espera tu turno" justo después de jugar.
+function action(a){unlockSound();
+ if(practice){const check=rules.validateAction(practice,'local',a);if(!check.ok){vibrar(VIBRA.error);return toast(check.error);}practice=rules.applyAction(practice,'local',a);almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();return;}
+ if(pendiente)return;if(!wire({type:'action',action:a}))return;pendiente=true;document.body.classList.add('pendiente');clearTimeout(pendienteTimer);pendienteTimer=setTimeout(soltarPendiente,4000);}
+async function pedirWakeLock(){try{if('wakeLock' in navigator&&!wakeLock&&!document.hidden){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener?.('release',()=>{wakeLock=null;});}}catch{}}
+function liberarWakeLock(){try{wakeLock?.release();}catch{}wakeLock=null;}
+fetch('/api/voice-config').then(r=>r.ok?r.json():{}).then(c=>{vozDisponible=!!c.available;}).catch(()=>{});
+
+/* ── Mundo 3D ─────────────────────────────────────────────────────────────── */
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}
- if(!worldPromise)worldPromise=import('/scene.js?v=polish3').then(m=>m.createWorld(container,{onProgress:(text,f)=>{const el=$('#scene-loading');if(el){el.textContent=text;el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);container.innerHTML=`<div class="loading-error">${esc(e.message)}<br>Private phone controls do not require 3D.</div>`;});
- if(lastMode!==mode){lastMode=mode;world?.setMode(mode);}if(world)world.update(page==='home'?null:view,page==='home'?0:crowd.count);
+ if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad');if(cal)world.quality(cal);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);container.innerHTML=`<div class="loading-error">${esc(e.message)}</div>`;});
+ world?.resume?.();
+ if(lastMode!==mode){lastMode=mode;cameraIndex=0;world?.setMode(mode);}if(world)world.update(page==='home'?null:view,page==='home'?0:crowd.count);
 }
-function hideWorld(){document.body.classList.add('phone-mode');ambience.pause();radio.stop();}
-function tools(){return `<div class="game-tools">${button('<span class="tool-label">'+(profile?esc(profile.name):'My profile')+'</span>','profile','','user')}${button('<span class="tool-label">Settings</span>','settings','','settings')}${button('','fullscreen','','expand')}</div>`;}
-function home(){proximityVoice.disconnect();page='home';ensureWorld('attract');app.innerHTML=`<div class="game-shell"><div class="home-shade"></div><header class="game-top"><div class="game-top-left">${brand()}<span class="location-tag">EL COLMADO · SANTO DOMINGO</span></div>${tools()}</header><main class="title-screen"><div class="eyebrow">DOMINICAN DOMINOES</div><h1><span>Una mesa.</span><span>Tu gente.</span></h1><p>There’s always a chair at the corner.<br>Bring your people. Stay a while.</p><div class="title-actions">${button('Start a table &nbsp; ↗','host','primary','screen')}${button('A quiet practice hand','practice','','people')}${button('Join your people','join','','phone')}</div><div class="title-secondary"><button data-action="school">La escuelita ↗</button><button data-action="roadmap">The night ahead ↗</button></div></main><div id="scene-loading" class="load-status ${world?'ready':''}">Opening the colmado…</div><footer class="game-bottom"><span class="alpha-stamp">MESA / BUILD 03</span><span class="corner-copy">ONE SCREEN. FOUR PHONES. THE WHOLE CORNER.</span>${location.hostname.endsWith('.higgsfield.app')?'<span class="preview-note">Hosted preview: this domain currently requires Higgsfield sign-in.</span>':''}</footer></div>${q.has('debug')?'<div id="perf"></div>':''}`;}
-function token(){const key='mesa-seat-'+room+'-'+role;let x=localStorage.getItem(key);if(!x){x=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');localStorage.setItem(key,x);}return x;}
-function disconnect(){proximityVoice.disconnect();clearTimeout(botTimer);if(ws){ws.onclose=null;ws.close();ws=null;}connected=false;}
-function createRoom(){disconnect();practice=null;view=null;crowd={count:0,chat:[],viewers:[],muted:[],featured:false};room=nuevoCodigo();role='host';history.pushState({},'',`?room=${room}&role=host`);connect();}
-function connect(name=''){
- page='room';if(ws){ws.onclose=null;ws.close();}if(role==='player')hideWorld();else ensureWorld('game');
- if(!view)app.innerHTML=`<div class="center-screen"><div class="join-screen"><div class="eyebrow">MESA</div><h1>Pulling up<br>your chair…</h1><p>Connecting to the table.</p></div></div>`;
- ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/${encodeURIComponent(room)}`);
- ws.onopen=()=>ws.send(JSON.stringify({type:'join',role,token:token(),name:name||profile?.name||localStorage.getItem('mesa-name')||''}));
- ws.onmessage=e=>{if(e.data==='__pong')return;let m;try{m=JSON.parse(e.data);}catch{return;}if(m.type==='error'){toast(m.error);if(!view)joinScreen(m.error);return;}if(m.type==='state'){connected=true;crowd=m.crowd||crowd;receive(m.view,m.presence);}};
- ws.onclose=()=>{connected=false;const el=$('.connection');if(el){el.textContent='Reconnecting…';el.classList.add('off');}if(room)setTimeout(()=>{if(page==='room'||page==='home')connect(name);},1800);};ws.onerror=()=>{connected=false;};
-}
-function wire(msg){if(ws?.readyState===1)ws.send(JSON.stringify(msg));else toast('Wait for the table to reconnect.');}
+addEventListener('mesa:calidad',e=>almacen.set('mesa-calidad',e.detail));
+// De mando, el teléfono no dibuja la mesa: la tele ya lo hace, y así no se calienta ni gasta batería.
+function hideWorld(){document.body.classList.add('phone-mode');world?.pause?.();ambience.pause();radio.stop();}
+
+/* ── Portada ──────────────────────────────────────────────────────────────── */
+const brand=()=>`<button class="game-brand" data-action="home" aria-label="Mesa">${logo}<span class="neon">mesa</span></button>`;
+function tools(){return `<div class="game-tools">${button('<span class="tool-label">'+(profile?esc(profile.name):t('miPerfil'))+'</span>','profile','','user')}${button('<span class="tool-label">'+t('ajustes')+'</span>','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div>`;}
+function home(){disconnect();page='home';view=null;practice=null;revelado=null;etiquetas();
+ if(esTelefono)hideWorld();else{ensureWorld('attract');world?.update(null,0);}
+ const sigue=practicaGuardada();
+ app.innerHTML=`<div class="game-shell portada ${esTelefono?'sin-3d':''}"><div class="home-shade"></div>${esTelefono?`<div class="arte-fichas" aria-hidden="true">${tile(6,6)}${tile(5,3)}${tile(1,4)}</div>`:''}<header class="game-top"><div class="game-top-left">${brand()}<span class="location-tag">${t('ubicacion')}</span></div>${tools()}</header>
+  <main class="title-screen"><div class="eyebrow">${t('subtitulo')}</div><h1><span>${t('titulo1')}</span><span>${t('titulo2')}</span></h1><p>${t('lema')}</p>
+  <div class="title-actions">${esTelefono?button(t('entrarCodigo'),'join','primary','phone'):button(t('abrirMesa'),'host','primary','screen')}${sigue?button(t('seguirPractica'),'continuar','','people'):''}${button(t('practica'),'practice','','people')}${esTelefono?button(t('abrirMesa'),'host','','screen'):button(t('entrarCodigo'),'join','','phone')}</div>
+  <div class="title-secondary"><button data-action="school">${t('escuelita')} ↗</button></div></main>
+  ${esTelefono?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}<footer class="game-bottom"><span class="corner-copy">${t('lema2')}</span></footer></div>`;}
+
+/* ── Recibir estado ───────────────────────────────────────────────────────── */
 function receive(v,presence=[]){
- if(page==='room'){botChatter.update(v,role,crowd);if(room&&!practice)proximityVoice.session({room,role,token:token(),seat:v.seat,crowd});}
- const key=`${v.handNo}-${v.moves.length}-${v.phase}-${v.scores.join(',')}-${v.names.join('|')}-${v.settings.target}-${v.settings.capicua}`,changed=key!==lastEvent;view=v;view.presence=presence;if(selected&&!v.legal.some(o=>o.tile===selected))selected=null;
- if(changed){if(v.event?.type==='play')hit();else if(['domino','capicua'].includes(v.event?.type))setTimeout(()=>{hit(true);hit(true);},385);else if(v.event?.type==='tranque')hit(true);lastEvent=key;}
+ const antes=view;
+ if(page==='room'){botChatter.update(v,role,crowd);if(room&&!practice&&vozDisponible)proximityVoice.session({room,role,token:token(),seat:v.seat,crowd});}
+ const key=`${v.handNo}-${v.moves.length}-${v.phase}-${v.turn}-${v.scores.join(',')}-${v.names.join('|')}-${v.bots.join('')}-${JSON.stringify(v.settings)}-${presence.join('')}-${v.isHost}`,changed=key!==lastEvent;
+ view=v;view.presence=presence;if(selected&&!v.legal.some(o=>o.tile===selected))selected=null;
+ // Sonidos de la mesa (en la tele). La ficha suena al aterrizar (evento de la escena); aquí va lo demás.
+ const mv=`${v.handNo}:${v.moves.length}`;
+ if(mv!==movsVistos){const u=v.moves[v.moves.length-1];if(movsVistos&&u?.type==='pass'&&role!=='player')sonidos.toque();movsVistos=mv;}
+ if(v.handNo!==lastHand&&v.phase==='playing'){lastHand=v.handNo;if(role!=='player')sonidos.barajar();}
+ // En el teléfono: cuando pasa a ser tu turno, vibra, suena y la pantalla lo dice en grande.
+ if(v.seat>=0&&v.phase==='playing'){const k=`${v.handNo}:${v.moves.length}`;if(v.turn===v.seat&&turnoVisto!==k&&(!antes||antes.turn!==v.seat||antes.handNo!==v.handNo)){turnoVisto=k;vibrar(VIBRA.turno);if(role==='player')sonidos.turno();document.body.classList.remove('te-toca');void document.body.offsetWidth;document.body.classList.add('te-toca');}}
+ if(changed){lastEvent=key;}
  if(page==='room'){if(changed||!$('#room-root'))renderRoom();else{renderCrowd();world?.update(view,crowd.count);}}
- if(v.handNo!==lastHand&&v.phase==='playing'){lastHand=v.handNo;shuffleSound();}
  if(v.phase==='seriesEnd')loadProfile();
 }
-function action(a){unlockSound();if(practice){const check=rules.validateAction(practice,'local',a);if(!check.ok)return toast(check.error);practice=rules.applyAction(practice,'local',a);localStorage.setItem('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();}else wire({type:'action',action:a});}
-function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||'You','Marisol','Luis','Carmen'];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];action({type:'start'});}
-function scheduleBot(){clearTimeout(botTimer);if(!practice||practice.phase!=='playing'||practice.turn===0)return;botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id);practice=rules.applyAction(practice,id,jugadaBot(v));localStorage.setItem('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},Math.max(practice.moves.length===0?4200:0,botThinkingMs(practice.handNo,practice.moves.length,practice.turn)));}
-function turnText(){if(view.phase==='lobby')return 'There’s a chair for everyone.';if(view.phase==='seriesEnd')return 'A good night, well played.';if(view.phase==='handEnd')return 'Count it together. Then deal again.';return view.turn===view.seat?'Te toca. Your turn.':`${view.names[view.turn]}'s turn.`;}
-function score(){return `<div class="hud-score"><div class="team pair-a">PAIR A <b>${view.scores[0]}</b></div><span class="target">FIRST TO ${view.settings.target}</span><div class="team pair-b"><b>${view.scores[1]}</b> PAIR B</div></div>`;}
+
+/* ── La tele ──────────────────────────────────────────────────────────────── */
+function espera(){const r=view?.result;if(!r||!['handEnd','seriesEnd'].includes(view.phase))return 0;const k=view.handNo+':'+view.phase;if(finVisto.k!==k)finVisto={k,t:performance.now()};const e=['domino','capicua'].includes(r.type)?3.1:r.type==='tranque'?2.2:0;return Math.max(0,e-(performance.now()-finVisto.t)/1000);}
+// El marcador no se adelanta al golpe: mientras dura el corte de cámara muestra lo de antes.
+function marcador(){const falta=espera(),r=view.result,s=[...view.scores];if(falta>0&&r&&r.team!=null){s[r.team]-=r.points;setTimeout(()=>{if(page==='room')renderRoom();},falta*1000+60);}
+ const meta=view.settings.target,pct=i=>Math.min(100,Math.round(s[i]/meta*100));
+ return `<div class="pizarra">${[0,1].map(i=>`<div class="equipo pareja-${i?'b':'a'} ${view.phase==='playing'&&view.turn%2===i?'toca':''}"><span class="quienes">${parejaDe(i)}</span><b class="tanto">${s[i]}</b><i class="barra"><i style="width:${pct(i)}%"></i></i></div>`).join(`<span class="meta">${t('aDoscientos',{n:meta})}</span>`)}</div>`;}
+function turnoTexto(){if(view.phase!=='playing')return '';const i=view.turn;if(i===view.seat)return `<b>${t('teToca')}</b>`;return `${t('leToca',{nombre:`<b>${esc(nombreDe(i))}</b>`})}${view.bots[i]?` <span class="piensa">${t('pensando')}</span>`:''}`;}
 const inviteUrl=(watch=false)=>`${location.origin}/?room=${room}&role=${watch?'spectator':'player'}`;
-function lobbyPanel(){return `<aside class="lobby-panel"><div class="eyebrow">MÁNDALE EL CÓDIGO</div><h2>Pull up a chair.</h2><p>Scan with your phone, or type these four letters.</p><div class="table-code">${esc(room)}</div><div id="qr" class="qr" aria-label="QR invitation"></div><button class="text-link" data-action="copy">${icon('copy')} Copy the table link</button><div class="seat-list">${view.names.map((n,i)=>`<div class="seat-row"><span class="seat-avatar">${i+1}</span><span>${view.bots[i]?'An open chair':esc(n)}</span><small>PAIR ${i%2?'B':'A'}</small></div>`).join('')}</div>${button(view.bots.some(Boolean)?'Fill with bots & deal':'Shuffle & deal','start','primary full')}${button('House rules','house','full')}<p class="start-caption">Your partner sits across from you.</p></aside>`;}
-function handPanel(){if(view.seat<0||view.phase!=='playing')return '';return `<section class="hand-panel"><div class="hand-heading"><h3>${view.turn===view.seat?'Te toca.':'Your hand. Your business.'}</h3><span class="private">${icon('lock')} JUST YOUR TILES</span></div><div class="hand-tiles">${view.hand.map(t=>{const legal=view.legal.some(o=>o.tile===t.id);return `<button class="tile-button ${legal?'legal':''} ${selected===t.id?'selected':''}" data-tile="${t.id}" aria-label="Play ${t.a}–${t.b}" ${legal?'':'disabled'}>${tile(t.a,t.b)}</button>`;}).join('')}</div><div class="hand-actions" aria-live="polite">${selected?view.legal.filter(o=>o.tile===selected).map(o=>`<button class="g-button primary" data-play="${o.side}">${view.chain.length?`Play ${o.side} · ${o.side==='left'?view.left:view.right}`:'Open the hand'} ${icon('arrow')}</button>`).join(''):view.canPass?button('No match. Pass.','pass','primary'):`<p>${view.turn===view.seat?'Tap a lit tile. Choose an end.':esc(turnText())}</p>`}</div></section>`;}
-let finVisto={k:'',t:0};
-/* La tarjeta espera a que termine el golpe y el corte de cámara (~3 s en dominó y capicúa): si sale de una tapa la ficha que cerró la mano. */
-function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result,k=view.handNo+':'+view.phase;if(finVisto.k!==k)finVisto={k,t:performance.now()};const espera=['domino','capicua'].includes(r?.type)?3.1:r?.type==='tranque'?2.2:0,falta=Math.max(0,espera-(performance.now()-finVisto.t)/1000);return `<section class="game-result" style="animation:aparecer .45s ease ${falta.toFixed(2)}s both"><div class="eyebrow">${view.phase==='seriesEnd'?'SERIES COMPLETE':`HAND ${view.handNo} · CLOSED`}</div><h2>${r.zapato?'¡Zapato!':r.type==='capicua'?'¡Capicúa!':r.type==='tranque'?'Tranque.':'¡Dominó!'}</h2><p>${r.team===null?'Even pips. Nobody takes the points.':`Pair ${r.team===0?'A':'B'} takes ${view.phase==='seriesEnd'?'the series':'the hand'}.`}</p><div class="points">+${r.points}</div><p>${r.base} pips${r.bonus?` + ${r.bonus} capicúa`:''}</p>${view.isHost?button(view.phase==='seriesEnd'?'Another series':'Deal the next hand',view.phase==='seriesEnd'?'newSeries':'next','primary'):'<p>Waiting for the host to deal.</p>'}${button('Show the hands','reveal')}</section>`;}
+function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside class="cartel"><div class="eyebrow">${t('mandaleCodigo')}</div><h2>${t('arrimaSilla')}</h2><div class="cartel-cuerpo"><div id="qr" class="qr" aria-label="QR"></div><div><div class="table-code">${esc(room)}</div><p>${t('escaneaTelefono')}</p><button class="text-link" data-action="copy">${icon('copy')} ${t('copiarEnlace')}</button></div></div>
+ <div class="sillas">${view.names.map((n,i)=>`<div class="silla pareja-${i%2?'b':'a'} ${view.bots[i]?'libre':'llego'}"><span class="num">${i+1}</span><span>${view.bots[i]?t('sillaLibre',{bot:esc(BOTS[i])}):esc(n)}</span><small>${t('pareja',{x:i%2?'B':'A'})}</small></div>`).join('')}</div>
+ ${button(llenos<4?t('repartirConBots'):t('repartir'),'start','primary full')}${button(t('reglasCasa'),'house','full')}<p class="start-caption">${t('tuCompaneroEnfrente')}</p></aside>`;}
+function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result,falta=espera(),serie=view.phase==='seriesEnd';
+ const sello=r.zapato?t('zapato'):r.type==='capicua'?t('capicua'):r.type==='tranque'?t('tranque'):t('domino');
+ const quien=r.team===null?t('empate'):serie?t('ganaron',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))}):t('ganan',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))});
+ const puedeRepartir=view.isHost||view.seat>=0;
+ return `<section class="resultado pareja-${r.team===1?'b':r.team===0?'a':'n'}" style="animation-delay:${falta.toFixed(2)}s"><div class="eyebrow">${serie?t('serieCompleta'):t('manoCerrada',{n:view.handNo})}</div><h2 class="sello">${sello}</h2><p class="quien">${quien}</p>${r.team!=null?`<div class="points">${t('puntos',{n:r.points})}</div><p class="detalle">${r.bonus?t('pipsCapicua',{n:r.base,c:r.bonus}):t('pipsDetalle',{n:r.base})}</p>`:''}${!serie&&view.opener!=null?`<p class="sale">${t('sale',{nombre:esc(nombreDe(view.opener))})}</p>`:''}
+ <div class="acciones">${puedeRepartir?button(serie?t('otraSerie'):t('repartirOtra'),serie?'newSeries':'next','primary'):`<p>${t('esperandoReparto')}</p>`}${button(t('verManos'),'reveal')}</div></section>`;}
 function renderRoom(){page='room';if(role==='player'&&view.seat>=0){renderPhone();return;}ensureWorld('game');world?.update(view,crowd.count);
- const talkDraft=$('#chat-text')?.value||'',focus=document.activeElement?.id==='chat-text';
- app.innerHTML=`<div id="room-root" class="game-shell"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?'PRACTICE':view.phase==='lobby'?'YOUR TABLE':`HAND ${String(view.handNo).padStart(2,'0')}`}<span class="connection">${practice?'NO PRESSURE':connected?'CONNECTED':'RECONNECTING'}</span></div></div>${view.phase!=='lobby'?score():''}<div class="game-tools">${button('<span class="tool-label">Camera</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${button('','fullscreen','','expand')}</div></header><div id="seat-labels">${view.names.map((n,i)=>`<div class="seat-label pair-${i%2?'b':'a'} ${view.phase==='playing'&&i===view.turn?'active':''}" data-seatlabel="${i}">${esc(view.bots[i]&&view.phase==='lobby'?['Don Rafa','Marisol','Luis','Carmen'][i]:n)}<small>${i%2?'PAIR B':'PAIR A'}${view.bots[i]?' · BOT':''}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small></div>`).join('')}</div>${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}${view.seat>=0&&view.phase==='playing'?`<div class="game-hand-dock">${handPanel()}</div>`:`<div class="scene-help">${esc(turnText())}<small>${view.phase==='lobby'?'Pick your seats. Agree the rules. Stay a while.':'Drag to look around · Camera switches your view'}</small></div>`}<div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">Seating your people…</div><div class="game-bottom"><span class="alpha-stamp">${practice?'PRACTICE / LOCAL SAVE':'LA ESQUINA / LIVE TABLE'}</span>${practice?`<span class="niveles">${Object.entries(NIVELES).map(([k,n])=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${n.etiqueta}</button>`).join('')}</span>`:''}</div></div>${q.has('debug')?'<div id="perf"></div>':''}`;
- renderCrowd();if($('#chat-text')){$('#chat-text').value=talkDraft;if(focus)$('#chat-text').focus();}
- if($('#qr'))QRCode.toString(inviteUrl(),{type:'svg',margin:1,color:{dark:'#20392d',light:'#f3ecda'}}).then(svg=>{if($('#qr'))$('#qr').innerHTML=svg;}).catch(()=>toast('Use Copy the table link to invite your people.'));
+ const talkDraft=$('#chat-text')?.value||'',focus=document.activeElement?.id==='chat-text',jugando=view.phase==='playing';
+ app.innerHTML=`<div id="room-root" class="game-shell mesa-tv"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?t('practicaEtq'):view.phase==='lobby'?t('tuMesa'):t('mano',{n:String(view.handNo).padStart(2,'0')})}<span class="connection ${connected||practice?'':'off'}">${practice?t('sinPresion'):connected?t('conectado'):t('reconectando')}</span></div></div>${view.phase!=='lobby'?marcador():''}<div class="game-tools">${button('<span class="tool-label">'+t('camara')+'</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div></header>
+  ${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}
+  ${view.seat>=0&&jugando?`<div class="game-hand-dock">${handPanel()}</div>`:jugando?`<div class="turno-banner pareja-${view.turn%2?'b':'a'}">${turnoTexto()}</div>`:view.phase==='lobby'&&!view.isHost?`<div class="scene-help">${t('haySillaParaTodos')}</div>`:''}
+  <div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>
+  <div class="game-bottom">${practice?`<span class="niveles">${Object.keys(NIVELES).map(k=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${t('nivel_'+k)}</button>`).join('')}</span>`:''}</div></div>`;
+ etiquetas();renderCrowd();chipSonido();
+ if($('#chat-text')){$('#chat-text').value=talkDraft;if(focus)$('#chat-text').focus();}
+ if($('#qr'))QRCode.toString(inviteUrl(),{type:'svg',margin:1,color:{dark:'#1a1426',light:'#f7ecd6'}}).then(svg=>{if($('#qr'))$('#qr').innerHTML=svg;}).catch(()=>{});
 }
-function renderPhone(){hideWorld();const current=view.phase==='playing';app.innerHTML=`<main id="room-root" class="phone-only"><div class="phone-bar">${brand()}<span>${esc(view.names[view.seat])} · PAIR ${view.seat%2?'B':'A'}</span></div>${current?handPanel():view.phase==='lobby'?'<div class="phone-wait"><div class="eyebrow" style="justify-content:center">YOUR CHAIR IS READY</div><h1>You’re at the table.</h1><p>Look up. Say hello.<br>Your tiles will arrive here when the host deals.</p></div>':`<div class="phone-wait"><h1>${view.result?.type==='capicua'?'¡Capicúa!':view.result?.type==='tranque'?'Tranque.':'¡Dominó!'}</h1><p>Look at the table for the count.<br>Your next hand will appear here.</p></div>`}<div class="phone-bottom"><span class="connection ${connected?'':'off'}">${connected?'Connected · your tiles stay private':'Reconnecting…'}</span><button data-action="school">A little help ↗</button></div></main>`;}
+/* Etiquetas de los asientos en una capa que no se borra con cada jugada: antes nacían sin
+   posición y parpadeaban en la esquina de arriba hasta que la escena las movía. */
+function etiquetas(){let capa=$('#etiquetas');if(!capa){capa=document.createElement('div');capa.id='etiquetas';document.body.appendChild(capa);}
+ if(!view||page!=='room'||(role==='player'&&view.seat>=0)){capa.innerHTML='';return;}
+ view.names.forEach((n,i)=>{let el=capa.querySelector(`[data-seatlabel="${i}"]`);if(!el){el=document.createElement('div');el.dataset.seatlabel=i;el.style.visibility='hidden';capa.appendChild(el);}
+  const humano=!view.bots[i],presente=!humano||view.presence?.[i]!==false;
+  for(const [c,on] of [['seat-label',1],['pair-a',i%2===0],['pair-b',i%2===1],['active',view.phase==='playing'&&i===view.turn],['dormido',!presente&&view.phase!=='lobby']])el.classList.toggle(c,!!on);
+  el.innerHTML=`<span class="nombre">${esc(nombreDe(i))}</span><small>${t('pareja',{x:i%2?'B':'A'})}${view.bots[i]?' · BOT':''}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small>`;});}
+
+/* ── La mano (teléfono y dock de práctica) ────────────────────────────────── */
+const ordenar=h=>[...h].sort((x,y)=>(Math.max(y.a,y.b)-Math.max(x.a,x.b))||(Math.min(y.a,y.b)-Math.min(x.a,x.b)));
+function puntas(){if(!view.chain.length)return '';return `<div class="puntas"><span class="punta izq" title="${view.left}">${half(view.left)}</span><span class="linea"></span><span class="punta der" title="${view.right}">${half(view.right)}</span></div>`;}
+function handPanel(){if(view.seat<0||view.phase!=='playing')return '';const miTurno=view.turn===view.seat;
+ const opciones=selected?view.legal.filter(o=>o.tile===selected):[];
+ let acciones;
+ if(selected&&opciones.length>1)acciones=`<p class="pregunta">${t('porCual')}</p><div class="lados">${opciones.map(o=>`<button class="lado ${o.side==='left'?'izq':'der'}" data-play="${o.side}">${half(o.side==='left'?view.left:view.right)}<span>${o.side==='left'?'◀':'▶'}</span></button>`).join('')}</div>`;
+ else if(view.canPass)acciones=`<button class="g-button primary paso" data-action="pass">${t('paso')}</button><p class="nota">${view.left===view.right?t('noLlevasUno',{a:view.left}):t('noLlevas',{a:view.left,b:view.right})}</p>`;
+ else acciones=miTurno?`<p class="nota">${t('tocaFicha')}</p>`:'';
+ return `<section class="hand-panel ${miTurno?'mi-turno':''}"><div class="hand-heading"><h3>${miTurno?t('teToca'):turnoTexto()}</h3>${puntas()}</div><div class="hand-tiles">${ordenar(view.hand).map(x=>{const pega=view.legal.some(o=>o.tile===x.id);return `<button class="tile-button ${miTurno?(pega?'pega':'no-pega'):''} ${selected===x.id?'selected':''}" data-tile="${x.id}" aria-label="${x.a}–${x.b}">${tile(x.a,x.b)}</button>`;}).join('')}</div><div class="hand-actions" aria-live="polite">${acciones}</div></section>`;}
+function tocarFicha(id){if(view.turn!==view.seat){vibrar(VIBRA.elegir);return;}const ops=view.legal.filter(o=>o.tile===id);if(!ops.length){vibrar(VIBRA.error);return;}
+ // Una sola manera de jugarla (o las dos puntas iguales): se juega de un toque.
+ if(ops.length===1||!view.chain.length||view.left===view.right){jugar(id,ops[0].side);return;}
+ selected=selected===id?null:id;vibrar(VIBRA.elegir);renderRoom();}
+function jugar(id,side){vibrar(VIBRA.jugar);const b=document.querySelector(`[data-tile="${id}"]`);if(b)b.classList.add('lanzada');if(role==='player')sonidos.ficha();selected=null;setTimeout(()=>action({type:'play',tile:id,side}),b?140:0);}
+function ultimaJugada(){const u=view.moves[view.moves.length-1];if(!u)return view.opener!=null&&view.phase==='playing'?t('sale3',{nombre:esc(nombreDe(view.opener))}):'';if(u.type==='pass')return t('paso3',{nombre:esc(nombreDe(u.seat))});const [a,b]=String(u.tile).split('-');return t('jugo',{nombre:esc(nombreDe(u.seat)),a,b});}
+function renderPhone(){hideWorld();const s=view.seat,mia=s%2,compa=(s+2)%4,jugando=view.phase==='playing';
+ const top=`<header class="control-top"><div class="yo"><b>${esc(view.names[s])}</b><span class="pareja pareja-${mia?'b':'a'}">${t('conCompanero',{nombre:esc(corto(nombreDe(compa)))})}</span></div><div class="mini-marcador"><span class="pareja-${mia?'b':'a'}">${t('nosotros')} <b>${view.scores[mia]}</b></span><span class="pareja-${mia?'a':'b'}">${t('ellos')} <b>${view.scores[1-mia]}</b></span></div></header>`;
+ let cuerpo;
+ if(jugando)cuerpo=`<p class="ultima">${ultimaJugada()}</p>${handPanel()}`;
+ else if(view.phase==='lobby')cuerpo=`<div class="phone-wait"><div class="eyebrow">${t('tuSillaLista')}</div><h1>${t('estasEnMesa')}</h1><p>${t('miraArriba')}</p></div>`;
+ else{const r=view.result,gano=r?.team===mia,parejo=r?.team==null;cuerpo=`<div class="phone-wait fin ${parejo?'':gano?'gano':'perdio'}"><div class="eyebrow">${r?.zapato?t('zapato'):r?.type==='capicua'?t('capicua'):r?.type==='tranque'?t('tranque'):t('domino')}</div><h1>${parejo?t('parejo'):gano?t('ganamos'):t('perdimos')}</h1>${!parejo&&gano?`<div class="points">${t('puntos',{n:r.points})}</div>`:''}<p>${r?.pips?t('tusPuntos',{n:r.pips[s]}):''}${view.opener!=null&&view.phase==='handEnd'?'<br>'+t('sale',{nombre:esc(nombreDe(view.opener))}):''}</p>${view.phase!=='playing'?button(view.phase==='seriesEnd'?t('otraSerie'):t('repartirOtra'),view.phase==='seriesEnd'?'newSeries':'next','primary full'):''}</div>`;
+  if(r&&finVisto.k!==view.handNo+':'+view.phase){finVisto={k:view.handNo+':'+view.phase,t:performance.now()};if(gano)vibrar(VIBRA.gano);}}
+ app.innerHTML=`<main id="room-root" class="phone-only control pareja-${mia?'b':'a'} ${jugando&&view.turn===s?'mi-turno':''}">${top}${cuerpo}<div class="te-toca-flash" aria-hidden="true">${t('teToca')}</div><footer class="phone-bottom"><span class="connection ${connected?'':'off'}">${connected?t('conectado'):t('reconectando')}</span><button data-action="school">${t('unaAyudita')}</button><button data-action="salir">${icon('exit')}</button></footer></main>`;}
+
+/* ── El público ───────────────────────────────────────────────────────────── */
 function visibleMessages(){return (crowd.chat||[]).filter(m=>!muted.has(m.sender)&&!(crowdMuted&&m.role==='spectator'));}
-function renderCrowd(){const root=$('#crowd-ui');if(!root||practice)return;const draft=$('#chat-text')?.value||'',focused=document.activeElement?.id==='chat-text';const messages=visibleMessages();
- root.innerHTML=`<div class="crowd-toggle">${crowd.featured?'<span class="alpha-stamp">CORNER SPOTLIGHT</span>':''}<button class="g-button" data-action="chat"><span class="crowd-led"></span><span id="viewer-count">${crowd.count}</span> watching ${icon('chat')}</button></div>${chatOpen?`<aside class="crowd-chat"><div class="chat-top"><strong>Talk to the table.</strong><button data-action="crowd-mute">${crowdMuted?'Unmute crowd':'Mute crowd'}</button></div><div class="chat-messages">${messages.length?messages.map(m=>`<div class="chat-message"><strong>${esc(m.name)}${m.role==='spectator'?' · CROWD':''}${m.sender!==crowd.you?`<button data-mute="${m.sender}">Mute for me</button>${view.isHost?`<button data-moderate="${m.sender}">${crowd.muted?.includes(m.sender)?'Unmute room':'Mute room'}</button>`:''}`:''}</strong>${esc(m.text)}</div>`).join(''):'<p class="tiny">Say something to the corner. Everyone at the table can read it.</p>'}</div><form class="chat-form" id="chat-form"><input id="chat-text" name="message" maxlength="180" autocomplete="off" aria-label="Message to the table" placeholder="Dime a ver…"><button class="g-button primary" type="submit" aria-label="Send message">↑</button></form><div class="chat-caption">Text chat · spectators never see live hands.<br>${crowd.count>8?'Up to 8 audience characters shown for performance.':''}</div><div style="display:flex;gap:10px;margin-top:10px"><button class="text-link" data-action="watch-link">Invite spectators ↗</button>${view.isHost?`<button class="text-link" data-action="feature">${crowd.featured?'End spotlight':'Spotlight this table'}</button>`:''}</div></aside>`:''}`;
+function renderCrowd(){const root=$('#crowd-ui');if(!root||practice)return;const draft=$('#chat-text')?.value||'',focused=document.activeElement?.id==='chat-text',messages=visibleMessages();
+ root.innerHTML=`<div class="crowd-toggle">${crowd.count||chatOpen?`<button class="g-button" data-action="chat"><span class="crowd-led"></span>${t('mirando',{n:crowd.count})} ${icon('chat')}</button>`:`<button class="g-button solo-icono" data-action="chat" aria-label="Chat">${icon('chat')}</button>`}</div>${chatOpen?`<aside class="crowd-chat"><div class="chat-top"><strong>${t('hablaleMesa')}</strong><button data-action="crowd-mute">${crowdMuted?t('oirPublico'):t('silenciarPublico')}</button></div><div class="chat-messages">${messages.length?messages.map(m=>`<div class="chat-message"><strong>${esc(m.name)}${m.role==='spectator'?t('publico'):''}${m.sender!==crowd.you?`<button data-mute="${esc(m.sender)}">${t('silenciar')}</button>`:''}</strong>${esc(m.text)}</div>`).join(''):`<p class="tiny">${t('diAlgo')}</p>`}</div><form class="chat-form" id="chat-form"><input id="chat-text" name="message" maxlength="180" autocomplete="off" aria-label="Chat" placeholder="${t('dimeAVer')}"><button class="g-button primary" type="submit" aria-label="Enviar">↑</button></form><div style="display:flex;gap:10px;margin-top:10px"><button class="text-link" data-action="watch-link">${t('invitarPublico')} ↗</button></div></aside>`:''}`;
  if($('#chat-text')){$('#chat-text').value=draft;if(focused)$('#chat-text').focus();}const list=$('.chat-messages');if(list)list.scrollTop=list.scrollHeight;
- const m=messages[messages.length-1];if(m&&m.id!==lastBubble&&!chatOpen&&Date.now()-m.at<12000){lastBubble=m.id;const el=document.createElement('div');el.className='chat-bubble';el.innerHTML=`<b>${esc(m.name)} · ${m.role==='spectator'?'FROM THE CROWD':'AT THE TABLE'}</b>${esc(m.text)}`;root.append(el);setTimeout(()=>el.remove(),6500);}
-}
-function joinScreen(error=''){page='join';if(role==='player')hideWorld();else ensureWorld('attract');app.innerHTML=`<div class="center-screen"><section class="join-screen"><div class="eyebrow">${role==='spectator'?'THE CORNER IS OPEN':'THERE’S A CHAIR FOR YOU'}</div><h1>${role==='spectator'?'Come watch<br>the table.':'Bienvenido.<br>Who’s joining?'}</h1><p>No Mesa account needed. Just your name.</p><form id="join-form"><label class="field">Your name<input name="name" maxlength="24" autocomplete="given-name" required value="${esc(profile?.name||localStorage.getItem('mesa-name')||'')}" placeholder="What do your people call you?"></label><button class="g-button primary full" type="submit">${role==='spectator'?'Join the crowd':'Take my seat'} ${icon('arrow')}</button><p class="form-error">${esc(error)}</p></form>${role!=='spectator'?'<button class="text-link" data-action="watch">Just here to watch? ↗</button>':''}</section></div>`;}
-function openModal(title,body){modal.innerHTML=`<div class="modal-top"><h2>${title}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></div>${body}`;if(!modal.open)modal.showModal();}
-const lessons=[{title:'Two ends. One simple rule.',body:'Match either open end. When the table shows a 6 at one end and a 3 at the other, play a tile with a 6 or a 3. At the real table, only legal tiles light up.',question:'The ends are 6 and 3. What fits?',choices:[{a:2,b:5,ok:false},{a:4,b:6,ok:true},{a:1,b:3,ok:true}],yes:'Eso es. Match a 6 or a 3, and you’re in.',no:'Neither a 6 nor a 3. Try another.'},{title:'A pass tells you something.',body:'No boneyard. Every tile is already in someone’s hand. A player only passes when neither open end fits. Your partner sits across from you: remember what they cannot play.',question:'The ends are 2 and 5. Your partner passes.',choices:[{text:'They have no 2 and no 5.',ok:true},{text:'They have no doubles.',ok:false},{text:'They want me to pass.',ok:false}],yes:'Exactly. That is public information you can use on your next turn.',no:'A pass only proves they cannot match either end.'},{title:'Count it together.',body:'Play your last tile and take the opponents’ remaining pips. In a tranque, the lighter pair wins the opponents’ pips. A closing tile that could fit either end earns the agreed capicúa bonus.',question:'Your pair has 18 pips. Theirs has 31. Tranque. How many points do you earn?',choices:[{text:'13 points',ok:false},{text:'31 points',ok:true},{text:'49 points',ok:false}],yes:'31. You take their pips, not the difference.',no:'Count the opponents’ pips, not the difference or both pairs together.'}];
-function school(){const l=lessons[lesson];openModal('La escuelita.',`<div class="school-lessons"><div class="lesson-tabs">${lessons.map((x,i)=>`<button class="lesson-tab ${i===lesson?'active':''}" data-lesson="${i}">${i+1}. ${['Match','Read','Count'][i]}</button>`).join('')}</div><h3>${l.title}</h3><p>${l.body}</p><div class="notice">${l.question}</div><div class="hand-tiles">${l.choices.map((c,i)=>c.text?`<button class="g-button full" data-answer="${i}">${c.text}</button>`:`<button class="tile-button" data-answer="${i}" aria-label="Try ${c.a}–${c.b}">${tile(c.a,c.b)}</button>`).join('')}</div><div class="exercise-result" role="status">No stakes. Give it a try.</div><div class="divider"></div><p class="tiny">${role==='player'?'This help stays on your phone.':'Open this before a deal to learn together.'} Partnership coaching is planned; these are the foundations.</p></div>`);}
-function settings(){openModal('Set the mood.',`<label class="check"><input id="sound-setting" type="checkbox" ${sound?'checked':''}> Tile and table sounds</label><label class="check"><input id="bot-voice-setting" type="checkbox" ${botChatter.enabled?'checked':''}> Bot voices · spatial audio</label><button class="text-link" data-action="bot-voice-demo">Hear the four voices ↗</button><label class="check"><input id="ambient-setting" type="checkbox" ${ambientOn?'checked':''}> Colmado ambience</label><label class="check"><input id="radio-setting" type="checkbox" ${radio.on?'checked':''}> Colmado radio (bachata)</label><label class="check"><input id="motion-setting" type="checkbox" ${document.documentElement.classList.contains('reduced')?'checked':''}> Reduce motion</label><label class="field">Scene quality<select id="quality-setting"><option value="high">Full lighting</option><option value="low">Lighter — fewer shadows</option></select></label><div class="divider"></div><label class="field">Your Suno soundtrack<input id="music-file" type="file" accept="audio/*"></label><p class="account-note">Add a music file from your device. It stays here, separate from the street and the table.</p>${music?button(musicMuted?'Play music':'Mute music only','music'):''}${muted.size?button('Unmute people I muted','unmute-all','full'):''}<div class="divider"></div>${button('The domino rules','rules','full')}${button('My profile','profile','full')}${button('All set','close','primary full')}`);}
-function house(){openModal('Your table. Your rules.',`<p class="modal-copy">Agree before the first deal. Rules stay locked for the series.</p><form id="house-form"><label class="field">Points to win<select name="target">${[100,200,300].map(n=>`<option ${view.settings.target===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">Capicúa bonus<select name="capicua">${[0,25,50].map(n=>`<option ${view.settings.capicua===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">Tied tranque<select name="tie"><option value="blocker" ${view.settings.tie==='blocker'?'selected':''}>The blocking pair takes it</option><option value="none" ${view.settings.tie==='none'?'selected':''}>No points</option></select></label><label class="check"><input name="allPips" type="checkbox" ${view.settings.allPips?'checked':''}> Count all four hands</label><button class="g-button primary full">Set house rules</button></form>`);}
-function rulesModal(){openModal('Así se juega.',`<p class="modal-copy">28 tiles. Four people. Fixed partners across the table. No boneyard.</p><div class="history-row"><strong>First hand</strong><span>Double six opens.</span></div><div class="history-row"><strong>Dominó</strong><span>Last tile out → opponents’ pips.</span></div><div class="history-row"><strong>Tranque</strong><span>Lighter pair → opponents’ pips.</span></div><div class="history-row"><strong>Capicúa</strong><span>Closing tile fits both ends → bonus.</span></div><div class="history-row"><strong>Zapato</strong><span>A series with no points conceded.</span></div><p class="modal-copy" style="margin-top:20px">The winner opens the next hand. After a tranque, the person who blocked it opens. House rules settle tied tranques and scoring variations before the deal.</p>${button('Back to the table','close','primary full')}`);}
-function reveal(){openModal('Now we can show our hands.',`<div class="reveal-hands">${view.revealed.map((h,i)=>`<div class="reveal-row"><strong>${esc(view.names[i])} · ${view.result.pips[i]} pips</strong><div>${h.length?h.map(t=>tile(t.a,t.b)).join(''):'No tiles left.'}</div></div>`).join('')}</div><div class="divider"></div>${button('Download hand record','replay','full')}${button('Back to the table','close','primary full')}`);}
-async function api(path,input){const r=await fetch('/api/'+path,{method:input?'POST':'GET',credentials:'include',headers:input?{'content-type':'application/json'}:{},body:input?JSON.stringify(input):undefined});const b=await r.json();if(!r.ok)throw Error(b.error||'Please try again.');return b;}
+ // Las burbujas van en su propia capa: el siguiente estado ya no las borra antes de tiempo.
+ const m=messages[messages.length-1];if(m&&m.id!==lastBubble&&!chatOpen&&Date.now()-m.at<12000){lastBubble=m.id;let capa=$('#burbujas');if(!capa){capa=document.createElement('div');capa.id='burbujas';document.body.appendChild(capa);}const el=document.createElement('div');el.className='chat-bubble';el.innerHTML=`<b>${esc(m.name)} · ${m.role==='spectator'?t('desdePublico'):t('enLaMesa')}</b>${esc(m.text)}`;capa.append(el);setTimeout(()=>el.remove(),6500);}}
+
+/* ── Pantallas de entrar ──────────────────────────────────────────────────── */
+function joinScreen(error=''){page='join';if(role==='player'||esTelefono)hideWorld();else ensureWorld('attract');const espectador=role==='spectator';
+ app.innerHTML=`<div class="center-screen"><section class="join-screen"><div class="eyebrow">${espectador?t('laEsquinaAbierta'):t('hayUnaSilla')}</div><h1>${espectador?t('veAMirar'):t('bienvenido')}</h1><p>${t('sinCuenta')}</p><form id="join-form"><label class="field">${t('tuNombre')}<input name="name" maxlength="24" autocomplete="given-name" enterkeyhint="go" required value="${esc(profile?.name||almacen.get('mesa-name',''))}" placeholder="${t('comoTeDicen')}"></label><button class="g-button primary full" type="submit">${espectador?t('mirar'):t('sentarme')} ${icon('arrow')}</button><p class="form-error">${esc(error)}</p></form>${espectador?'':`<button class="text-link" data-action="watch">${t('soloMirar')} ↗</button>`}</section></div>`;}
+function openModal(title,body){modal.innerHTML=`<div class="modal-top"><h2>${title}</h2><button class="close" data-action="close" aria-label="Cerrar">×</button></div>${body}`;if(!modal.open)modal.showModal();}
+function school(){const ls=LECCIONES[idioma()],l=ls[lesson];openModal(t('escuelitaTitulo'),`<div class="school-lessons"><div class="lesson-tabs">${ls.map((x,i)=>`<button class="lesson-tab ${i===lesson?'active':''}" data-lesson="${i}">${i+1}. ${x.tab}</button>`).join('')}</div><h3>${l.title}</h3><p>${l.body}</p><div class="notice">${l.question}</div><div class="hand-tiles">${l.choices.map((c,i)=>c.text?`<button class="g-button full" data-answer="${i}">${c.text}</button>`:`<button class="tile-button" data-answer="${i}" aria-label="${c.a}–${c.b}">${tile(c.a,c.b)}</button>`).join('')}</div><div class="exercise-result" role="status">${t('sinApuesta')}</div><div class="divider"></div><p class="tiny">${role==='player'?t('ayudaTelefono'):t('ayudaMesa')}</p></div>`);}
+function settings(){const hayRadio=radio.lista===null||radio.lista.length>0;openModal(t('ponleAmbiente'),`<label class="check"><input id="sound-setting" type="checkbox" ${sound?'checked':''}> ${t('sonidosMesa')}</label><label class="check"><input id="bot-voice-setting" type="checkbox" ${botChatter.enabled?'checked':''}> ${t('vocesBots')}</label><button class="text-link" data-action="bot-voice-demo">${t('oirVoces')} ↗</button><label class="check"><input id="ambient-setting" type="checkbox" ${ambientOn?'checked':''}> ${t('ambienteColmado')}</label>${hayRadio?`<label class="check"><input id="radio-setting" type="checkbox" ${radio.on?'checked':''}> ${t('radioColmado')}</label>`:''}<label class="check"><input id="motion-setting" type="checkbox" ${document.documentElement.classList.contains('reduced')?'checked':''}> ${t('menosMovimiento')}</label>
+ <label class="field">${t('calidad')}<select id="quality-setting"><option value="high" ${almacen.get('mesa-calidad')!=='low'?'selected':''}>${t('calidadAlta')}</option><option value="low" ${almacen.get('mesa-calidad')==='low'?'selected':''}>${t('calidadBaja')}</option></select></label>
+ <label class="field">${t('idioma')}<select id="idioma-setting"><option value="es" ${idioma()==='es'?'selected':''}>Español</option><option value="en" ${idioma()==='en'?'selected':''}>English</option></select></label>
+ <div class="divider"></div><label class="field">${t('tuMusica')}<input id="music-file" type="file" accept="audio/*"></label><p class="account-note">${t('tuMusicaNota')}</p>${music?button(musicMuted?'▶':'■','music'):''}${muted.size?button(t('quitarMutes'),'unmute-all','full'):''}<div class="divider"></div>${button(t('reglasJuego'),'rules','full')}${button(t('miPerfil'),'profile','full')}${button(t('listo2'),'close','primary full')}`);}
+function house(){const s=view.settings;openModal(t('tuMesaTusReglas'),`<p class="modal-copy">${t('acuerdenAntes')}</p><form id="house-form"><label class="field">${t('puntosGanar')}<select name="target">${[100,200,300].map(n=>`<option ${s.target===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">${t('bonoCapicua')}<select name="capicua">${[0,25,50].map(n=>`<option ${s.capicua===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">${t('tranqueParejo')}<select name="tie"><option value="blocker" ${s.tie==='blocker'?'selected':''}>${t('ganaQuienTranco')}</option><option value="none" ${s.tie==='none'?'selected':''}>${t('nadie')}</option></select></label><label class="check"><input name="allPips" type="checkbox" ${s.allPips?'checked':''}> ${t('contarTodas')}</label><label class="check"><input name="capicuaDistinct" type="checkbox" ${s.capicuaDistinct?'checked':''}> ${t('capicuaDistinta')}</label><button class="g-button primary full">${t('ponerReglas')}</button></form>`);}
+function rulesModal(){openModal(t('asiSeJuega'),`<p class="modal-copy">${t('reglasIntro')}</p>${[['primeraMano','primeraManoTxt'],['domino','dominoTxt'],['tranque','tranqueTxt'],['capicua','capicuaTxt'],['zapato','zapatoTxt']].map(([a,b])=>`<div class="history-row"><strong>${t(a)}</strong><span>${t(b)}</span></div>`).join('')}<p class="modal-copy" style="margin-top:20px">${t('reglasCierre')}</p>${button(t('volverMesa'),'close','primary full')}`);}
+function reveal(){openModal(t('manosAbiertas'),`<div class="reveal-hands">${view.revealed.map((h,i)=>`<div class="reveal-row pareja-${i%2?'b':'a'}"><strong>${esc(nombreDe(i))} · ${view.result.pips[i]}</strong><div>${h.length?ordenar(h).map(x=>tile(x.a,x.b)).join(''):t('sinFichas')}</div></div>`).join('')}</div><div class="divider"></div>${button(t('descargarMano'),'replay','full')}${button(t('volverMesa'),'close','primary full')}`);}
+
+/* ── Cuentas ──────────────────────────────────────────────────────────────── */
+async function api(path,input){const r=await fetch('/api/'+path,{method:input?'POST':'GET',credentials:'include',headers:input?{'content-type':'application/json'}:{},body:input?JSON.stringify(input):undefined});let b={};try{b=await r.json();}catch{}if(!r.ok)throw Error(b.error||'Please try again.');return b;}
 async function loadProfile(){try{profile=(await api('me')).profile;}catch{profile=null;}}
-async function showProfile(){await loadProfile();if(!profile){showAuth();return;}openModal('Your place at the table.',`<div class="eyebrow">@${esc(profile.username)} · MEMBER SINCE ${new Date(profile.createdAt).getFullYear()}</div><div class="profile-stats"><div><b>${profile.games}</b><span>SERIES</span></div><div><b>${profile.wins}</b><span>WINS</span></div><div><b>${profile.losses}</b><span>LOSSES</span></div></div><p class="account-note">${profile.games?Math.round(profile.wins/profile.games*100)+'% win rate.':'Your first result is still ahead.'} Casual table series only. Sign in before joining a table to record results. On-device practice is not counted. Ranked records are not active.</p><form id="profile-form"><label class="field">Display name<input name="name" value="${esc(profile.name)}" maxlength="24" required></label><label class="field">Country (optional)<input name="country" value="${esc(profile.country)}" maxlength="40" placeholder="Dominican Republic"></label><label class="field">Age band (optional · private)<select name="ageBand">${['','18–24','25–34','35–44','45–54','55–64','65+'].map(x=>`<option value="${x}" ${profile.ageBand===x?'selected':''}>${x||'Prefer not to say'}</option>`).join('')}</select></label><p class="account-note">Your age band is visible only to you. Wins and losses are written by the game, never editable.</p><button class="g-button primary full">Save profile</button><p class="form-error" id="account-error"></p></form><button class="text-link" data-action="logout">Sign out of Mesa</button>`);}
-function showAuth(){openModal('Keep your seat.',`<div class="profile-tabs"><button data-auth="login" class="${authMode==='login'?'active':''}">Sign in</button><button data-auth="signup" class="${authMode==='signup'?'active':''}">Create profile</button></div><p class="modal-copy">Guests can always play with just a name. A profile keeps your results across devices.</p><form id="auth-form">${authMode==='signup'?'<label class="field">Display name<input name="name" maxlength="24" autocomplete="nickname" required></label>':''}<label class="field">Username<input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" required placeholder="3–20 letters, numbers or underscores"></label><label class="field">Password<input name="password" type="password" minlength="12" maxlength="128" autocomplete="${authMode==='signup'?'new-password':'current-password'}" required placeholder="At least 12 characters"></label><button class="g-button primary full">${authMode==='signup'?'Create my profile':'Sign in'}</button><p class="form-error" id="account-error"></p></form>${authMode==='signup'?'<p class="account-note">Save your password securely. Email-based password recovery is not available in this alpha.</p>':''}`);}
-async function copyLink(watch=false){try{await navigator.clipboard.writeText(inviteUrl(watch));toast(watch?'Spectator link copied. Bring the corner.':'Copied. Mándale el link.');}catch{openModal('Mándale el link.',`<label class="field">Copy this invitation<input readonly value="${esc(inviteUrl(watch))}" onclick="this.select()"></label>`);}}
+async function showProfile(){await loadProfile();if(!profile){showAuth();return;}openModal(t('tuLugar'),`<div class="eyebrow">@${esc(profile.username)} · ${t('miembroDesde',{n:new Date(profile.createdAt).getFullYear()})}</div><div class="profile-stats"><div><b>${profile.games}</b><span>${t('series')}</span></div><div><b>${profile.wins}</b><span>${t('victorias')}</span></div><div><b>${profile.losses}</b><span>${t('derrotas')}</span></div></div><form id="profile-form"><label class="field">${t('nombrePantalla')}<input name="name" value="${esc(profile.name)}" maxlength="24" required></label><label class="field">${t('pais')}<input name="country" value="${esc(profile.country)}" maxlength="40" placeholder="República Dominicana"></label><label class="field">${t('edad')}<select name="ageBand">${['','18–24','25–34','35–44','45–54','55–64','65+'].map(x=>`<option value="${x}" ${profile.ageBand===x?'selected':''}>${x||t('prefieroNo')}</option>`).join('')}</select></label><button class="g-button primary full">${t('guardarPerfil')}</button><p class="form-error" id="account-error"></p></form><button class="text-link" data-action="logout">${t('salirCuenta')}</button>`);}
+function showAuth(){openModal(t('guardaTuSilla'),`<div class="profile-tabs"><button data-auth="login" class="${authMode==='login'?'active':''}">${t('entrarCuenta')}</button><button data-auth="signup" class="${authMode==='signup'?'active':''}">${t('crearPerfil')}</button></div><p class="modal-copy">${t('invitadosPueden')}</p><form id="auth-form">${authMode==='signup'?`<label class="field">${t('nombrePantalla')}<input name="name" maxlength="24" autocomplete="nickname" required></label>`:''}<label class="field">${t('usuario')}<input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" required></label><label class="field">${t('clave')}<input name="password" type="password" minlength="12" maxlength="128" autocomplete="${authMode==='signup'?'new-password':'current-password'}" required></label><button class="g-button primary full">${authMode==='signup'?t('crearPerfil'):t('entrarCuenta')}</button><p class="form-error" id="account-error"></p></form>`);}
+async function copyLink(watch=false){try{await navigator.clipboard.writeText(inviteUrl(watch));toast(watch?t('copiadoPublico'):t('copiado'));}catch{openModal(t('copiado'),`<label class="field"><input readonly value="${esc(inviteUrl(watch))}" onclick="this.select()"></label>`);}}
+function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
+
+/* ── Eventos ──────────────────────────────────────────────────────────────── */
 document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
- if(b.dataset.tile){selected=b.dataset.tile;renderRoom();return;}
- if(b.dataset.nivel){nivel=b.dataset.nivel;localStorage.setItem('mesa-nivel',nivel);renderRoom();return;}
- if(b.dataset.play){action({type:'play',tile:selected,side:b.dataset.play});return;}
+ if(b.id==='chip-sonido'){unlockSound();return;}
+ if(b.dataset.tile){tocarFicha(b.dataset.tile);return;}
+ if(b.dataset.nivel){nivel=b.dataset.nivel;almacen.set('mesa-nivel',nivel);renderRoom();return;}
+ if(b.dataset.play){jugar(selected,b.dataset.play);return;}
  if(b.dataset.lesson!==undefined){lesson=Number(b.dataset.lesson);school();return;}
- if(b.dataset.answer!==undefined){const l=lessons[lesson],correct=l.choices[Number(b.dataset.answer)].ok;$('.exercise-result').textContent=correct?l.yes:l.no;if(correct){unlockSound();hit();}return;}
+ if(b.dataset.answer!==undefined){const l=LECCIONES[idioma()][lesson],correct=l.choices[Number(b.dataset.answer)].ok;$('.exercise-result').textContent=correct?l.yes:l.no;if(correct){unlockSound();sonidos.ficha();}else vibrar(VIBRA.error);return;}
  if(b.dataset.auth){authMode=b.dataset.auth;showAuth();return;}
- if(b.dataset.mute){muted.add(b.dataset.mute);localStorage.setItem('mesa-muted',JSON.stringify([...muted]));renderCrowd();return;}
- if(b.dataset.moderate){wire({type:'moderate',sender:b.dataset.moderate,muted:!crowd.muted?.includes(b.dataset.moderate)});return;}
+ if(b.dataset.mute){muted.add(b.dataset.mute);almacen.set('mesa-muted',JSON.stringify([...muted]));renderCrowd();return;}
  const a=b.dataset.action;if(!a)return;
- if(a==='bot-voice-demo'){const setting=$('#bot-voice-setting');if(setting)setting.checked=true;botChatter.preview();}
- else if(a==='home'){modal.close();home();}
+ if(a==='bot-voice-demo'){const setting=$('#bot-voice-setting');if(setting)setting.checked=true;unlockSound();botChatter.preview();}
+ else if(a==='home'){if(page==='room'&&role==='player'&&view?.seat>=0&&!confirm(t('salirSeguro')))return;modal.close();home();}
+ else if(a==='salir'){if(!confirm(t('salirSeguro')))return;almacen.del('mesa-seat-'+room+'-'+role);history.pushState({},'','/');home();}
+ else if(a==='reintentar'){conexion.intentos=0;connect();}
  else if(a==='host'){role='host';unlockSound();createRoom();}
  else if(a==='practice'){modal.close();role='practice';unlockSound();startPractice();}
- else if(a==='join')openModal('Find your people.',`<p class="modal-copy">Scan the QR at the table, or type the four letters on the screen.</p><form id="link-form"><label class="field">Table code<input name="code" class="code-input" required maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label><button class="g-button primary full">Join the table</button></form>`);
+ else if(a==='continuar'){modal.close();unlockSound();seguirPractica();}
+ else if(a==='join')openModal(t('buscaTuGente'),`<p class="modal-copy">${t('escaneaOCodigo')}</p><form id="link-form"><label class="field">${t('codigoMesa')}<input name="code" class="code-input" required autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="ABCD"></label><button class="g-button primary full">${t('entrar')}</button></form>`);
  else if(a==='watch'){role='spectator';history.replaceState({},'',`?room=${room}&role=spectator`);joinScreen();}
  else if(a==='school')school();else if(a==='settings')settings();else if(a==='house')house();else if(a==='rules')rulesModal();else if(a==='close')modal.close();
- else if(['start','next','newSeries','pass'].includes(a)){modal.close();action({type:a});}
+ else if(['start','next','newSeries','pass'].includes(a)){modal.close();if(a==='pass'){vibrar(VIBRA.paso);if(role==='player')sonidos.toque();}action({type:a});}
  else if(a==='copy')copyLink();else if(a==='watch-link')copyLink(true);
  else if(a==='chat'){chatOpen=!chatOpen;renderCrowd();}
- else if(a==='unmute-all'){muted.clear();localStorage.setItem('mesa-muted','[]');renderCrowd();settings();toast('Personal mutes cleared.');}
- else if(a==='crowd-mute'){crowdMuted=!crowdMuted;localStorage.setItem('mesa-crowd-muted',crowdMuted?'yes':'no');renderCrowd();}
- else if(a==='feature'){wire({type:'feature',enabled:!crowd.featured});if(!crowd.featured)toast('Table spotlight on. Share the spectator link.');}
- else if(a==='camera'){cameraIndex=(cameraIndex+1)%4;world?.setCamera(['table','overhead','close','seat'][cameraIndex]);toast(['Table view','Board view','Close-up','From your seat'][cameraIndex]);}
- else if(a==='fullscreen'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.().catch(()=>toast('Full screen is not available here.'));}
+ else if(a==='unmute-all'){muted.clear();almacen.set('mesa-muted','[]');renderCrowd();settings();}
+ else if(a==='crowd-mute'){crowdMuted=!crowdMuted;almacen.set('mesa-crowd-muted',crowdMuted?'yes':'no');renderCrowd();}
+ else if(a==='camera'){cameraIndex=(cameraIndex+1)%4;world?.setCamera(['table','overhead','close','seat'][cameraIndex]);toast([t('vistaMesa'),t('vistaTablero'),t('vistaCerca'),t('vistaSilla')][cameraIndex]);}
+ else if(a==='fullscreen'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.().catch(()=>toast(t('noPantallaCompleta')));}
  else if(a==='profile')showProfile();
- else if(a==='logout'){try{await api('logout',{});profile=null;toast('Signed out of Mesa.');authMode='login';showAuth();}catch(e){toast(e.message);}}
+ else if(a==='logout'){try{await api('logout',{});profile=null;toast(t('sesionCerrada'));authMode='login';showAuth();}catch(err){toast(err.message);}}
  else if(a==='music'){musicMuted=!musicMuted;music.muted=musicMuted;if(!musicMuted)music.play().catch(()=>{});settings();}
- else if(a==='roadmap')openModal('The whole corner.',`<p class="modal-copy">This alpha brings the table into a real 3D scene, with private phone hands, profiles, and spectators who can talk to the table through text chat.</p><div class="notice">Corner Spotlight is a host-selected live table—not yet an automatically chosen Game of the Night. Up to 8 crowd characters represent viewers; the count always shows actual connected spectators.</div><p class="modal-copy">Still ahead: live spectator voice, automatic nightly selection and replay viewing, decision-based ranked play, richer partnership coaching, payments, and account-free independent hosting.</p>${button('Back to the corner','close','primary full')}`);
  else if(a==='reveal')reveal();
- else if(a==='replay'&&view.replay){const blob=new Blob([JSON.stringify({...view.replay,names:view.names,settings:view.settings},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`mesa-hand-${view.handNo}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+ else if(a==='replay'&&view.replay){const blob=new Blob([JSON.stringify({...view.replay,names:view.names,settings:view.settings},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`mesa-mano-${view.handNo}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 });
 document.addEventListener('submit',async e=>{
  const f=e.target;if(!['join-form','link-form','house-form','chat-form','auth-form','profile-form'].includes(f.id))return;e.preventDefault();const data=new FormData(f);
- if(f.id==='join-form'){const name=String(data.get('name')).trim();if(!name)return;localStorage.setItem('mesa-name',name);unlockSound();connect(name);}
+ if(f.id==='join-form'){const name=String(data.get('name')).trim();if(!name)return;almacen.set('mesa-name',name);unlockSound();connect(name);}
  else if(f.id==='link-form'){const bruto=String(data.get('code')||'').trim();let r=null,papel='player';
-  // Cuatro letras es lo normal. Un enlace pegado sigue valiendo: aceptarlo no cuesta nada
-  // y las mesas abiertas con el código largo de antes tienen que poder entrar igual.
-  if(/^[A-Za-z]{4}$/.test(bruto)) r=bruto.toUpperCase();
+  // Cuatro letras es lo normal; también vale un enlace pegado entero.
+  const letras=bruto.replace(/[^A-Za-z]/g,'');
+  if(/^[A-Za-z]{4}$/.test(bruto)||(!bruto.includes('/')&&letras.length===4))r=letras.toUpperCase();
   else{try{const url=new URL(bruto,location.origin),q2=url.searchParams.get('room');if(q2){r=normSala(q2);papel=url.searchParams.get('role')==='spectator'?'spectator':'player';}}catch{}}
-  if(!r||!/^[A-Za-z0-9_-]{1,64}$/.test(r)){toast('Four letters, like the ones on the table screen.');return;}
+  if(!r||!/^[A-Za-z0-9_-]{1,64}$/.test(r)){toast(t('cuatroLetras'));vibrar(VIBRA.error);return;}
   disconnect();view=null;practice=null;room=r;role=papel;history.pushState({},'',`?room=${room}&role=${role}`);modal.close();joinScreen();}
- else if(f.id==='house-form'){action({type:'settings',settings:{target:Number(data.get('target')),capicua:Number(data.get('capicua')),tie:data.get('tie'),allPips:data.has('allPips')}});modal.close();}
+ else if(f.id==='house-form'){action({type:'settings',settings:{target:Number(data.get('target')),capicua:Number(data.get('capicua')),tie:data.get('tie'),allPips:data.has('allPips'),capicuaDistinct:data.has('capicuaDistinct')}});modal.close();}
  else if(f.id==='chat-form'){const text=String(data.get('message')).trim();if(text){wire({type:'chat',text});$('#chat-text').value='';}}
  else if(f.id==='auth-form'||f.id==='profile-form'){
   const b=f.querySelector('button[type="submit"],button');b.disabled=true;$('#account-error').textContent='';try{
    const payload=f.id==='auth-form'?{username:data.get('username'),password:data.get('password'),name:data.get('name')}:{name:data.get('name'),country:data.get('country'),ageBand:data.get('ageBand'),avatar:profile.avatar};
-   profile=(await api(f.id==='auth-form'?authMode:'profile',payload)).profile;localStorage.setItem('mesa-name',profile.name);await showProfile();toast(f.id==='auth-form'?'Your Mesa profile is ready.':'Profile saved.');
+   profile=(await api(f.id==='auth-form'?authMode:'profile',payload)).profile;almacen.set('mesa-name',profile.name);await showProfile();toast(f.id==='auth-form'?t('perfilListo'):t('perfilGuardado'));
   }catch(error){$('#account-error').textContent=error.message;b.disabled=false;}
  }
 });
+document.addEventListener('input',e=>{if(e.target.classList?.contains('code-input')){const v=e.target.value.replace(/[^A-Za-z]/g,'').toUpperCase();if(!e.target.value.includes('/')&&v.length<=4)e.target.value=v;}});
 document.addEventListener('change',e=>{
- if(e.target.id==='bot-voice-setting'){botChatter.setEnabled(e.target.checked);if(e.target.checked)botChatter.unlock();}
- if(e.target.id==='sound-setting'){sound=e.target.checked;localStorage.setItem('mesa-sound',sound?'on':'off');if(sound)unlockSound();}
+ if(e.target.id==='bot-voice-setting'){botChatter.setEnabled(e.target.checked);if(e.target.checked)unlockSound();}
+ if(e.target.id==='sound-setting'){sound=e.target.checked;sonidos.activo=sound;almacen.set('mesa-sound',sound?'on':'off');if(sound)unlockSound();chipSonido();}
  if(e.target.id==='radio-setting'){radio.set(e.target.checked);if(e.target.checked)unlockSound();}
- if(e.target.id==='ambient-setting'){ambientOn=e.target.checked;localStorage.setItem('mesa-ambience',ambientOn?'on':'off');if(ambientOn)unlockSound();else ambience.pause();}
- if(e.target.id==='motion-setting'){document.documentElement.classList.toggle('reduced',e.target.checked);localStorage.setItem('mesa-motion',e.target.checked?'off':'on');}
- if(e.target.id==='quality-setting')world?.quality(e.target.value);
- if(e.target.id==='music-file'&&e.target.files[0]){radio.stop();if(music){music.pause();URL.revokeObjectURL(music.src);}music=new Audio(URL.createObjectURL(e.target.files[0]));music.volume=.18;music.loop=true;musicMuted=false;music.play().catch(()=>toast('Tap play to start your soundtrack.'));settings();}
+ if(e.target.id==='ambient-setting'){ambientOn=e.target.checked;almacen.set('mesa-ambience',ambientOn?'on':'off');if(ambientOn)unlockSound();else ambience.pause();}
+ if(e.target.id==='motion-setting'){document.documentElement.classList.toggle('reduced',e.target.checked);almacen.set('mesa-motion',e.target.checked?'off':'on');}
+ if(e.target.id==='quality-setting'){almacen.set('mesa-calidad',e.target.value);world?.quality(e.target.value);}
+ if(e.target.id==='idioma-setting'){ponerIdioma(e.target.value);location.reload();}
+ if(e.target.id==='music-file'&&e.target.files[0]){radio.stop();if(music){music.pause();URL.revokeObjectURL(music.src);}music=new Audio(URL.createObjectURL(e.target.files[0]));music.volume=.18;music.loop=true;musicMuted=false;music.play().catch(()=>{});settings();}
 });
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});
-document.addEventListener('visibilitychange',()=>{if(ws?.readyState===1)wire({type:document.hidden?'away':'heartbeat'});if(!document.hidden){if(ambientOn&&role!=='player'&&audioContext)ambience.play().catch(()=>{});if(audioContext||botChatter.context)radio.start();}});
-setInterval(()=>{if(ws?.readyState===1&&!document.hidden)wire({type:'heartbeat'});},5000);
-window.addEventListener('popstate',()=>location.reload());
-if(localStorage.getItem('mesa-motion')==='off')document.documentElement.classList.add('reduced');
-if(room&&/^[A-Za-z0-9_-]{1,64}$/.test(room)){if(role==='host'||localStorage.getItem('mesa-seat-'+room+'-'+role))connect();else joinScreen();}
-else if(q.has('practice')){try{const saved=localStorage.getItem('mesa-practice');if(!saved)throw 0;practice=JSON.parse(saved);role='practice';page='room';receive(rules.viewFor(practice,'local'));scheduleBot();}catch{startPractice();}}
+document.addEventListener('visibilitychange',()=>{
+ if(ws?.readyState===1)wire({type:document.hidden?'away':'heartbeat'},true);
+ if(!document.hidden){pedirWakeLock();
+  // Al volver: si la conexión se murió mientras el teléfono dormía, se reconecta ya, sin esperar.
+  if(page==='room'&&room&&!practice&&(!ws||ws.readyState>1)){conexion.intentos=0;connect();}
+  if(ambientOn&&role!=='player'&&!sonidos.suspendido)ambience.play().catch(()=>{});if(!sonidos.suspendido)radio.start();}});
+addEventListener('online',()=>{if(page==='room'&&room&&!practice&&!connected){conexion.intentos=0;connect();}});
+// Atajos en la tele: C cambia la cámara, F pantalla completa, Enter reparte la siguiente.
+document.addEventListener('keydown',e=>{if(e.target.closest?.('input,textarea,select')||modal.open)return;const k=e.key.toLowerCase();
+ if(k==='c'&&page==='room'&&role!=='player')$('[data-action="camera"]')?.click();
+ else if(k==='f')$('[data-action="fullscreen"]')?.click();
+ else if(k==='enter'&&page==='room'&&view&&['handEnd','seriesEnd'].includes(view.phase)&&(view.isHost||view.seat>=0))action({type:view.phase==='seriesEnd'?'newSeries':'next'});});
+// En la tele los botones se esconden solos si nadie toca nada: la mesa se ve limpia.
+let quieto=null;const despierta=()=>{document.body.classList.remove('quieto');clearTimeout(quieto);if(!esTelefono)quieto=setTimeout(()=>{if(page==='room'&&role!=='player'&&!modal.open)document.body.classList.add('quieto');},4500);};
+for(const ev of ['pointermove','pointerdown','keydown'])addEventListener(ev,despierta,{passive:true});
+// El botón atrás del teléfono no te saca de la mesa sin preguntar.
+window.addEventListener('popstate',()=>{if(page==='room'&&role==='player'&&view?.seat>=0&&!confirm(t('salirSeguro'))){history.pushState({},'',location.href);return;}location.reload();});
+
+/* ── Arranque ─────────────────────────────────────────────────────────────── */
+if(almacen.get('mesa-motion')==='off')document.documentElement.classList.add('reduced');
+if(room&&/^[A-Za-z0-9_-]{1,64}$/.test(room)){if(role==='host'||almacen.get('mesa-seat-'+room+'-'+role))connect();else joinScreen();}
+else if(q.has('practice')){const p=practicaGuardada();if(p){practice=p;role='practice';page='room';lastHand=p.handNo;receive(rules.viewFor(practice,'local'));scheduleBot();}else startPractice();}
 else home();
 loadProfile();
+if(!esTelefono)radio.cargar();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});

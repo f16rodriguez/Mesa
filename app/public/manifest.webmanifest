@@ -1,1 +1,1 @@
-{"name":"Mesa — Dominican dominoes","short_name":"Mesa","start_url":"/","display":"standalone","background_color":"#f6f4ed","theme_color":"#234d3e","description":"One screen. Four phones. Your people."}
+{"name":"Mesa — Dominó dominicano","short_name":"Mesa","lang":"es","start_url":"/","scope":"/","display":"standalone","orientation":"any","background_color":"#0f0b1a","theme_color":"#0f0b1a","description":"Una pantalla. Cuatro teléfonos. Tu gente.","icons":[{"src":"/icono.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

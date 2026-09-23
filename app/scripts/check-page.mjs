@@ -25,7 +25,7 @@ if (!chromium) {
 }
 
 const tipos = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json',
-  '.webmanifest':'application/manifest+json','.mp3':'audio/mpeg','.glb':'model/gltf-binary','.webp':'image/webp'};
+  '.webmanifest':'application/manifest+json','.mp3':'audio/mpeg','.glb':'model/gltf-binary','.webp':'image/webp','.svg':'image/svg+xml','.woff2':'font/woff2','.m4a':'audio/mp4'};
 const server = Bun.serve({ port: 0, async fetch(req) {
   const p = new URL(req.url).pathname;
   const file = Bun.file(resolve(client, (p === '/' ? '/index.html' : p).slice(1)));

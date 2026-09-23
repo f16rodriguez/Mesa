@@ -20,7 +20,7 @@ const LINES={
 };
 const POSITIONS=[[0,1.18,1.01],[-1.01,1.18,0],[0,1.18,-1.01],[1.01,1.20,0]];
 export const botChatter={
- enabled:localStorage.getItem('mesa-bot-voices')!=='off',context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},
+ enabled:(()=>{try{return localStorage.getItem('mesa-bot-voices')!=='off';}catch{return true;}})(),context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},
  /* Pull the next line for a bot, shuffled-bag style: every variant is heard
     once before any is heard twice. Plain random repeats far more often than
     people expect — with four clips it replays the same one a quarter of the
@@ -40,7 +40,7 @@ export const botChatter={
   }
   const i=bag.pop();this.lastPick[key]=i;return pool[i];
  },
- setEnabled(value){this.enabled=value;localStorage.setItem('mesa-bot-voices',value?'on':'off');if(!value&&this.source){try{this.source.stop();}catch{}}},
+ setEnabled(value){this.enabled=value;try{localStorage.setItem('mesa-bot-voices',value?'on':'off');}catch{}if(!value&&this.source){try{this.source.stop();}catch{}}},
  unlock(){if(!this.enabled)return;this.context??=new (window.AudioContext||window.webkitAudioContext)();return this.context.resume();},
  position(role,view,crowd){if(!this.context)return;let pos=[0,1.30,1.85],forward=[0,0,-1];if(role==='practice'){pos=POSITIONS[0];}else if(role==='spectator'){const i=Math.max(0,(crowd?.viewers||[]).findIndex(v=>v.id===crowd.you));pos=[-2.5+(i%4)*1.66,1.3,-2.5-Math.floor(i/4)*.65];const length=Math.hypot(pos[0],pos[2]);forward=[-pos[0]/length,0,-pos[2]/length];}const l=this.context.listener;if(l.positionX){l.positionX.value=pos[0];l.positionY.value=pos[1];l.positionZ.value=pos[2];l.forwardX.value=forward[0];l.forwardY.value=0;l.forwardZ.value=forward[2];l.upX.value=0;l.upY.value=1;l.upZ.value=0;}else{l.setPosition(...pos);l.setOrientation(...forward,0,1,0);}},
  async buffer(seat,file){const key=CAST[seat]+'/'+file;if(!this.cache.has(key)){const r=await fetch('/audio/bots/'+key+'.mp3');if(!r.ok)throw Error('Missing bot voice');this.cache.set(key,await this.context.decodeAudioData(await r.arrayBuffer()));}return this.cache.get(key);},

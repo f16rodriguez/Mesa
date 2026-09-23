@@ -3,6 +3,8 @@ import QRCode from './qr.js';
 import {botThinkingMs} from './bot-rhythm.js';
 import {botChatter} from './bot-chatter.js';
 import {chooseMove} from './bot.js';
+// El mismo reloj de pensar que usa el servidor: la voz sabe cuánto le queda al bot.
+botChatter.pensar=botThinkingMs;
 import {proximityVoice} from './proximity-voice.js';
 const $=s=>document.querySelector(s),app=$('#app'),modal=$('#modal');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -113,6 +113,32 @@ describe('the room clock',()=>{
  });
 });
 
+describe('a finished series',()=>{
+ it('is saved before it is recorded, and a failed profile write is retried',async()=>{
+  const username=('u'+crypto.randomUUID().replaceAll('-','')).slice(0,18);
+  const res=await SELF.fetch('https://game.test/api/signup',{method:'POST',headers:{origin:'https://game.test','content-type':'application/json','cf-connecting-ip':crypto.randomUUID()},body:JSON.stringify({username,password:'Mesa-correct-horse-2026',name:'Ana'})});
+  const profileId=((await res.json()) as any).profile.id;
+  const now=Date.now(),g=table(now);const s=g.state;
+  // Seat 3 (a bot) goes out with its last tile and takes the series.
+  s.scores=[0,195];s.turn=3;s.chain=[{...t(1,2),x:1,y:2,seat:0}];s.left=1;s.right=2;s.hands[3]=[t(2,4)];s.moves=[{type:'play',seat:0,tile:'1-2',side:'right'}];
+  g.members.a.profileId=profileId;g.botKey=botTurnKey(1,1,3);g.botDue=now-1;
+  await inRoom(g,async(room,state)=>{
+   const db=room.env.DB,down={prepare(){throw Error('D1 is down');},batch(){throw Error('D1 is down');}};
+   room.env={...room.env,DB:down};
+   await room.alarm();
+   let h=await stored(state);
+   expect(h.state.phase).toBe('seriesEnd');expect(h.recorded).toBe(true);
+   expect(h.pendingRecords).toHaveLength(1);expect(h.retryAt).toBeGreaterThan(now);
+   expect(await state.storage.getAlarm()).toBeLessThanOrEqual(h.retryAt);
+   room.env={...room.env,DB:db};
+   await room.flushRecords();
+   h=await stored(state);expect(h.pendingRecords).toBeUndefined();
+   const p:any=await db.prepare('SELECT games,wins,losses FROM profiles WHERE id=?').bind(profileId).first();
+   expect(p).toEqual({games:1,wins:0,losses:1});
+  });
+ });
+});
+
 describe('names at the table',()=>{
  it('strips control, bidi and zero-width characters and caps at 24 code points',()=>{
   expect(cleanName('  Ana‮​ María\t\n Pérez ')).toBe('Ana María Pérez');
@@ -134,5 +160,11 @@ describe('names at the table',()=>{
   const v=(await host.next(f=>f.type==='state'&&f.view.phase==='playing')).view;
   expect(v.names).toEqual(['evil name','Jugador',BOT_NAMES[2],BOT_NAMES[3]]);expect(BOT_NAMES).toEqual(['Don Rafa','Marisol','Luis','Carmen']);
   [host,a,b].forEach(x=>x.ws.close());
+ });
+ it('lets a player in as a guest when the profile database is down',async()=>{
+  const room=crypto.randomUUID(),stub=stubFor(room);
+  await run(stub,async(r)=>{r.env={...r.env,DB:{prepare(){throw Error('D1 is down');},batch(){throw Error('D1 is down');}}};});
+  const res=await SELF.fetch('https://game.test/ws/'+room,{headers:{Upgrade:'websocket',cookie:'mesa_session='+'ab'.repeat(32)}});
+  expect(res.status).toBe(101);res.webSocket!.accept();res.webSocket!.close();
  });
 });

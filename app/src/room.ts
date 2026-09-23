@@ -18,6 +18,8 @@ export const AUTO_DEAL_MS=15000;
 export const IDLE_TTL_MS=12*3600*1000;
 /** A covered seat with no legal tile knocks this fast: there is nothing to think about. */
 export const FORCED_PASS_MS=1000;
+/** How often a finished series that did not reach the profile database is retried. */
+export const RECORD_RETRY_MS=60000;
 /** Before the first bot move of a hand: the deal animation. After a human move: a beat. */
 const AFTER_DEAL_MS=4200,AFTER_HUMAN_MS=1500;
 /** The same four the client shows in the lobby. */
@@ -25,8 +27,12 @@ export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
 
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number};
 type Chat={id:string;sender:string;name:string;text:string;role:string;at:number};
+type Participant={id:string;won:boolean;ownScore:number;opponentScore:number};
 type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];featured:boolean;seriesId:string;
+ /** The finished series has been queued for the profile database (not necessarily written yet). */
  recorded?:boolean;
+ /** Finished series still to be written to D1, oldest first; retried from the alarm. */
+ pendingRecords?:{seriesId:string;participants:Participant[]}[];retryAt?:number;
  /** When the current hand closed, for the automatic deal. */
  closedAt?:number;
  lastCrowd?:number;botDue?:number;botKey?:string};
@@ -74,6 +80,7 @@ export function nextWake(g:Store,now:number,crowd:Member[]){
  const due=[lastActivity(g)+IDLE_TTL_MS],s=g.state;
  if(s.phase==='playing'){if(g.botDue!==undefined)due.push(g.botDue);else{const t=coverAt(g,s.turn,now);if(t!==null)due.push(t);}}
  const deal=autoDealAt(g,now);if(deal!==null)due.push(deal);
+ if(g.pendingRecords?.length)due.push(g.retryAt??now);
  for(const m of crowd)due.push(m.lastSeen+CROWD_MS);
  return Math.max(now+50,Math.min(...due));
 }
@@ -91,6 +98,7 @@ export function coverMove(s:any,id:string,choose:(v:any)=>any=chooseMove):any{
 export const freshSeed=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
 export function freshGame(){return {status:'waiting',seats:[] as string[],state:null,result:null};}
 export function resolveMeta(raw:unknown){const m=(raw??{}) as Record<string,any>,arr=Array.isArray(m.players)?m.players:[];const n=(v:unknown,f:number)=>Number.isInteger(v)&&Number(v)>=1?Number(v):f;const min=n(m.minPlayers,n(arr[0],1));return {game:[m.game,m.name,m.title].find(x=>typeof x==='string'&&x.trim())??'Game',minPlayers:min,maxPlayers:Math.max(min,n(m.maxPlayers,n(arr[1],min)))};}
+type Later=(()=>Promise<unknown>)[];
 export class Room extends DurableObject<Env>{
  constructor(ctx:DurableObjectState,env:Env){super(ctx,env);ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('__ping','__pong'));}
  override async fetch(request:Request){
@@ -102,7 +110,10 @@ export class Room extends DurableObject<Env>{
   if(request.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});
   const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return new Response('Origin not allowed',{status:403});
   if(this.ctx.getWebSockets().length>=32)return new Response('Table connection limit reached',{status:429});
-  const profile=await accountFor(request,this.env),pair=new WebSocketPair();this.ctx.acceptWebSocket(pair[1]);pair[1].serializeAttachment({id:null,roomName:new URL(request.url).pathname.replace(/^\/ws\/?/,'')||'main',profileId:profile?.id||null,profileName:cleanName(profile?.display_name)||null});
+  // A profile is a nicety. If its database is down, sit down as a guest
+  // rather than being turned away from the table.
+  let profile:any=null;try{profile=await accountFor(request,this.env);}catch(err){console.error('profile lookup failed; joining as a guest',err);}
+  const pair=new WebSocketPair();this.ctx.acceptWebSocket(pair[1]);pair[1].serializeAttachment({id:null,roomName:new URL(request.url).pathname.replace(/^\/ws\/?/,'')||'main',profileId:profile?.id||null,profileName:cleanName(profile?.display_name)||null});
   return new Response(null,{status:101,webSocket:pair[0]});
  }
  private send(ws:WebSocket,data:unknown){try{ws.send(JSON.stringify(data));}catch{}}
@@ -144,17 +155,38 @@ export class Room extends DurableObject<Env>{
   const wake=nextWake(g,now,crowd);
   if(await this.ctx.storage.getAlarm()!==wake)await this.ctx.storage.setAlarm(wake);
  }
- private async finish(g:Store){
-  if(g.state.phase!=='seriesEnd'||g.recorded)return;
-  const winner=g.state.result.team,participants=g.state.players.flatMap((id:string,seat:number)=>{const p=g.members[id]?.profileId;return p?[{id:p,won:seat%2===winner,ownScore:g.state.scores[seat%2],opponentScore:g.state.scores[1-seat%2]}]:[];});
-  await recordSeries(this.env,g.seriesId,participants);g.recorded=true;
+ /** Queue a just-finished series for the profile database. The write itself
+  *  happens after the state is saved, outside the table's lock. */
+ private queueSeries(g:Store,now:number){
+  if(g.state.phase!=='seriesEnd'||g.recorded)return false;
+  g.recorded=true;
+  const winner=g.state.result.team,participants:Participant[]=g.state.players.flatMap((id:string,seat:number)=>{const p=g.members[id]?.profileId;return p?[{id:p,won:seat%2===winner,ownScore:g.state.scores[seat%2],opponentScore:g.state.scores[1-seat%2]}]:[];});
+  if(!participants.length)return false;
+  g.pendingRecords=[...(g.pendingRecords??[]),{seriesId:g.seriesId,participants}].slice(-20);g.retryAt=now+RECORD_RETRY_MS;
+  return true;
  }
- override async webSocketMessage(ws:WebSocket,raw:string|ArrayBuffer){
+ /** Write queued series to D1. Safe to repeat: recordSeries ignores a series it already has. */
+ private async flushRecords(){
+  const queue=(await this.load())?.pendingRecords;if(!queue?.length)return;
+  const done=new Set<string>();
+  for(const r of queue){try{await recordSeries(this.env,r.seriesId,r.participants);done.add(r.seriesId);}catch(err){console.error('series not recorded yet; will retry',err);break;}}
   await this.ctx.blockConcurrencyWhile(async()=>{
-   try{await this.handle(ws,raw);}catch(err){console.error(err);this.error(ws,'The table could not process that request. Please try again.');}
+   const g=await this.load();if(!g)return;
+   const left=(g.pendingRecords??[]).filter(r=>!done.has(r.seriesId));
+   if(left.length){g.pendingRecords=left;g.retryAt=Date.now()+RECORD_RETRY_MS;}else{delete g.pendingRecords;delete g.retryAt;}
+   await this.commit(g,{broadcast:false});
   });
  }
- private async handle(ws:WebSocket,raw:string|ArrayBuffer){
+ /** External calls (D1, voice) run after the lock is released, one by one. */
+ private async runLater(tasks:Later){for(const task of tasks){try{await task();}catch(err){console.error('deferred task failed',err);}}}
+ override async webSocketMessage(ws:WebSocket,raw:string|ArrayBuffer){
+  const later:Later=[];
+  await this.ctx.blockConcurrencyWhile(async()=>{
+   try{await this.handle(ws,raw,later);}catch(err){console.error(err);this.error(ws,'The table could not process that request. Please try again.');}
+  });
+  await this.runLater(later);
+ }
+ private async handle(ws:WebSocket,raw:string|ArrayBuffer,later:Later){
   if(typeof raw!=='string'||raw.length>4096)return this.error(ws,'Message too large.');
   let msg:any;try{msg=JSON.parse(raw);}catch{return this.error(ws,'Invalid message.');}if(!msg||typeof msg!=='object')return this.error(ws,'Invalid message.');
   let g=await this.load();const now=Date.now();
@@ -204,7 +236,7 @@ export class Room extends DurableObject<Env>{
     if(typeof msg.sender!=='string'||!Object.values(g.members).some(m=>m.publicId===msg.sender&&m.id!==g!.state.hostId))return this.error(ws,'Choose a table participant.');
     const sender:string=msg.sender,allow=msg.muted===false,roomName=ws.deserializeAttachment()?.roomName||'main';
     g.muted=allow?g.muted.filter(x=>x!==sender):[...new Set([...g.muted,sender])];
-    await setVoicePublish(this.env,roomName,sender,allow);
+    later.push(()=>setVoicePublish(this.env,roomName,sender,allow).catch(err=>{console.error(err);this.error(ws,'Voice moderation did not complete.');}));
    }
    await this.commit(g);return;
   }
@@ -215,10 +247,12 @@ export class Room extends DurableObject<Env>{
   if(type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
   g.state=logic.applyAction(g.state,id,msg.action);
   if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
-  await this.finish(g);
+  const queued=this.queueSeries(g,now);
   await this.commit(g,{minimumDelay:type==='start'||type==='next'?AFTER_DEAL_MS:AFTER_HUMAN_MS});
+  if(queued)later.push(()=>this.flushRecords());
  }
  override async alarm(){
+  const later:Later=[];
   await this.ctx.blockConcurrencyWhile(async()=>{
    const g=await this.load();if(!g)return;
    const now=Date.now();
@@ -239,9 +273,11 @@ export class Room extends DurableObject<Env>{
     const at=autoDealAt(g,now),dealer=s.hostId;
     if(at!==null&&at<=now&&logic.validateAction(s,dealer,{type:'next'}).ok){s.seed=freshSeed();g.state=logic.applyAction(s,dealer,{type:'next'});changed=true;minimumDelay=AFTER_DEAL_MS;}
    }
-   const wasRecorded=g.recorded;await this.finish(g);
+   const wasRecorded=g.recorded,queued=this.queueSeries(g,now);
    await this.commit(g,{dirty:changed||g.recorded!==wasRecorded,broadcast:changed,minimumDelay});
+   if(queued||(g.pendingRecords?.length&&now>=(g.retryAt??0)))later.push(()=>this.flushRecords());
   });
+  await this.runLater(later);
  }
  override async webSocketClose(ws:WebSocket){const id=ws.deserializeAttachment()?.id;if(!id)return;await this.ctx.blockConcurrencyWhile(async()=>{const g=await this.load();if(!g||!g.members[id])return;const another=this.ctx.getWebSockets().some(other=>other!==ws&&other.deserializeAttachment()?.id===id);if(!another){markAway(g.members[id]!,Date.now());await this.commit(g);}});}
  override async webSocketError(ws:WebSocket){await this.webSocketClose(ws);}

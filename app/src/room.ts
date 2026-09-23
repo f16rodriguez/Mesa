@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
 import * as logic from './logic.js';
-import { accountFor, recordSeries } from './accounts';
+import { accountFor, cleanName, cleanText, recordSeries } from './accounts';
 import {botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
 import {joinVoice,setVoicePublish} from './voice';
@@ -29,6 +29,8 @@ export function botMayCover(g:any,seat:number,now:number){
 /** 32 bytes from the platform CSPRNG, as hex: the key logic.js deals from.
  *  A new one before every deal, so no hand says anything about the next. */
 export const freshSeed=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
+/** The same four the client shows in the lobby. */
+export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
 export function freshGame(){return {status:'waiting',seats:[] as string[],state:null,result:null};}
 export function resolveMeta(raw:unknown){const m=(raw??{}) as Record<string,any>,arr=Array.isArray(m.players)?m.players:[];const n=(v:unknown,f:number)=>Number.isInteger(v)&&Number(v)>=1?Number(v):f;const min=n(m.minPlayers,n(arr[0],1));return {game:[m.game,m.name,m.title].find(x=>typeof x==='string'&&x.trim())??'Game',minPlayers:min,maxPlayers:Math.max(min,n(m.maxPlayers,n(arr[1],min)))};}
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;profileId?:string;lastChat?:number};
@@ -45,7 +47,7 @@ export class Room extends DurableObject<Env>{
   if(request.headers.get('Upgrade')!=='websocket')return new Response('WebSocket required',{status:426});
   const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return new Response('Origin not allowed',{status:403});
   if(this.ctx.getWebSockets().length>=32)return new Response('Table connection limit reached',{status:429});
-  const profile=await accountFor(request,this.env),pair=new WebSocketPair();this.ctx.acceptWebSocket(pair[1]);pair[1].serializeAttachment({id:null,roomName:new URL(request.url).pathname.replace(/^\/ws\/?/,'')||'main',profileId:profile?.id||null,profileName:profile?.display_name||null});
+  const profile=await accountFor(request,this.env),pair=new WebSocketPair();this.ctx.acceptWebSocket(pair[1]);pair[1].serializeAttachment({id:null,roomName:new URL(request.url).pathname.replace(/^\/ws\/?/,'')||'main',profileId:profile?.id||null,profileName:cleanName(profile?.display_name)||null});
   return new Response(null,{status:101,webSocket:pair[0]});
  }
  private send(ws:WebSocket,data:unknown){try{ws.send(JSON.stringify(data));}catch{}}
@@ -87,7 +89,7 @@ export class Room extends DurableObject<Env>{
     if(!g.members[id]){
      if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
      const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
-     const name=(typeof msg.name==='string'?msg.name.trim().slice(0,24):'')||att?.profileName||(role==='host'?'Host':'Neighbor');
+     const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
      if(role==='player'){
       if(g.state.phase!=='lobby')return this.error(ws,'This hand has started. Watch this table, or use your original phone to return.');
       const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All four seats are taken. You can still watch.');
@@ -107,7 +109,7 @@ export class Room extends DurableObject<Env>{
    member.lastSeen=Date.now();member.away=false;
    if(msg.type==='chat'){
     if(g.muted.includes(member.publicId))return this.error(ws,'The host has muted your messages at this table.');
-    const text=typeof msg.text==='string'?msg.text.trim().replace(/[\u0000-\u001f]/g,' '):'';
+    const text=cleanText(msg.text,Infinity);
     if(!text||text.length>180)return this.error(ws,'Keep table talk between 1 and 180 characters.');
     if(Date.now()-(member.lastChat||0)<2500)return this.error(ws,'Let the table breathe. Wait a moment between messages.');
     member.lastChat=Date.now();g.chat.push({id:crypto.randomUUID(),sender:member.publicId,name:member.name,text,role:member.role,at:Date.now()});g.chat=g.chat.slice(-40);await this.save(g);this.broadcast(g);return;
@@ -123,7 +125,7 @@ export class Room extends DurableObject<Env>{
    if(['start','next','newSeries'].includes(msg.action.type))g.state.seed=freshSeed();
    if(msg.action.type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
    g.state=logic.applyAction(g.state,id,msg.action);
-   if(msg.action.type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?['Don Rafa','Marisol','Tío Luis','Carmen'][i]:n);
+   if(msg.action.type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
    await this.finish(g);await this.save(g);this.broadcast(g);await this.schedule(g,msg.action.type==='start'||msg.action.type==='next'?4200:1500);
   }catch(err){console.error(err);this.error(ws,'The table could not process that request. Please try again.');}
  });}

@@ -1,6 +1,21 @@
 import type {Env} from './env';
 const COOKIE='mesa_session';
 const hex=(b:ArrayBuffer)=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('');
+/**
+ * Text one person typed that everyone else at the table will see. Control
+ * characters become spaces; format characters go (bidi overrides and isolates
+ * can reorder a whole scoreboard, zero-width ones make two names look alike),
+ * as do private-use and lone surrogates; whitespace runs collapse to one
+ * space. Capped in code points, so a surrogate pair is never cut in half.
+ * Returns '' when nothing visible is left — the caller picks the fallback.
+ */
+export function cleanText(raw:unknown,max:number){
+ if(typeof raw!=='string')return '';
+ const text=raw.normalize('NFC').replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu,' ').replace(/[\p{Cf}\p{Co}\p{Cs}]/gu,'').replace(/[\s\p{Zs}]+/gu,' ').trim();
+ return Array.from(text).slice(0,max).join('').trim();
+}
+/** A display name: cleanText, at most 24 code points. */
+export const cleanName=(raw:unknown)=>cleanText(raw,24);
 export const hash=async(s:string)=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)));
 async function passwordHash(password:string,salt:string){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:100000},key,256));}
 export async function ensureDb(env:Env){await env.DB.batch([
@@ -27,9 +42,9 @@ export async function accountRoute(req:Request,env:Env){const url=new URL(req.ur
  if(route==='/api/logout'){const token=req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(token)).run();return json({ok:true},200,`${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);}
  if(route==='/api/profile'){
    const p=await accountFor(req,env);if(!p)return json({error:'Sign in to save your profile.'},401);
-   const name=typeof input.name==='string'?input.name.trim():'';const country=typeof input.country==='string'?input.country.trim():'';
+   const name=cleanText(input.name,25),country=cleanText(input.country,41);
    const ageBand=['','18–24','25–34','35–44','45–54','55–64','65+'].includes(input.ageBand)?input.ageBand:'';
-   if(name.length<1||name.length>24||country.length>40||!Number.isInteger(input.avatar)||input.avatar<0||input.avatar>3)return json({error:'Check your name, country and character.'},400);
+   if(!name||Array.from(name).length>24||Array.from(country).length>40||!Number.isInteger(input.avatar)||input.avatar<0||input.avatar>3)return json({error:'Check your name, country and character.'},400);
    await env.DB.prepare('UPDATE profiles SET display_name=?,country=?,age_band=?,avatar=? WHERE id=?').bind(name,country,ageBand,input.avatar,p.id).run();return json({profile:safeProfile({...p,display_name:name,country,age_band:ageBand,avatar:input.avatar},true)});
  }
  if(!['/api/signup','/api/login'].includes(route))return json({error:'Not found'},404);
@@ -42,7 +57,7 @@ export async function accountRoute(req:Request,env:Env){const url=new URL(req.ur
  const existing=await env.DB.prepare('SELECT * FROM profiles WHERE username=?').bind(username).first<any>();
  if(route==='/api/login'){if(!existing||existing.password_hash!==await passwordHash(password,existing.salt))return json({error:'Username or password is incorrect.'},401);return session(existing,env);}
  if(existing)return json({error:'That username is already taken.'},409);
- const id=crypto.randomUUID(),salt=crypto.randomUUID(),name=typeof input.name==='string'?input.name.trim().slice(0,24):username;
+ const id=crypto.randomUUID(),salt=crypto.randomUUID(),name=cleanName(input.name)||username;
  const created=Date.now(),ph=await passwordHash(password,salt);
  await env.DB.prepare('INSERT INTO profiles(id,username,display_name,password_hash,salt,created_at) VALUES(?,?,?,?,?,?)').bind(id,username,name||username,ph,salt,created).run();
  return session({id,username,display_name:name||username,country:'',age_band:'',avatar:0,created_at:created,games:0,wins:0,losses:0},env);

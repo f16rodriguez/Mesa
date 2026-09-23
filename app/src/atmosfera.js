@@ -172,7 +172,7 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
   composer.addPass(grado);
   composer.addPass(new OutputPass());
  }
- function calidad(q){usar=!software&&q!=='low';if(usar)armar();bulb.halo.visible=true;}
+ function calidad(q){usar=!software&&q==='high';if(usar)armar();bulb.halo.visible=true;street.farol.visible=q==='high';}
  function resize(w,h){if(composer){composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);}vista.aspect=camera.aspect;vista.updateProjectionMatrix();}
 
  const luzBase=bulbLight?bulbLight.position.clone():null,_b=new THREE.Vector3();

@@ -28,10 +28,10 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=.8;controls.maxDistance=8;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
  // El relleno de hemisferio a 1.05 lo aplastaba todo: misma luz por todos lados,
  // cero volumen. Baja a .42 y el bombillo pasa a ser la luz que manda.
- scene.add(new THREE.HemisphereLight('#9fb3cc','#3a2c22',.3));const moon=new THREE.DirectionalLight('#7f9cc8',.18);moon.position.set(-5,9,5);scene.add(moon);
+ const cielo=new THREE.HemisphereLight('#9fb3cc','#3a2c22',.3);scene.add(cielo);const moon=new THREE.DirectionalLight('#7f9cc8',.18);moon.position.set(-5,9,5);scene.add(moon);
  /* El bombillo cuelga a 1,3 m del paño, como en cualquier mesa de dominó: un charco de luz cálida
    sobre la mesa y la gente, y el resto del patio en penumbra. Antes colgaba a 3,7 m y la luz era pareja. */
- const bulbLight=new THREE.SpotLight('#ffc98a',5.2,7,Math.PI*.32,.6,2);bulbLight.position.set(0,DIM.surfaceY+1.26,0);bulbLight.target.position.set(0,0,0);{const relleno=new THREE.PointLight('#ffc07a',.45,3.2,2);relleno.position.set(0,DIM.surfaceY+1.2,0);scene.add(relleno);}bulbLight.castShadow=true;/* Sombra enfocada (fov ~60° y no 155°): ~1 mm por texel en la mesa. normalBias va en metros
+ const bulbLight=new THREE.SpotLight('#ffc98a',5.2,7,Math.PI*.32,.6,2);bulbLight.position.set(0,DIM.surfaceY+1.26,0);bulbLight.target.position.set(0,0,0);const relleno=new THREE.PointLight('#ffc07a',.45,3.2,2);relleno.position.set(0,DIM.surfaceY+1.2,0);scene.add(relleno);bulbLight.castShadow=true;/* Sombra enfocada (fov ~60° y no 155°): ~1 mm por texel en la mesa. normalBias va en metros
    del mundo en r186: con .035 el paño se probaba 3,5 cm por encima y nada tenía sombra de contacto. */
  bulbLight.shadow.mapSize.set(software?1024:2048,software?1024:2048);bulbLight.shadow.focus=.52;bulbLight.shadow.bias=-.0002;bulbLight.shadow.normalBias=.004;bulbLight.shadow.radius=3;bulbLight.shadow.camera.near=.2;bulbLight.shadow.camera.far=4;scene.add(bulbLight,bulbLight.target);
  /* Adentro, luz fría de tubo fluorescente; afuera, el bombillo cálido: ese contraste es el colmado de noche. */
@@ -140,6 +140,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const ink=new THREE.MeshStandardMaterial({color:'#0b0a09',roughness:.55}),seamMat=new THREE.MeshStandardMaterial({color:'#2a2622',roughness:.6});
  const pipGeo=new THREE.CylinderGeometry(DIM.pipRadius,DIM.pipRadius,.0007,14),seamGeo=new THREE.BoxGeometry(.0014,.0005,DIM.tileWidth*.8);
  const sharedGeometry=new Set([tileGeo,pipGeo,seamGeo,clavoGeo]),sharedMaterials=new Set([ivory,dark,ink,seamMat,clavo]);
+ const fisicos=[barniz,felt.material,ivory,dark].map(m=>[m,{clearcoat:m.clearcoat,sheen:m.sheen}]);
  function domino(a,b,back=false){
   const g=new THREE.Group(),body=new THREE.Mesh(tileGeo,back?dark:ivory);body.castShadow=true;body.receiveShadow=true;g.add(body);
   if(!back){
@@ -310,7 +311,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   extremos=view?.phase==='playing'&&view.chain?.length?openEnds(view.chain,view.moves):null;
  }
 
- const clock=new THREE.Clock();let frame=0,fpsFrames=0,fpsTime=0,fps=60,disposed=false,pausado=false,frameId=null,quality='high',visualTime=null,arranque=performance.now(),bajadaAuto=false;
+ const clock=new THREE.Clock();let frame=0,fpsFrames=0,fpsTime=0,fps=60,disposed=false,pausado=false,frameId=null,quality='high',visualTime=null,arranque=performance.now(),bajadaAuto=0,bajadaMin=false;
  const DEBUG=new URLSearchParams(location.search).has('debug'),bulbBase=bulbLight.intensity,_lab=v3(),_centroMesa=v3(0,DIM.surfaceY,0);
  function animate(){
   if(disposed||pausado){frameId=null;return;}
@@ -318,7 +319,9 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   const rawDt=clock.getDelta(),dt=Math.min(rawDt,.06),t=visualTime??clock.elapsedTime,now=performance.now();
   fpsFrames++;fpsTime+=rawDt;if(fpsTime>1){fps=fpsFrames/fpsTime;fpsFrames=0;fpsTime=0;
    // Si la tele no da, baja sola la calidad una vez (sin posproceso, sombras más baratas).
-   if(!bajadaAuto&&quality==='high'&&now-arranque>9000&&now-arranque<30000&&fps<30){bajadaAuto=true;api.quality('low');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'low'}));}}
+   if(!bajadaAuto&&quality==='high'&&now-arranque>9000&&now-arranque<30000&&fps<30){bajadaAuto=now;api.quality('low');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'low'}));}
+   // Si ni así da (menos de 20 cuadros), un escalón más: menos píxeles todavía. La mesa se ve más suave, pero fluye.
+   else if(quality==='low'&&!bajadaMin&&now-(bajadaAuto||arranque)>9000&&now-(bajadaAuto||arranque)<40000&&fps<20){bajadaMin=true;api.quality('min');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'min'}));}}
   frame++;renderer.info.reset();
   const reduced=document.documentElement.classList.contains('reduced');
   if(vuelta&&clock.elapsedTime>vuelta.at){camTween={from:camera.position.clone(),to:vuelta.pos,fromTarget:controls.target.clone(),toTarget:vuelta.target,t:0,dur:1.2};vuelta=null;controls.minDistance=distanciaAntes;}
@@ -368,7 +371,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  update(null);animate();
  /* De pie, el panel de fichas tapa la mitad de abajo: la imagen se corre hacia arriba. */
  const encuadre=()=>{if(camera.aspect<.95)camera.setViewOffset(innerWidth,innerHeight*1.24,0,innerHeight*.24,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();};
- const ratio=()=>software?.65:quality==='low'?Math.min(devicePixelRatio,1)*.8:Math.min(devicePixelRatio,1.5,1920/innerWidth);
+ const ratio=()=>software?.65:quality==='min'?Math.min(devicePixelRatio,1)*.55:quality==='low'?Math.min(devicePixelRatio,1)*.8:Math.min(devicePixelRatio,1.5,1920/innerWidth);
  const resize=()=>{camera.aspect=innerWidth/innerHeight;encuadre();renderer.setPixelRatio(ratio());renderer.setSize(innerWidth,innerHeight);atmos.resize(innerWidth,innerHeight);};encuadre();window.addEventListener('resize',resize);
  controls.addEventListener('start',()=>{camTween=null;vuelta=null;});
  // Si el contexto WebGL se pierde (pasa en teles) y vuelve, el entorno se regenera.
@@ -377,7 +380,13 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   sampleTime(time){visualTime=time;for(const c of [...characters.filter(Boolean),...crowd])applySeatedMotion(c,time,false);atmos.frame(time,0,{reduced:false,view:currentView,ends:extremos});atmos.render();},
   setMode(m){mode=m;setCamera(m==='attract'?'attract':'table');},
   // Calidad baja: sin posproceso, la sombra del bombillo apagada (no el mapa: apagarlo en caliente congelaba las sombras) y menos píxeles.
-  quality(q){quality=q;bulbLight.castShadow=q!=='low'&&!software;renderer.setPixelRatio(ratio());atmos.calidad(q);atmos.resize(innerWidth,innerHeight);},
+  quality(q){quality=q;const baja=q!=='high';bulbLight.castShadow=!baja&&!software;
+   /* En una tele floja lo que cuesta es cada píxel: el barniz (clearcoat) y el terciopelo del paño (sheen)
+      doblan el sombreado de media pantalla, y cada luz puntual se paga en todos los píxeles. Se apagan,
+      y el cielo sube un poco para que no se note el relleno que falta. */
+   for(const [m,orig] of fisicos){const cc=baja?0:orig.clearcoat,sh=baja?0:orig.sheen;if(m.clearcoat!==cc||m.sheen!==sh){m.clearcoat=cc;m.sheen=sh;m.needsUpdate=true;}}
+   relleno.visible=!baja;cielo.intensity=baja?.38:.3;
+   renderer.setPixelRatio(ratio());atmos.calidad(q);atmos.resize(innerWidth,innerHeight);},
   // En el teléfono, cuando es solo mando, la mesa 3D no se dibuja: batería y calor.
   pause(){pausado=true;},
   resume(){if(!pausado)return;pausado=false;clock.getDelta();if(!frameId)animate();},

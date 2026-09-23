@@ -61,6 +61,7 @@ if(!bot.success){console.error(bot.logs);throw new Error('Bot build failed');}
 const rhythm = await Bun.build({entrypoints:[resolve(app,'src/bot-rhythm.ts')],outdir:resolve(app,'public'),naming:'bot-rhythm.js',target:'browser',format:'esm',minify:true});
 if(!rhythm.success)throw new Error('Bot timing build failed');
 await cp(resolve(app,'src/bot-chatter.js'),resolve(app,'public/bot-chatter.js'));
+await cp(resolve(app,'src/ambiente.js'),resolve(app,'public/ambiente.js'));
 await cp(resolve(app,'src/proximity-voice.js'),resolve(app,'public/proximity-voice.js'));
 const voice=await Bun.build({entrypoints:[resolve(app,'scripts/voice-entry.js')],outdir:resolve(app,'public'),naming:'voice-sdk.js',target:'browser',format:'esm',minify:true});
 if(!voice.success)throw new Error('Voice client build failed');

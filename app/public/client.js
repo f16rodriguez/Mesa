@@ -32,6 +32,8 @@ const esTelefono=matchMedia('(pointer:coarse)').matches&&Math.max(innerWidth,inn
 let page='home',view=null,room='',role='host',ws=null,practice=null,selected=null,lesson=0,connected=false,botTimer=null,toastTimer=null,lastEvent='',lastHand=0,world=null,worldPromise=null,profile=null,chatOpen=false,crowd={count:0,chat:[],viewers:[],muted:[],featured:false},lastBubble='',cameraIndex=0,lastMode='',authMode='login';
 let sound=almacen.get('mesa-sound')!=='off',ambientOn=almacen.get('mesa-ambience')!=='off',music=null,musicMuted=false,pendiente=false,pendienteTimer=null,wakeLock=null,vozDisponible=false,turnoVisto='',ultimoMensaje=0,finVisto={k:'',t:0},revelado=null,movsVistos='';
 const conexion={gen:0,timer:null,intentos:0,nombre:''};
+// La tele rehace su HTML en cada jugada: esto recuerda qué ya entró, para no repetir la animación.
+const visto={fin:'',turno:'',tantos:''};
 const muted=new Set(almacen.json('mesa-muted',[]));let crowdMuted=almacen.get('mesa-crowd-muted')==='yes';
 const q=new URLSearchParams(location.search);room=normSala(q.get('room')||'');role=q.get('role')||'player';
 
@@ -54,7 +56,7 @@ addEventListener('pointerdown',()=>{if(sonidos.suspendido)unlockSound();},{captu
 addEventListener('keydown',()=>{if(sonidos.suspendido)unlockSound();},{capture:true});
 function chipSonido(){const hace=role!=='player'&&sound&&page==='room'&&sonidos.suspendido;let el=$('#chip-sonido');if(hace&&!el){el=document.createElement('button');el.id='chip-sonido';el.className='chip-sonido';el.innerHTML=`${icon('sound')}${t('tocaSonido')}`;document.body.appendChild(el);}if(!hace)el?.remove();}
 // El sonido de la ficha va cuando la ficha AterRIZA en la tele, no cuando llega el mensaje.
-addEventListener('mesa:aterriza',e=>{if(role==='player')return;if(e.detail?.golpe)sonidos.golpe();else sonidos.ficha();});
+addEventListener('mesa:aterriza',e=>{if(role==='player')return;if(e.detail?.revela)sonidos.revelar();else if(e.detail?.golpe)sonidos.golpe();else sonidos.ficha();});
 
 /* ── Código de mesa ───────────────────────────────────────────────────────── */
 /* El código se dice en voz alta y se teclea en un teléfono: sin I ni O (se leen como 1 y 0).
@@ -149,6 +151,7 @@ function receive(v,presence=[]){
  const mv=`${v.handNo}:${v.moves.length}`;
  if(mv!==movsVistos){const u=v.moves[v.moves.length-1];if(movsVistos&&u?.type==='pass'&&role!=='player')sonidos.toque();movsVistos=mv;}
  if(v.handNo!==lastHand&&v.phase==='playing'){lastHand=v.handNo;if(role!=='player')sonidos.barajar();}
+ if(role!=='player'&&antes&&v.phase==='lobby'&&v.bots.filter(b=>!b).length>antes.bots.filter(b=>!b).length)sonidos.llegada();
  // En el teléfono: cuando pasa a ser tu turno, vibra, suena y la pantalla lo dice en grande.
  if(v.seat>=0&&v.phase==='playing'){const k=`${v.handNo}:${v.moves.length}`;if(v.turn===v.seat&&turnoVisto!==k&&(!antes||antes.turn!==v.seat||antes.handNo!==v.handNo)){turnoVisto=k;vibrar(VIBRA.turno);if(role==='player')sonidos.turno();document.body.classList.remove('te-toca');void document.body.offsetWidth;document.body.classList.add('te-toca');}}
  if(changed){lastEvent=key;}
@@ -161,7 +164,8 @@ function espera(){const r=view?.result;if(!r||!['handEnd','seriesEnd'].includes(
 // El marcador no se adelanta al golpe: mientras dura el corte de cámara muestra lo de antes.
 function marcador(){const falta=espera(),r=view.result,s=[...view.scores];if(falta>0&&r&&r.team!=null){s[r.team]-=r.points;setTimeout(()=>{if(page==='room')renderRoom();},falta*1000+60);}
  const meta=view.settings.target,pct=i=>Math.min(100,Math.round(s[i]/meta*100));
- return `<div class="pizarra">${[0,1].map(i=>`<div class="equipo pareja-${i?'b':'a'} ${view.phase==='playing'&&view.turn%2===i?'toca':''}"><span class="quienes">${parejaDe(i)}</span><b class="tanto">${s[i]}</b><i class="barra"><i style="width:${pct(i)}%"></i></i></div>`).join(`<span class="meta">${t('aDoscientos',{n:meta})}</span>`)}</div>`;}
+ const antes=visto.tantos.split(',');visto.tantos=s.join(',');
+ return `<div class="pizarra">${[0,1].map(i=>`<div class="equipo pareja-${i?'b':'a'} ${view.phase==='playing'&&view.turn%2===i?'toca':''}"><span class="quienes">${parejaDe(i)}</span><b class="tanto ${antes[i]!==undefined&&antes[i]!==''&&antes[i]!==String(s[i])?'cambio':''}">${s[i]}</b><i class="barra"><i style="width:${pct(i)}%"></i></i></div>`).join(`<span class="meta">${t('aDoscientos',{n:meta})}</span>`)}</div>`;}
 function turnoTexto(){if(view.phase!=='playing')return '';const i=view.turn;if(i===view.seat)return `<b>${t('teToca')}</b>`;return `${t('leToca',{nombre:`<b>${esc(nombreDe(i))}</b>`})}${view.bots[i]?` <span class="piensa">${t('pensando')}</span>`:''}`;}
 const inviteUrl=(watch=false)=>`${location.origin}/?room=${room}&role=${watch?'spectator':'player'}`;
 function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside class="cartel"><div class="eyebrow">${t('mandaleCodigo')}</div><h2>${t('arrimaSilla')}</h2><div class="cartel-cuerpo"><div id="qr" class="qr" aria-label="QR"></div><div><div class="table-code">${esc(room)}</div><p>${t('escaneaTelefono')}</p><button class="text-link" data-action="copy">${icon('copy')} ${t('copiarEnlace')}</button></div></div>
@@ -170,16 +174,20 @@ function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside
 function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result,falta=espera(),serie=view.phase==='seriesEnd';
  const sello=r.zapato?t('zapato'):r.type==='capicua'?t('capicua'):r.type==='tranque'?t('tranque'):t('domino');
  const quien=r.team===null?t('empate'):serie?t('ganaron',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))}):t('ganan',{a:esc(corto(nombreDe(r.team))),b:esc(corto(nombreDe(r.team+2)))});
- const puedeRepartir=view.isHost||view.seat>=0;
+ const puedeRepartir=view.canDeal??(view.isHost||view.seat>=0);
  return `<section class="resultado pareja-${r.team===1?'b':r.team===0?'a':'n'}" style="animation-delay:${falta.toFixed(2)}s"><div class="eyebrow">${serie?t('serieCompleta'):t('manoCerrada',{n:view.handNo})}</div><h2 class="sello">${sello}</h2><p class="quien">${quien}</p>${r.team!=null?`<div class="points">${t('puntos',{n:r.points})}</div><p class="detalle">${r.bonus?t('pipsCapicua',{n:r.base,c:r.bonus}):t('pipsDetalle',{n:r.base})}</p>`:''}${!serie&&view.opener!=null?`<p class="sale">${t('sale',{nombre:esc(nombreDe(view.opener))})}</p>`:''}
  <div class="acciones">${puedeRepartir?button(serie?t('otraSerie'):t('repartirOtra'),serie?'newSeries':'next','primary'):`<p>${t('esperandoReparto')}</p>`}${button(t('verManos'),'reveal')}</div></section>`;}
 function renderRoom(){page='room';if(role==='player'&&view.seat>=0){renderPhone();return;}ensureWorld('game');world?.update(view,crowd.count);
  const talkDraft=$('#chat-text')?.value||'',focus=document.activeElement?.id==='chat-text',jugando=view.phase==='playing';
+ const habia=['.pizarra','.cartel','.game-hand-dock'].filter(c=>$(c)),kFin=view.handNo+':'+view.phase,kTurno=jugando?view.handNo+':'+view.turn:'',falta=espera();
  app.innerHTML=`<div id="room-root" class="game-shell mesa-tv"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?t('practicaEtq'):view.phase==='lobby'?t('tuMesa'):t('mano',{n:String(view.handNo).padStart(2,'0')})}<span class="connection ${connected||practice?'':'off'}">${practice?t('sinPresion'):connected?t('conectado'):t('reconectando')}</span></div></div>${view.phase!=='lobby'?marcador():''}<div class="game-tools">${button('<span class="tool-label">'+t('camara')+'</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div></header>
   ${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}
   ${view.seat>=0&&jugando?`<div class="game-hand-dock">${handPanel()}</div>`:jugando?`<div class="turno-banner pareja-${view.turn%2?'b':'a'}">${turnoTexto()}</div>`:view.phase==='lobby'&&!view.isHost?`<div class="scene-help">${t('haySillaParaTodos')}</div>`:''}
   <div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>
   <div class="game-bottom">${practice?`<span class="niveles">${Object.keys(NIVELES).map(k=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${t('nivel_'+k)}</button>`).join('')}</span>`:''}</div></div>`;
+ for(const c of habia)$(c)?.classList.add('sin-entrada');
+ if(visto.fin===kFin)$('.resultado')?.classList.add('sin-entrada');else if($('.resultado')&&falta<=0)visto.fin=kFin;
+ if(visto.turno===kTurno)$('.turno-banner')?.classList.add('sin-entrada');visto.turno=kTurno;
  etiquetas();renderCrowd();chipSonido();
  if($('#chat-text')){$('#chat-text').value=talkDraft;if(focus)$('#chat-text').focus();}
  if($('#qr'))QRCode.toString(inviteUrl(),{type:'svg',margin:1,color:{dark:'#1a1426',light:'#f7ecd6'}}).then(svg=>{if($('#qr'))$('#qr').innerHTML=svg;}).catch(()=>{});
@@ -191,7 +199,7 @@ function etiquetas(){let capa=$('#etiquetas');if(!capa){capa=document.createElem
  view.names.forEach((n,i)=>{let el=capa.querySelector(`[data-seatlabel="${i}"]`);if(!el){el=document.createElement('div');el.dataset.seatlabel=i;el.style.visibility='hidden';capa.appendChild(el);}
   const humano=!view.bots[i],presente=!humano||view.presence?.[i]!==false;
   for(const [c,on] of [['seat-label',1],['pair-a',i%2===0],['pair-b',i%2===1],['active',view.phase==='playing'&&i===view.turn],['dormido',!presente&&view.phase!=='lobby']])el.classList.toggle(c,!!on);
-  el.innerHTML=`<span class="nombre">${esc(nombreDe(i))}</span><small>${t('pareja',{x:i%2?'B':'A'})}${view.bots[i]?' · BOT':''}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small>`;});}
+  const html=`<span class="nombre">${esc(nombreDe(i))}</span><small>${t('pareja',{x:i%2?'B':'A'})}${view.bots[i]?' · BOT':''}${view.phase==='playing'?` · ${view.counts[i]}`:''}</small>${view.result?.pips&&['handEnd','seriesEnd'].includes(view.phase)?`<b class="pips">${view.result.pips[i]}</b>`:''}`;if(el.dataset.html!==html){el.innerHTML=html;el.dataset.html=html;}});}
 
 /* ── La mano (teléfono y dock de práctica) ────────────────────────────────── */
 const ordenar=h=>[...h].sort((x,y)=>(Math.max(y.a,y.b)-Math.max(x.a,x.b))||(Math.min(y.a,y.b)-Math.min(x.a,x.b)));
@@ -324,7 +332,7 @@ addEventListener('online',()=>{if(page==='room'&&room&&!practice&&!connected){co
 document.addEventListener('keydown',e=>{if(e.target.closest?.('input,textarea,select')||modal.open)return;const k=e.key.toLowerCase();
  if(k==='c'&&page==='room'&&role!=='player')$('[data-action="camera"]')?.click();
  else if(k==='f')$('[data-action="fullscreen"]')?.click();
- else if(k==='enter'&&page==='room'&&view&&['handEnd','seriesEnd'].includes(view.phase)&&(view.isHost||view.seat>=0))action({type:view.phase==='seriesEnd'?'newSeries':'next'});});
+ else if(k==='enter'&&page==='room'&&view&&['handEnd','seriesEnd'].includes(view.phase)&&(view.canDeal??(view.isHost||view.seat>=0)))action({type:view.phase==='seriesEnd'?'newSeries':'next'});});
 // En la tele los botones se esconden solos si nadie toca nada: la mesa se ve limpia.
 let quieto=null;const despierta=()=>{document.body.classList.remove('quieto');clearTimeout(quieto);if(!esTelefono)quieto=setTimeout(()=>{if(page==='room'&&role!=='player'&&!modal.open)document.body.classList.add('quieto');},4500);};
 for(const ev of ['pointermove','pointerdown','keydown'])addEventListener(ev,despierta,{passive:true});

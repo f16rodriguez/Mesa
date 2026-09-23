@@ -35,6 +35,8 @@ export const sonidos={ctx:null,bus:null,activo:true,ruido:null,
   const n=c.createBufferSource(),bp=c.createBiquadFilter(),g=c.createGain();n.buffer=this.ruido;n.loop=true;bp.type='bandpass';bp.frequency.value=1700;bp.Q.value=.8;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09,t+.15);g.gain.setValueAtTime(.09,t+dur-.3);g.gain.linearRampToValueAtTime(0,t+dur);n.connect(bp).connect(g).connect(this.bus);n.start(t);n.stop(t+dur+.05);
   for(let i=0;i<46;i++)this._chasquido(t+Math.random()*dur,.12+Math.random()*.22,.9+Math.random()*.3);},
+ /** Enseñar la mano: unas cuantas fichas que se acuestan una detrás de otra. */
+ revelar(){if(!this.activo||!this.abrir())return;const t=this.ctx.currentTime+.01;for(let i=0;i<5;i++)this._chasquido(t+i*.055+Math.random()*.02,.35+Math.random()*.15,.95);this._golpeSordo(t+.24,.4,170);},
  /** Te toca: dos notas cálidas, cortas. */
  turno(){if(!this.activo||!this.abrir())return;const c=this.ctx,t=c.currentTime+.01;
   [[659,0],[988,.11]].forEach(([f,dt])=>{for(const [tipo,a] of [['sine',.16],['triangle',.05]]){const o=c.createOscillator(),g=c.createGain();o.type=tipo;o.frequency.value=f;g.gain.setValueAtTime(0,t+dt);g.gain.linearRampToValueAtTime(a,t+dt+.01);g.gain.exponentialRampToValueAtTime(.0005,t+dt+.5);o.connect(g).connect(this.bus);o.start(t+dt);o.stop(t+dt+.55);}});},

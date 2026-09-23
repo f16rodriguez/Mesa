@@ -250,7 +250,9 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .equipo.pareja-b::before{inset:0 0 0 auto}
 .equipo>*{direction:ltr}
 .quienes{font:600 .72rem var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--pareja-claro);white-space:nowrap;max-width:12rem;overflow:hidden;text-overflow:ellipsis}
-.tanto{grid-row:span 2;font:400 2.5rem/1 var(--display);color:var(--marfil);text-shadow:0 0 18px color-mix(in srgb,var(--pareja) 60%,transparent);font-variant-numeric:tabular-nums;animation:tanto .7s cubic-bezier(.3,1.6,.5,1)}
+.tanto{grid-row:span 2;font:400 2.5rem/1 var(--display);color:var(--marfil);text-shadow:0 0 18px color-mix(in srgb,var(--pareja) 60%,transparent);font-variant-numeric:tabular-nums}
+.tanto.cambio{animation:tanto .9s cubic-bezier(.3,1.6,.5,1)}
+.sin-entrada,.sin-entrada .silla,.sin-entrada .sello{animation:none!important}
 .barra{display:block;height:5px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;align-self:start;margin-top:.1rem}
 .barra i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--pareja),var(--pareja-claro));box-shadow:0 0 10px var(--pareja);transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
 .equipo.pareja-b .barra i{margin-left:auto}
@@ -278,6 +280,7 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .seat-label.active small{color:#5a300a}
 .seat-label.dormido{opacity:.55;filter:grayscale(.6)}
 .seat-label.dormido .nombre::after{content:' · zzz';font-weight:400;color:var(--tenue)}
+.seat-label .pips{font:400 1.1rem/1 var(--display);color:var(--mango);margin-top:.15rem;animation:subir .5s 3.2s both}
 .seat-label.speaking{box-shadow:0 0 0 2px var(--turquesa),0 0 22px rgba(45,225,194,.55)}
 
 /* ── El cartel del lobby ───────────────────────────────────────────────────── */

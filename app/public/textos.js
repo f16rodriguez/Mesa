@@ -10,7 +10,7 @@ const ES={
  lema2:'UNA PANTALLA. CUATRO TELÉFONOS. LA ESQUINA ENTERA.',
  // Unirse
  buscaTuGente:'Busca tu gente.',escaneaOCodigo:'Escanea el QR de la mesa o escribe las cuatro letras que salen en la pantalla.',codigoMesa:'Código de la mesa',
- entrar:'Entrar',cuatroLetras:'Cuatro letras, como las de la pantalla.',hayUnaSilla:'HAY UNA SILLA PARA TI',veAMirar:'Ven a mirar<br>la mesa.',bienvenido:'Bienvenido.<br>¿Quién eres?',
+ entrar:'Entrar',cuatroLetras:'Cuatro letras, como las de la pantalla.',hayUnaSilla:'HAY UNA SILLA PARA TI',veAMirar:'Ven a mirar<br>la mesa.',bienvenido:'¡Llegaste!<br>¿Quién eres?',
  sinCuenta:'No hace falta cuenta. Solo tu nombre.',tuNombre:'Tu nombre',comoTeDicen:'¿Cómo te dicen?',sentarme:'Sentarme',mirar:'Entrar a mirar',soloMirar:'¿Solo vienes a mirar?',
  laEsquinaAbierta:'LA ESQUINA ESTÁ ABIERTA',
  conectando:'Buscándote una silla…',conectandoMesa:'Conectando con la mesa.',reconectando:'Reconectando…',conectado:'Conectado',sinConexion:'Se cayó la conexión',reintentar:'Reintentar',
@@ -81,7 +81,7 @@ const EN={
  abriendo:'Opening the colmado…',sentando:'Seating {nombre}…',sentados:'{n} of 4 seated',listo:'The table is ready.',noCargo:'Could not load {nombre}. Reload to retry.',
  lema2:'ONE SCREEN. FOUR PHONES. THE WHOLE CORNER.',
  buscaTuGente:'Find your people.',escaneaOCodigo:'Scan the QR at the table, or type the four letters on the screen.',codigoMesa:'Table code',
- entrar:'Join',cuatroLetras:'Four letters, like the ones on the screen.',hayUnaSilla:'THERE’S A CHAIR FOR YOU',veAMirar:'Come watch<br>the table.',bienvenido:'Bienvenido.<br>Who’s joining?',
+ entrar:'Join',cuatroLetras:'Four letters, like the ones on the screen.',hayUnaSilla:'THERE’S A CHAIR FOR YOU',veAMirar:'Come watch<br>the table.',bienvenido:'You made it.<br>Who’s joining?',
  sinCuenta:'No account needed. Just your name.',tuNombre:'Your name',comoTeDicen:'What do your people call you?',sentarme:'Take my seat',mirar:'Join the crowd',soloMirar:'Just here to watch?',
  laEsquinaAbierta:'THE CORNER IS OPEN',
  conectando:'Pulling up your chair…',conectandoMesa:'Connecting to the table.',reconectando:'Reconnecting…',conectado:'Connected',sinConexion:'Connection lost',reintentar:'Try again',

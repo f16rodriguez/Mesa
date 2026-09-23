@@ -240,10 +240,10 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const alturaAtril=DIM.tableCenterY+DIM.tableThickness/2+DIM.tileLength/2*Math.cos(.12)+DIM.tileThickness/2*Math.sin(.12)+.001;
  function poseAtril(seat,x,o){const a=seats[seat][2];o.quaternion.setFromAxisAngle(Yax,a).multiply(_qL).multiply(_qA).multiply(_qB);o.position.set(x,alturaAtril,-DIM.rackRadius).applyAxisAngle(Yax,a);return o;}
  const atril=new THREE.InstancedMesh(tileGeo,dark,28);atril.count=0;atril.castShadow=true;atril.receiveShadow=true;atril.frustumCulled=false;rackGroup.add(atril);
- const huecos=[[],[],[],[]],_o=new THREE.Object3D();let cuentas=[0,0,0,0];
+ const huecos=[[],[],[],[]],_o=new THREE.Object3D();let cuentas=[0,0,0,0],revelado='';const ocultos=new Set();
  function moverAtriles(dt){
   let n=0;
-  for(let s=0;s<4;s++){const c=cuentas[s],h=huecos[s];
+  for(let s=0;s<4;s++){const c=ocultos.has(s)?0:cuentas[s],h=huecos[s];
    while(h.length<c)h.push((h.length-(c-1)/2)*DIM.rackSpacing);h.length=c;
    for(let j=0;j<c;j++){const meta=(j-(c-1)/2)*DIM.rackSpacing;h[j]+=(meta-h[j])*(1-Math.exp(-dt*10));poseAtril(s,h[j],_o);_o.updateMatrix();atril.setMatrixAt(n++,_o.matrix);}}
   atril.count=n;atril.instanceMatrix.needsUpdate=true;
@@ -252,6 +252,19 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const fichas=new Map();let claveMesa='',paseVisto='';
  function pila(){for(let i=0;i<28;i++){const d=domino(0,0,true);d.position.set(((i*37)%23-11)*.016,DIM.surfaceY+DIM.tileThickness*(.55+(i%3)*.9),((i*13)%19-9)*.016);d.rotation.y=i*1.73;tileGroup.add(d);}}
  const suave=p=>p*p*(3-2*p);
+ /* Al cerrar la mano, cada quien acuesta lo que le quedó, boca arriba y hacia el centro, como
+  se hace en la mesa de verdad: se cuentan los puntos con los ojos. Empieza cuando termina el
+  corte de cámara, un asiento detrás del otro. La ficha arranca parada en el atril con la cara
+  hacia su dueño y gira sobre su canto de abajo. */
+ const _qVolteo=new THREE.Quaternion().setFromAxisAngle(v3(1,0,0),Math.PI),_qRadial=new THREE.Quaternion().setFromAxisAngle(Yax,-Math.PI/2);
+ function ensenarManos(view,espera){
+  view.revealed.forEach((mano,s)=>{const c=mano.length,a=seats[s][2];
+   mano.forEach((f,j)=>{const x=(j-(c-1)/2)*DIM.rackSpacing,d=domino(f.a,f.b);poseAtril(s,x,_o);
+    const qFrom=_o.quaternion.clone().multiply(_qVolteo),from=_o.position.clone();
+    const to=v3(x,DIM.surfaceY+DIM.tileThickness/2+.001,-DIM.rackRadius+.047).applyAxisAngle(Yax,a),qTo=new THREE.Quaternion().setFromAxisAngle(Yax,a).multiply(_qRadial);
+    d.position.copy(from);d.quaternion.copy(qFrom);d.visible=false;tileGroup.add(d);
+    animations.push({obj:d,from,to,qFrom,qTo,elapsed:-(espera+s*.3+j*.055),duration:.42,revela:s,ultima:j===c-1});});});
+ }
 
  function update(view,crowdCount=0){
   currentView=view;
@@ -289,6 +302,9 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   // Pase: quien pasa toca la mesa dos veces con los nudillos.
   const u=view?.moves?.[view.moves.length-1],clavePase=view?view.handNo+':'+view.moves.length:'';
   if(u?.type==='pass'&&paseVisto!==clavePase){paseVisto=clavePase;const c=characters[u.seat];if(c)c.toque={t0:clock.elapsedTime};}
+  {const cerrada=view&&(view.phase==='handEnd'||view.phase==='seriesEnd')&&view.revealed,k=cerrada?'r'+view.handNo:'';
+   if(!cerrada){revelado='';ocultos.clear();}
+   else if(k!==revelado){revelado=k;const tipo=view.result?.type;ensenarManos(view,tipo==='domino'||tipo==='capicua'?3.4:tipo==='tranque'?2.5:1.2);}}
   cuentas=[0,1,2,3].map(i=>!view||view.phase==='lobby'?0:(view.counts[i]??0));
   ring.visible=false;
   extremos=view?.phase==='playing'&&view.chain?.length?openEnds(view.chain,view.moves):null;
@@ -321,6 +337,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   animations=animations.filter(a=>{
    a.elapsed+=dt;if(a.elapsed<0)return true;
    const p=Math.min(1,a.elapsed/a.duration);
+   if(a.revela!=null){a.obj.visible=true;ocultos.add(a.revela);const e=suave(p);a.obj.quaternion.slerpQuaternions(a.qFrom,a.qTo,e);a.obj.position.lerpVectors(a.from,a.to,e);a.obj.position.y+=Math.sin(p*Math.PI)*.012;
+    if(p>=1&&a.ultima)dispatchEvent(new CustomEvent('mesa:aterriza',{detail:{revela:true}}));return p<1;}
    if(a.reparto){a.obj.position.lerpVectors(a.from,a.to,suave(p));a.obj.position.y+=Math.sin(p*Math.PI)*.035;a.obj.quaternion.slerpQuaternions(a.qFrom,a.qTo,suave(Math.min(1,Math.max(0,(p-.3)/.7))));return p<1;}
    // Parada en el atril → acostada en el primer 40 % del viaje.
    a.obj.quaternion.slerpQuaternions(a.qFrom,a.qTo,suave(Math.min(1,p/.4)));

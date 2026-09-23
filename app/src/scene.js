@@ -9,6 +9,7 @@ const TAU=Math.PI*2, v3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 import {DIM,seats,chainLayout} from './scene-layout.ts';
 import {capturePose,applySeatedMotion} from './scene-motion.js';
 import {dressColmado} from './colmado-detail.js';
+import {servirBebidas} from './bebidas.js';
 const pips=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 export async function createWorld(container,{onProgress=()=>{}}={}){
  const scene=new THREE.Scene();scene.background=new THREE.Color('#132931');scene.fog=new THREE.FogExp2('#132931',.024);
@@ -129,13 +130,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  function boardPosition(p){return v3(p.x,DIM.surfaceY+DIM.tileThickness/2+.001,p.z);}
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.20,.006,5,38),new THREE.MeshBasicMaterial({color:'#e8bf70',transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.027;scene.add(ring);
  const characters=[],templates=[],crowd=[],drinks=[];const loader=new GLTFLoader();let loaded=0,total=4,failed=[];
- function drink(index){const group=new THREE.Group(),type=['coffee','juice','beer','water'][index];if(type==='beer'){const m=new THREE.Mesh(bottleGeo,mat('#62421e',.23,.05));m.scale.setScalar(.85);group.add(m);}else{const cup=new THREE.Mesh(new THREE.CylinderGeometry(.047,.037,.105,18),mat(type==='coffee'?'#e4dfc8':type==='juice'?'#bfa478':'#719b9c',.3));cup.position.y=.055;group.add(cup);const fill=new THREE.Mesh(new THREE.CircleGeometry(.041,20),mat(type==='coffee'?'#24150e':type==='juice'?'#ebbd72':'#9cbfc0',.16));fill.rotation.x=-Math.PI/2;fill.position.y=.110;group.add(fill);if(type==='coffee'){const saucer=new THREE.Mesh(new THREE.CylinderGeometry(.075,.07,.012,20),mat('#ded9c3',.25));group.add(saucer);const handle=new THREE.Mesh(new THREE.TorusGeometry(.024,.006,6,12),mat('#e4dfc8',.3));handle.position.set(.052,.062,0);group.add(handle);}}
-  group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});// A 92 cm de mesa no cabe un vaso sin que la cadena le pase por encima: la
-  // bebida va en una mesita a la derecha de la silla, a la altura del brazo, para
-  // que la puedan agarrar de verdad (ver el trago en scene-motion.js).
-  const [sx,sz,ang]=seats[index],p=v3(-.40,0,.05).applyAxisAngle(v3(0,1,0),ang).add(v3(sx,0,sz));const banco=new THREE.Group(),pieza=(w,h,d,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;banco.add(o);};for(const [lx,lz] of [[-.075,-.075],[.075,-.075],[-.075,.075],[.075,.075]])pieza(.025,.6,.025,lx,.3,lz,darkwood);pieza(.2,.022,.2,0,.611,0,wood);banco.position.set(p.x,0,p.z);banco.rotation.y=ang;scene.add(banco);p.y=.622;group.scale.setScalar(.85);group.position.copy(p);scene.add(group);drinks.push({group,home:p,index});
- }
- for(let i=0;i<4;i++)drink(i);
+ drinks.push(...servirBebidas(scene));
  async function loadPerson(index,name){try{onProgress(`Seating ${['Don Rafa','Marisol','Luis','Carmen'][index]}…`,loaded/total);const gltf=await loader.loadAsync(`/models/${name}.glb`);templates[index]=gltf;
   const root=gltf.scene,holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(gltf.animations[0])mixer.clipAction(gltf.animations.find(a=>a.name==='Seated')||gltf.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material.roughness=.83;}});
   // Keep the models' anatomical scale; anchor the pelvis over the chair and

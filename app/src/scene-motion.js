@@ -147,30 +147,39 @@ function manoEnJugada(actor,time,reposo){
 }
 
 /**
- * El trago. Cada quien, cada tanto (40–70 s, distinto por persona) y solo si
- * no le toca, no habla y no está cerrando una mano, estira la derecha a su
- * mesita, agarra el vaso con el pulgar arriba, se lo lleva a la boca, echa la
- * cabeza un poco atrás, bebe, lo baja y vuelve. El vaso va pegado a la MANO
- * real (su hueso, después del IK), no a una curva: nunca se despega.
- * Si en medio le toca jugar, el vaso vuelve a su sitio y la mano juega.
+ * El trago. Al azar, uno a la vez: cada quien vuelve a tener sed entre 1,5 y
+ * 4 minutos después de beber (el primero, entre 20 s y 2 min), y nadie arranca
+ * si otro bebió hace menos de 20 s. Tampoco si le toca, si habla o si se está
+ * cerrando la mano. Antes era un reloj fijo por persona y se notaba el patrón.
+ *
+ * La mano agarra la bebida en su esquina de la mesa (pulgar arriba), la sube y
+ * la inclina de modo que el BORDE —no la muñeca— llegue a la boca; el codo va
+ * afuera y abajo, como bebe la gente, no pegado atrás contra el pecho, que era
+ * lo que retorcía el brazo. La bebida va pegada al hueso de la mano ya resuelto.
  */
-const TRAMOS=[1.0,1.9,3.3,4.3,5.2];
+const TRAMOS=[1.0,1.9,3.3,4.3,5.2];let ultimoTrago=-1e9;
 function tragoEn(actor,time,ctx){
  const b=actor.bebida;if(!b)return null;
- if(actor.trago){const e=actor.trago.fijo??time-actor.trago.t0;if(e<0||e>=TRAMOS[4]||actor.jugada){actor.trago=null;dejarVaso(b);return null;}return e;}
+ if(actor.trago){const e=actor.trago.fijo??time-actor.trago.t0;if(e<0||e>=TRAMOS[4]||actor.jugada){actor.trago=null;dejarVaso(b);actor.sed=time+90+Math.random()*150;return null;}return e;}
  if(!ctx||!ctx.dt)return null;
- const i=actor.index,P=40+((i*17)%4)*9,f=(time+i*13)%P,k=Math.floor((time+i*13)/P);
- if(f<.6&&actor.tragoK!==k&&!actor.jugada&&!(ctx.jugando&&ctx.turno===i)&&!ctx.habla.has(i)&&!(ctx.fin&&time-ctx.fin.t<6)){actor.tragoK=k;actor.trago={t0:time};return 0;}
- return null;
+ if(actor.sed==null){actor.sed=time+20+Math.random()*100;return null;}
+ if(time<actor.sed||time-ultimoTrago<20)return null;
+ const i=actor.index;
+ if(actor.jugada||(ctx.jugando&&ctx.turno===i)||ctx.habla.has(i)||(ctx.fin&&time-ctx.fin.t<6)){actor.sed=time+3+Math.random()*8;return null;}
+ ultimoTrago=time;actor.trago={t0:time};return 0;
 }
 function dejarVaso(b){b.group.position.copy(b.home);b.group.quaternion.identity();}
-const _boca=new THREE.Vector3(),_agarre=new THREE.Vector3(),_Fa=new THREE.Vector3(),_Fb=new THREE.Vector3(),ALTO_VASO=.045;
+const _boca=new THREE.Vector3(),_agarre=new THREE.Vector3(),_Fa=new THREE.Vector3(),_Fb=new THREE.Vector3(),_eje2=new THREE.Vector3();
 function manoEnTrago(actor,e,reposo,out){
  const b=actor.bebida;
  // Pulgar arriba: palma hacia dentro (+X del asiento para la derecha), dedos al frente.
  _Fa.copy(_ejeZ).addScaledVector(Y,.25).normalize();_Fb.copy(_ejeZ).multiplyScalar(.55).addScaledVector(Y,.8).normalize();
- _agarre.copy(b.home);_agarre.y+=ALTO_VASO;_agarre.addScaledVector(_ejeX,-.05).addScaledVector(_Fa,-.035);
- actor.front.getWorldPosition(_boca);_boca.y-=.07;_boca.addScaledVector(_ejeZ,.09).addScaledVector(_ejeX,-.05).addScaledVector(_Fb,-.035);
+ _agarre.copy(b.home);_agarre.y+=b.alto;_agarre.addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fa,-.03);
+ // Boca: bajo la nariz. El eje de la bebida inclinada (arriba hacia la cara) va
+ // de la mano al borde; la mano queda "boca" más allá, por fuera de la cara.
+ actor.front.getWorldPosition(_boca);_boca.y-=.075;_boca.addScaledVector(_ejeZ,.012);
+ const a=b.inclina;_eje2.copy(Y).multiplyScalar(Math.cos(a)).addScaledVector(_ejeZ,-Math.sin(a));
+ _boca.addScaledVector(_eje2,-b.boca).addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fb,-.03);
  let dedos;
  if(e<TRAMOS[0]){out.lerpVectors(reposo,_agarre,suave(e/TRAMOS[0]));dedos=_Fa;}
  else if(e<TRAMOS[1]){const p=suave((e-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0]));out.lerpVectors(_agarre,_boca,p);dedos=_Fa.lerp(_Fb,p).normalize();}
@@ -185,11 +194,11 @@ function vasoEnMano(actor,e){
  if(e<TRAMOS[0]||e>=TRAMOS[3]){dejarVaso(b);return;}
  mano.getWorldQuaternion(_wq);mano.getWorldPosition(_mano);
  _pal.set(0,0,1).applyQuaternion(_wq);_ded.set(0,1,0).applyQuaternion(_wq);
- // Inclinación al beber: la boca del vaso hacia la cara.
- const d=e<TRAMOS[1]?0:e<TRAMOS[2]?suave(Math.min(1,(e-TRAMOS[1])/.4))*(e>TRAMOS[2]-.4?(TRAMOS[2]-e)/.4:1):0;
- b.group.quaternion.setFromAxisAngle(_ejeX,-.95*d);
+ // Se inclina mientras sube y se endereza mientras baja.
+ const d=e<TRAMOS[1]?suave((e-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0])):e<TRAMOS[2]?1:1-suave((e-TRAMOS[2])/(TRAMOS[3]-TRAMOS[2]));
+ b.group.quaternion.setFromAxisAngle(_ejeX,-b.inclina*d);
  _arr.set(0,1,0).applyQuaternion(b.group.quaternion);
- b.group.position.copy(_mano).addScaledVector(_pal,.05).addScaledVector(_ded,.035).addScaledVector(_arr,-ALTO_VASO);
+ b.group.position.copy(_mano).addScaledVector(_pal,b.radio+.015).addScaledVector(_ded,.03).addScaledVector(_arr,-b.alto);
 }
 
 /**
@@ -349,7 +358,8 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
   // Polo: el codo va abajo, afuera y atrás, que es como apoya quien juega.
   // Alcanzando, más afuera y menos atrás: el codo se abre, no se clava en las costillas.
   brazo.brazo.getWorldPosition(_pol);
-  _pol.add(dirAsiento(lado*(jugando?.55:.32),-.75,jugando?-.15:-.6,_dd));
+  if(dedos)_pol.add(dirAsiento(lado*.85,-.5,.05,_dd));
+  else _pol.add(dirAsiento(lado*(jugando?.55:.32),-.75,jugando?-.15:-.6,_dd));
   alcanzar(brazo,o,_pol);
   // Palma abajo; los dedos siguen al antebrazo, un poco hacia dentro y hacia la mesa.
   brazo.antebrazo.getWorldPosition(_B);brazo.mano.getWorldPosition(_mano);

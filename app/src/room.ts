@@ -5,37 +5,92 @@ import { accountFor, cleanName, cleanText, recordSeries } from './accounts';
 import {botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
 import {joinVoice,setVoicePublish} from './voice';
+
+/** A seat must be away or silent this long before a bot may play for it. */
+export const COVER_MS=20000;
+/** A seated human counts as at the table this long after we last heard from them. */
+export const PRESENT_MS=20000;
+/** Spectators leave the crowd count this long after their last word. */
+export const CROWD_MS=25000;
+/** A closed hand nobody has dealt on from is dealt by the room after this long. */
+export const AUTO_DEAL_MS=15000;
+/** A room where nobody has been seen for this long deletes itself. */
+export const IDLE_TTL_MS=12*3600*1000;
+/** A covered seat with no legal tile knocks this fast: there is nothing to think about. */
+export const FORCED_PASS_MS=1000;
+/** Before the first bot move of a hand: the deal animation. After a human move: a beat. */
+const AFTER_DEAL_MS=4200,AFTER_HUMAN_MS=1500;
+/** The same four the client shows in the lobby. */
+export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
+
+type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number};
+type Chat={id:string;sender:string;name:string;text:string;role:string;at:number};
+type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];featured:boolean;seriesId:string;
+ recorded?:boolean;
+ /** When the current hand closed, for the automatic deal. */
+ closedAt?:number;
+ lastCrowd?:number;botDue?:number;botKey?:string};
+type Table={state:any;members:Record<string,Member|undefined>};
+
+const present=(m:Member|undefined,now:number)=>!!m&&!m.away&&now-m.lastSeen<PRESENT_MS;
+/** When a seat stops holding off a bot: 20 s after the later of the last thing
+ *  we heard from it and the moment it went away. Glancing at another app is
+ *  not leaving the table. */
+export function goneAt(m:Member){return Math.max(m.lastSeen,m.away?(m.awaySince??m.lastSeen):-Infinity)+COVER_MS;}
+function touch(m:Member,now:number){m.lastSeen=now;m.away=false;delete m.awaySince;}
+function markAway(m:Member,now:number){if(!m.away){m.away=true;m.awaySince=now;}m.lastSeen=now;}
 /**
- * Seats a bot is allowed to cover. A bot seat: always. A HUMAN seat: only when
- * someone else at the table is actually waiting on it.
+ * The earliest moment (>= now) a bot may cover `seat`, or null when that cannot
+ * happen until something new arrives. A bot seat: now. A HUMAN seat: only once
+ * it has been gone COVER_MS, and only while someone else at the table is
+ * actually waiting on it.
  *
- * The 20-second cover exists so one sleeping phone cannot freeze three other
- * people. That reason disappears the moment nobody else is waiting — and then
- * covering is just the game playing itself while you put the phone down, which
- * is the one thing a table must never do. Thinking for half a minute is normal
+ * The cover exists so one sleeping phone cannot freeze three other people.
+ * That reason disappears the moment nobody else is waiting — and then covering
+ * is just the game playing itself while you put the phone down, which is the
+ * one thing a table must never do. Thinking for half a minute is normal
  * dominoes; it is not a disconnect.
  */
-export function botMayCover(g:any,seat:number,now:number){
- const s=g.state;
- if(s.bots[seat]) return true;
+export function coverAt(g:Table,seat:number,now:number):number|null{
+ const s=g.state;if(s.bots[seat])return now;
+ if(!s.players.some((p:string,i:number)=>i!==seat&&!s.bots[i]&&present(g.members[p],now)))return null;
  const m=g.members[s.players[seat]];
- if(m&&!m.away&&now-m.lastSeen<20000) return false;      // still with us
- return s.players.some((p:string,i:number)=>{
-  if(i===seat||s.bots[i]) return false;
-  const o=g.members[p];
-  return !!o&&!o.away&&now-o.lastSeen<20000;
- });
+ return Math.max(now,m?goneAt(m):now);
+}
+export function botMayCover(g:Table,seat:number,now:number){const t=coverAt(g,seat,now);return t!==null&&t<=now;}
+/** When the room should deal a closed hand itself: AUTO_DEAL_MS after it
+ *  closed, and only while a seated human is there to play it. */
+export function autoDealAt(g:Table&{closedAt?:number},now:number):number|null{
+ const s=g.state;if(s.phase!=='handEnd'||g.closedAt===undefined)return null;
+ return s.players.some((p:string,i:number)=>!s.bots[i]&&present(g.members[p],now))?Math.max(now,g.closedAt+AUTO_DEAL_MS):null;
+}
+export const lastActivity=(g:{members:Record<string,Member|undefined>})=>Math.max(0,...Object.values(g.members).map(m=>m?.lastSeen??0));
+/**
+ * The one time the room must wake next — never a polling tick. A human
+ * thinking with a live phone costs nothing; a table everybody left sleeps
+ * until the idle TTL deletes it.
+ */
+export function nextWake(g:Store,now:number,crowd:Member[]){
+ const due=[lastActivity(g)+IDLE_TTL_MS],s=g.state;
+ if(s.phase==='playing'){if(g.botDue!==undefined)due.push(g.botDue);else{const t=coverAt(g,s.turn,now);if(t!==null)due.push(t);}}
+ const deal=autoDealAt(g,now);if(deal!==null)due.push(deal);
+ for(const m of crowd)due.push(m.lastSeen+CROWD_MS);
+ return Math.max(now+50,Math.min(...due));
+}
+/** What a covered seat plays: the bot's choice if the rules accept it, else the
+ *  first legal move (or the pass) — never nothing, so the alarm cannot spin. */
+export function coverMove(s:any,id:string,choose:(v:any)=>any=chooseMove):any{
+ const view:any=logic.viewFor(s,id),pick=choose(view);
+ if(logic.validateAction(s,id,pick).ok)return pick;
+ console.error('bot move rejected, falling back to the first legal one',JSON.stringify(pick));
+ const o=view.legal[0],fallback=o?{type:'play',tile:o.tile,side:o.side}:{type:'pass'};
+ return logic.validateAction(s,id,fallback).ok?fallback:null;
 }
 /** 32 bytes from the platform CSPRNG, as hex: the key logic.js deals from.
  *  A new one before every deal, so no hand says anything about the next. */
 export const freshSeed=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
-/** The same four the client shows in the lobby. */
-export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
 export function freshGame(){return {status:'waiting',seats:[] as string[],state:null,result:null};}
 export function resolveMeta(raw:unknown){const m=(raw??{}) as Record<string,any>,arr=Array.isArray(m.players)?m.players:[];const n=(v:unknown,f:number)=>Number.isInteger(v)&&Number(v)>=1?Number(v):f;const min=n(m.minPlayers,n(arr[0],1));return {game:[m.game,m.name,m.title].find(x=>typeof x==='string'&&x.trim())??'Game',minPlayers:min,maxPlayers:Math.max(min,n(m.maxPlayers,n(arr[1],min)))};}
-type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;profileId?:string;lastChat?:number};
-type Chat={id:string;sender:string;name:string;text:string;role:string;at:number};
-type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];featured:boolean;seriesId:string;recorded?:boolean;lastCrowd?:number;botDue?:number;botKey?:string};
 export class Room extends DurableObject<Env>{
  constructor(ctx:DurableObjectState,env:Env){super(ctx,env);ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('__ping','__pong'));}
  override async fetch(request:Request){
@@ -54,89 +109,140 @@ export class Room extends DurableObject<Env>{
  private error(ws:WebSocket,error:string){this.send(ws,{type:'error',error});}
  private async load(){const g=await this.ctx.storage.get<Store>('mesa');if(g){g.chat??=[];g.muted??=[];g.featured??=false;g.seriesId??=crypto.randomUUID();for(const m of Object.values(g.members)){m.publicId??=crypto.randomUUID();m.name??=m.role==='host'?'Host':'Neighbor';}}return g;}
  private async save(g:Store){await this.ctx.storage.put('mesa',g);}
- private spectators(g:Store){const online=new Set(this.ctx.getWebSockets().map(s=>s.deserializeAttachment()?.id));return Object.values(g.members).filter(m=>m.role==='spectator'&&!m.away&&Date.now()-m.lastSeen<25000&&online.has(m.id));}
+ private spectators(g:Store){const online=new Set(this.ctx.getWebSockets().map(s=>s.deserializeAttachment()?.id));return Object.values(g.members).filter(m=>m.role==='spectator'&&!m.away&&Date.now()-m.lastSeen<CROWD_MS&&online.has(m.id));}
  private broadcast(g:Store){
-  const viewers=this.spectators(g);g.lastCrowd=viewers.length;
+  const now=Date.now(),viewers=this.spectators(g);
   for(const ws of this.ctx.getWebSockets()){
    const id=ws.deserializeAttachment()?.id;if(!id||!g.members[id])continue;
-   this.send(ws,{type:'state',view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>g.members[p]?(!g.members[p].away&&Date.now()-g.members[p].lastSeen<20000):false),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
+   this.send(ws,{type:'state',view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
   }
  }
- private async schedule(g:Store,minimumDelay=0){
-  const now=Date.now(),s=g.state;let wake=now+1500;
-  if(s.phase==='playing'){
-   const covered=botMayCover(g,s.turn,now);
-   if(covered){const key=botTurnKey(s.handNo,s.moves.length,s.turn);if(g.botKey!==key){g.botKey=key;g.botDue=now+Math.max(minimumDelay,botThinkingMs(s.handNo,s.moves.length,s.turn));}wake=Math.min(wake,g.botDue!);}
-   else{delete g.botKey;delete g.botDue;}
-   await this.save(g);await this.ctx.storage.setAlarm(Math.max(now+50,wake));
-  }else{delete g.botKey;delete g.botDue;await this.save(g);if(this.spectators(g).length)await this.ctx.storage.setAlarm(wake);else await this.ctx.storage.deleteAlarm();}
+ /** Bot turn and hand-closing bookkeeping. Returns whether anything changed. */
+ private prepareTimers(g:Store,now:number,minimumDelay:number){
+  const s=g.state;let changed=false;
+  if(s.phase==='playing'&&botMayCover(g,s.turn,now)){
+   const key=botTurnKey(s.handNo,s.moves.length,s.turn);
+   if(g.botKey!==key){
+    const forced=!(logic.viewFor(s,s.players[s.turn]) as any).legal.length;
+    g.botKey=key;g.botDue=now+Math.max(minimumDelay,forced?FORCED_PASS_MS:botThinkingMs(s.handNo,s.moves.length,s.turn));changed=true;
+   }
+  }else if(g.botKey!==undefined||g.botDue!==undefined){delete g.botKey;delete g.botDue;changed=true;}
+  if(s.phase==='handEnd'){if(g.closedAt===undefined){g.closedAt=now;changed=true;}}
+  else if(g.closedAt!==undefined){delete g.closedAt;changed=true;}
+  return changed;
+ }
+ /**
+  * Persist (only if something changed), tell everyone, then arm the single
+  * next wake-up. Storage first: a table must never show a move it then loses.
+  */
+ private async commit(g:Store,{dirty=true,broadcast=true,minimumDelay=0}={}){
+  const now=Date.now(),crowd=this.spectators(g);
+  if(g.lastCrowd!==crowd.length){g.lastCrowd=crowd.length;dirty=true;broadcast=true;}
+  if(this.prepareTimers(g,now,minimumDelay))dirty=true;
+  if(dirty)await this.save(g);
+  if(broadcast)this.broadcast(g);
+  const wake=nextWake(g,now,crowd);
+  if(await this.ctx.storage.getAlarm()!==wake)await this.ctx.storage.setAlarm(wake);
  }
  private async finish(g:Store){
   if(g.state.phase!=='seriesEnd'||g.recorded)return;
   const winner=g.state.result.team,participants=g.state.players.flatMap((id:string,seat:number)=>{const p=g.members[id]?.profileId;return p?[{id:p,won:seat%2===winner,ownScore:g.state.scores[seat%2],opponentScore:g.state.scores[1-seat%2]}]:[];});
   await recordSeries(this.env,g.seriesId,participants);g.recorded=true;
  }
- override async webSocketMessage(ws:WebSocket,raw:string|ArrayBuffer){await this.ctx.blockConcurrencyWhile(async()=>{
-  try{
-   if(typeof raw!=='string'||raw.length>4096)return this.error(ws,'Message too large.');
-   let msg:any;try{msg=JSON.parse(raw);}catch{return this.error(ws,'Invalid message.');}if(!msg||typeof msg!=='object')return this.error(ws,'Invalid message.');
-   let g=await this.load();
-   if(msg.type==='join'){
-    const att=ws.deserializeAttachment();if(att?.id)return this.error(ws,'Already joined.');
-    if(typeof msg.token!=='string'||!/^[a-f0-9]{64}$/.test(msg.token))return this.error(ws,'Invalid seat credential. Reload and try again.');
-    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg.token));const id=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
-    if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=freshSeed();g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
-    if(!g.members[id]){
-     if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
-     const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
-     const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
-     if(role==='player'){
-      if(g.state.phase!=='lobby')return this.error(ws,'This hand has started. Watch this table, or use your original phone to return.');
-      const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All four seats are taken. You can still watch.');
-      if(!msg.name&&!att?.profileName)return this.error(ws,'Tell us your name to take a seat.');
-      if(att?.profileId&&Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId))return this.error(ws,'Your profile already has a seat. Use your original phone.');
-      g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;
-     }
-     g.members[id]={id,publicId:crypto.randomUUID(),name,role,lastSeen:Date.now(),away:false,...(att?.profileId?{profileId:att.profileId}:{})};
+ override async webSocketMessage(ws:WebSocket,raw:string|ArrayBuffer){
+  await this.ctx.blockConcurrencyWhile(async()=>{
+   try{await this.handle(ws,raw);}catch(err){console.error(err);this.error(ws,'The table could not process that request. Please try again.');}
+  });
+ }
+ private async handle(ws:WebSocket,raw:string|ArrayBuffer){
+  if(typeof raw!=='string'||raw.length>4096)return this.error(ws,'Message too large.');
+  let msg:any;try{msg=JSON.parse(raw);}catch{return this.error(ws,'Invalid message.');}if(!msg||typeof msg!=='object')return this.error(ws,'Invalid message.');
+  let g=await this.load();const now=Date.now();
+  if(msg.type==='join'){
+   const att=ws.deserializeAttachment();if(att?.id)return this.error(ws,'Already joined.');
+   if(typeof msg.token!=='string'||!/^[a-f0-9]{64}$/.test(msg.token))return this.error(ws,'Invalid seat credential. Reload and try again.');
+   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg.token));const id=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
+   if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=freshSeed();g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
+   if(!g.members[id]){
+    if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
+    const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
+    const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
+    if(role==='player'){
+     if(g.state.phase!=='lobby')return this.error(ws,'This hand has started. Watch this table, or use your original phone to return.');
+     const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All four seats are taken. You can still watch.');
+     if(!msg.name&&!att?.profileName)return this.error(ws,'Tell us your name to take a seat.');
+     if(att?.profileId&&Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId))return this.error(ws,'Your profile already has a seat. Use your original phone.');
+     g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;
     }
-    g.members[id]!.lastSeen=Date.now();g.members[id]!.away=false;
-    // Seat ownership and associated profile remain fixed for this series.
-    ws.serializeAttachment({...att,id});await this.save(g);this.broadcast(g);await this.schedule(g);return;
+    g.members[id]={id,publicId:crypto.randomUUID(),name,role,lastSeen:now,away:false,...(att?.profileId?{profileId:att.profileId}:{})};
    }
-   const id=ws.deserializeAttachment()?.id;if(!g||!id||!g.members[id])return this.error(ws,'Join the table first.');const member=g.members[id]!;
-   if(msg.type==='heartbeat'){const wasAway=member.away||Date.now()-member.lastSeen>=20000;member.lastSeen=Date.now();member.away=false;await this.save(g);if(wasAway||g.lastCrowd!==this.spectators(g).length){this.broadcast(g);await this.save(g);}return;}
-   if(msg.type==='away'){member.away=true;member.lastSeen=Date.now();await this.save(g);this.broadcast(g);await this.schedule(g);return;}
-   member.lastSeen=Date.now();member.away=false;
-   if(msg.type==='chat'){
-    if(g.muted.includes(member.publicId))return this.error(ws,'The host has muted your messages at this table.');
-    const text=cleanText(msg.text,Infinity);
-    if(!text||text.length>180)return this.error(ws,'Keep table talk between 1 and 180 characters.');
-    if(Date.now()-(member.lastChat||0)<2500)return this.error(ws,'Let the table breathe. Wait a moment between messages.');
-    member.lastChat=Date.now();g.chat.push({id:crypto.randomUUID(),sender:member.publicId,name:member.name,text,role:member.role,at:Date.now()});g.chat=g.chat.slice(-40);await this.save(g);this.broadcast(g);return;
-   }
-   if(msg.type==='feature'||msg.type==='moderate'){
-    if(id!==g.state.hostId)return this.error(ws,'Only the table host can do that.');
-    if(msg.type==='feature')g.featured=msg.enabled===true;
-    else {if(typeof msg.sender!=='string'||!Object.values(g.members).some(m=>m.publicId===msg.sender&&m.id!==g!.state.hostId))return this.error(ws,'Choose a table participant.');g.muted=msg.muted===false?g.muted.filter(x=>x!==msg.sender):[...new Set([...g.muted,msg.sender])];await setVoicePublish(this.env,ws.deserializeAttachment()?.roomName||'main',msg.sender,msg.muted===false);}
-    await this.save(g);this.broadcast(g);return;
-   }
-   if(msg.type!=='action')return this.error(ws,'Unknown action.');
-   const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
-   if(['start','next','newSeries'].includes(msg.action.type))g.state.seed=freshSeed();
-   if(msg.action.type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
-   g.state=logic.applyAction(g.state,id,msg.action);
-   if(msg.action.type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
-   await this.finish(g);await this.save(g);this.broadcast(g);await this.schedule(g,msg.action.type==='start'||msg.action.type==='next'?4200:1500);
-  }catch(err){console.error(err);this.error(ws,'The table could not process that request. Please try again.');}
- });}
- override async alarm(){await this.ctx.blockConcurrencyWhile(async()=>{
-  const g=await this.load();if(!g)return;let changed=g.lastCrowd!==this.spectators(g).length;
-  if(g.state.phase==='playing'){
-   const s=g.state,id=s.players[s.turn],covered=botMayCover(g,s.turn,Date.now());
-   if(covered&&g.botKey===botTurnKey(s.handNo,s.moves.length,s.turn)&&Date.now()>=(g.botDue??Infinity)){const a:any=chooseMove(logic.viewFor(s,id) as any);if(logic.validateAction(s,id,a).ok){g.state=logic.applyAction(s,id,a);changed=true;}}
+   touch(g.members[id]!,now);
+   // Seat ownership and associated profile remain fixed for this series.
+   ws.serializeAttachment({...att,id});await this.commit(g);return;
   }
-  await this.finish(g);if(changed)this.broadcast(g);await this.save(g);await this.schedule(g);
- });}
- override async webSocketClose(ws:WebSocket){const id=ws.deserializeAttachment()?.id;if(!id)return;await this.ctx.blockConcurrencyWhile(async()=>{const g=await this.load();if(!g||!g.members[id])return;const another=this.ctx.getWebSockets().some(other=>other!==ws&&other.deserializeAttachment()?.id===id);if(!another){g.members[id]!.away=true;g.members[id]!.lastSeen=Date.now();await this.save(g);this.broadcast(g);await this.schedule(g);}});}
+  const id=ws.deserializeAttachment()?.id;if(!g||!id||!g.members[id])return this.error(ws,'Join the table first.');const member=g.members[id]!;
+  if(msg.type==='heartbeat'){
+   const back=member.away||now-member.lastSeen>=PRESENT_MS;touch(member,now);
+   // A heartbeat only ever pushes deadlines later, so the alarm already armed
+   // is early, never late: it re-arms itself. Coming back is different.
+   if(back||g.lastCrowd!==this.spectators(g).length)await this.commit(g);else await this.save(g);
+   return;
+  }
+  if(msg.type==='away'){markAway(member,now);await this.commit(g);return;}
+  touch(member,now);
+  if(msg.type==='chat'){
+   if(g.muted.includes(member.publicId))return this.error(ws,'The host has muted your messages at this table.');
+   const text=cleanText(msg.text,Infinity);
+   if(!text||text.length>180)return this.error(ws,'Keep table talk between 1 and 180 characters.');
+   if(now-(member.lastChat||0)<2500)return this.error(ws,'Let the table breathe. Wait a moment between messages.');
+   member.lastChat=now;g.chat.push({id:crypto.randomUUID(),sender:member.publicId,name:member.name,text,role:member.role,at:now});g.chat=g.chat.slice(-40);await this.commit(g);return;
+  }
+  if(msg.type==='feature'||msg.type==='moderate'){
+   if(id!==g.state.hostId)return this.error(ws,'Only the table host can do that.');
+   if(msg.type==='feature')g.featured=msg.enabled===true;
+   else{
+    if(typeof msg.sender!=='string'||!Object.values(g.members).some(m=>m.publicId===msg.sender&&m.id!==g!.state.hostId))return this.error(ws,'Choose a table participant.');
+    const sender:string=msg.sender,allow=msg.muted===false,roomName=ws.deserializeAttachment()?.roomName||'main';
+    g.muted=allow?g.muted.filter(x=>x!==sender):[...new Set([...g.muted,sender])];
+    await setVoicePublish(this.env,roomName,sender,allow);
+   }
+   await this.commit(g);return;
+  }
+  if(msg.type!=='action')return this.error(ws,'Unknown action.');
+  const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
+  const type=msg.action.type,dealing=['start','next','newSeries'].includes(type);
+  if(dealing)g.state.seed=freshSeed();
+  if(type==='newSeries'){g.seriesId=crypto.randomUUID();g.recorded=false;}
+  g.state=logic.applyAction(g.state,id,msg.action);
+  if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
+  await this.finish(g);
+  await this.commit(g,{minimumDelay:type==='start'||type==='next'?AFTER_DEAL_MS:AFTER_HUMAN_MS});
+ }
+ override async alarm(){
+  await this.ctx.blockConcurrencyWhile(async()=>{
+   const g=await this.load();if(!g)return;
+   const now=Date.now();
+   if(now-lastActivity(g)>=IDLE_TTL_MS){
+    // Nobody has been here for half a day: the table goes, storage and all.
+    await this.ctx.storage.deleteAlarm();await this.ctx.storage.deleteAll();
+    for(const ws of this.ctx.getWebSockets())try{ws.close(1000,'This table closed after 12 hours without anyone.');}catch{}
+    return;
+   }
+   let changed=false,minimumDelay=0;const s=g.state;
+   if(s.phase==='playing'&&botMayCover(g,s.turn,now)&&g.botKey===botTurnKey(s.handNo,s.moves.length,s.turn)&&now>=(g.botDue??Infinity)){
+    const id=s.players[s.turn],a=coverMove(s,id);
+    if(a)g.state=logic.applyAction(s,id,a);
+    else{console.error('no legal move for seat',s.turn);g.botDue=now+5000;}   // back off; never spin
+    changed=true;
+   }else if(s.phase==='handEnd'){
+    // Nobody dealt: a TV that fell asleep must not freeze the table.
+    const at=autoDealAt(g,now),dealer=s.hostId;
+    if(at!==null&&at<=now&&logic.validateAction(s,dealer,{type:'next'}).ok){s.seed=freshSeed();g.state=logic.applyAction(s,dealer,{type:'next'});changed=true;minimumDelay=AFTER_DEAL_MS;}
+   }
+   const wasRecorded=g.recorded;await this.finish(g);
+   await this.commit(g,{dirty:changed||g.recorded!==wasRecorded,broadcast:changed,minimumDelay});
+  });
+ }
+ override async webSocketClose(ws:WebSocket){const id=ws.deserializeAttachment()?.id;if(!id)return;await this.ctx.blockConcurrencyWhile(async()=>{const g=await this.load();if(!g||!g.members[id])return;const another=this.ctx.getWebSockets().some(other=>other!==ws&&other.deserializeAttachment()?.id===id);if(!another){markAway(g.members[id]!,Date.now());await this.commit(g);}});}
  override async webSocketError(ws:WebSocket){await this.webSocketClose(ws);}
 }

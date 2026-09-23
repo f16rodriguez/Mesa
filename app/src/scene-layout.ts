@@ -42,8 +42,15 @@ function hasExit(p:Placement,placed:Placement[],side:'left'|'right',isDouble:boo
 /** Replays only public placement events. Prefixes never reflow: new tiles are
  * added to one open end, while the original tile remains anchored at (0,0).
  * Doubles cross the incoming direction; they do not create extra branches. */
-export function chainLayout(chain:BoardTile[],moves:BoardMove[]=[]):Placement[]{
- if(chain.length>28)throw new Error('A double-six chain has at most 28 tiles.');if(!chain.length)return [];
+export function chainLayout(chain:BoardTile[],moves:BoardMove[]=[]):Placement[]{return trazar(chain,moves).placements;}
+/** Where the next tile would go at each open end, for the table's markers. Same
+ * replay as chainLayout, so the marks always sit where the chain really ends. */
+export function openEnds(chain:BoardTile[],moves:BoardMove[]=[]):{x:number;z:number;dx:number;dz:number}[]{
+ const t=trazar(chain,moves);if(!t.ends)return [];
+ return (['left','right'] as const).map(k=>{const e=t.ends![k],p=e.tile,f=footprint(p),half=Math.abs(e.dx)*(f.right-f.left)/2+Math.abs(e.dz)*(f.bottom-f.top)/2,d=half+.013;return {x:p.x+e.dx*d,z:p.z+e.dz*d,dx:e.dx,dz:e.dz};});
+}
+function trazar(chain:BoardTile[],moves:BoardMove[]):{placements:Placement[];ends:{left:End;right:End}|null}{
+ if(chain.length>28)throw new Error('A double-six chain has at most 28 tiles.');if(!chain.length)return {placements:[],ends:null};
  const byId=new Map(chain.map(t=>[t.id,t])),events=moves.filter(m=>m.type==='play'&&m.tile&&byId.has(m.tile));
  const opener=byId.get(events[0]?.tile||'')||chain[0]!,openerIndex=chain.findIndex(t=>t.id===opener.id),isDouble=opener.x===opener.y;
  const root:Placement={id:opener.id,x:0,z:0,yaw:isDouble?Math.PI/2:0,vertical:isDouble,isDouble,dx:1,dz:0,side:'root'};
@@ -54,7 +61,7 @@ export function chainLayout(chain:BoardTile[],moves:BoardMove[]=[]):Placement[]{
   if(!chosen)throw new Error(`No safe placement for ${tile.id} after ${placed.length} tiles`);
   placed.push(chosen);positions.set(tile.id,chosen);ends[side]={tile:chosen,dx:chosen.dx,dz:chosen.dz};
  }
- return chain.map(t=>positions.get(t.id)!);
+ return {placements:chain.map(t=>positions.get(t.id)!),ends};
 }
 export function idleMotion(index:number,time:number,reduced=false){
  if(reduced)return {breath:0,headYaw:0,headNod:0};const phase=index*2.173+.43;

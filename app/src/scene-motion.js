@@ -405,7 +405,11 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
   nivelarMano(brazo,_F,_N);
   if(dedos)vasoEnMano(actor,trago);
   // Quien espera tamborilea: dos golpecitos de dedos cada tantos segundos.
-  if(vivo&&!jugando&&!dedos&&brazo.lado==='Right'&&!(ctx?.turno===i&&ctx?.jugando)){
+  // Paso: dos golpes secos con los nudillos en la mesa, como se pasa en RD.
+  if(vivo&&!jugando&&!dedos&&brazo.lado==='Right'&&actor.toque&&time-actor.toque.t0<.7){
+   const tau=time-actor.toque.t0;brazo.mano.getWorldQuaternion(_wq);_eje.set(1,0,0).applyQuaternion(_wq);
+   giraEnMundo(brazo.mano,_lean.setFromAxisAngle(_eje,-.5*Math.max(0,Math.sin(tau/.7*Math.PI*4))));
+  }else if(vivo&&!jugando&&!dedos&&brazo.lado==='Right'&&!(ctx?.turno===i&&ctx?.jugando)){
    const P=4.6+i*.9,tau=(time+i*1.3)%P;
    if(tau<.55){brazo.mano.getWorldQuaternion(_wq);_eje.set(1,0,0).applyQuaternion(_wq);giraEnMundo(brazo.mano,_lean.setFromAxisAngle(_eje,-.22*Math.max(0,Math.sin(tau/.55*Math.PI*4))));}
   }

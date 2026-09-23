@@ -57,6 +57,14 @@ function seenCounts(hand: Tile[], chain: { a: number; b: number }[]): number[] {
   return seen;
 }
 
+const weight = (tiles: { a: number; b: number }[]) => tiles.reduce((n, t) => n + t.a + t.b, 0);
+const idOf = (a: number, b: number) => `${Math.min(a, b)}-${Math.max(a, b)}`;
+/** Every tile showing either end is in `onTable`: nobody can play again. */
+function blocks(L: number, R: number, onTable: Set<string>) {
+  for (const end of [L, R]) for (let k = 0; k <= 6; k++) if (!onTable.has(idOf(end, k))) return false;
+  return true;
+}
+
 /** The ends after playing `o`, following logic.js's orientation rules. */
 function endsAfter(v: View, o: Option): [number, number] {
   const [a, b] = pips(o.tile);
@@ -76,6 +84,17 @@ export function scoreOption(v: View, o: Option): number {
 
   // Going out ends the hand and scores it. Nothing outranks it.
   if (rest.length === 0) return 1e6;
+
+  // Trancar. When every tile carrying either new end is already on the table,
+  // this play closes the hand on the spot and the pair with fewer pips takes
+  // it. Our own pips we know; the unseen rest is split by how many tiles each
+  // seat still holds. A tie counts as ours: by default it goes to whoever trancó.
+  if (blocks(L, R, new Set([...v.chain.map(t => idOf(t.a, t.b)), o.tile]))) {
+    const mine = weight(rest), unseen = 168 - weight(v.chain) - (a + b) - mine;
+    const others = v.counts.reduce((n, c, s) => s === v.seat ? n : n + c, 0);
+    const partnerShare = others ? unseen * v.counts[partner]! / others : 0;
+    score += mine + partnerShare <= unseen - partnerShare ? 200 : -200;
+  }
 
   // Staying able to move. A bot that plays itself into passing hands the hand
   // to the other pair, and this is the most common way a hand is thrown away.

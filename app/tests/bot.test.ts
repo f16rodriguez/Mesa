@@ -73,19 +73,36 @@ describe('the bot reads the table',()=>{
   }
  });
 
- it('beats the heaviest-tile bot by a wide margin over forty series',()=>{
-  let won=0;
-  for(let n=0;n<40;n++){
+ it('trancas when its pair holds fewer pips, and not when it holds more',()=>{
+  // Every 0 but the 0-6 is down and the right end shows 6: 0-6 on the right
+  // leaves 0 and 0 open with no 0 left anywhere, so the hand closes on the spot.
+  const chain=[t(0,0),t(0,1),t(0,2),t(0,3),t(0,4),t(0,5),t(5,6)];
+  const legal=[{tile:'0-6',side:'left'},{tile:'0-6',side:'right'},{tile:'6-6',side:'right'}];
+  const light:any={hand:[t(0,6),t(6,6)],legal,left:0,right:6,counts:[2,3,3,3],moves:[],seat:0,chain};
+  expect(chooseMove(light)).toEqual({type:'play',tile:'0-6',side:'right'});
+  // Now the partner sits on five unseen tiles against one each: our pair would lose the count.
+  const heavy:any={...light,hand:[t(0,6),t(6,6),t(5,5)],counts:[3,1,5,1]};
+  expect(chooseMove(heavy)).not.toEqual({type:'play',tile:'0-6',side:'right'});
+  expect(scoreOption(heavy,{tile:'0-6',side:'right'})).toBeLessThan(scoreOption(light,{tile:'0-6',side:'right'})-300);
+ });
+
+ it('beats the heaviest-tile bot on the same deals with the sides swapped',()=>{
+  // Each seed is played twice, once from each side of the table, so a deal
+  // that favours one pair cannot flatter either bot. (The old test gave the
+  // new bot pair A every time, and pair A was the one the biased shuffle
+  // favoured.)
+  let won=0,played=0;
+  for(let n=0;n<40;n++)for(const side of [0,1]){
    let s=start(1000+n*7919),steps=0;
    while(s.phase!=='seriesEnd'&&steps++<6000){
     if(s.phase==='handEnd'){s=L.applyAction(s,'host',{type:'next'}) as any;continue;}
     const p=s.players[s.turn],v:any=L.viewFor(s,p);
-    s=L.applyAction(s,p,s.turn%2===0?chooseMove(v):heaviest(v)) as any;
+    s=L.applyAction(s,p,s.turn%2===side?chooseMove(v):heaviest(v)) as any;
    }
-   if(s.result.team===0) won++;
+   played++;if(s.result.team===side)won++;
   }
-  // Measured at 73.5% over 200 series. The floor guards against a regression
-  // that quietly turns the bot back into a beginner.
-  expect(won/40).toBeGreaterThan(0.6);
- },30000);
+  // Measured at 79.8% over 600 series this way. The floor guards against a
+  // regression that quietly turns the bot back into a beginner.
+  expect(won/played).toBeGreaterThan(0.65);
+ },60000);
 });

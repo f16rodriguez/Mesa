@@ -75,15 +75,66 @@ function objetivoMano(actor,brazo){
  // Apenas .06 m pasado el canto: el antebrazo APOYA y el codo queda doblado.
  // Con .21 llegaban al centro con el brazo estirado, que no es como se sienta
  // nadie a jugar dominó — es como se empuja una mesa.
- const borde=(DIM.seatDistance-DIM.tableWidth/2)+.06;
+ const borde=(DIM.seatDistance-DIM.tableWidth/2)+.025;
  const v=actor.index*1.7;
- const lateral=(brazo.lado==='Left'?-1:1)*(.155+Math.sin(v)*.018);
- return _obj.set(lateral,DIM.surfaceY+.035,borde+Math.cos(v*1.3)*.022);
+ // Con +Z hacia la mesa, la DERECHA de quien está sentado es -X (adelante×arriba),
+ // así que la mano izquierda va a +X. Estaba al revés y los cuatro cruzaban
+ // las muñecas delante del pecho.
+ const lateral=(brazo.lado==='Left'?1:-1)*(.155+Math.sin(v)*.018);
+ return _obj.set(lateral,DIM.surfaceY+.03,borde+Math.cos(v*1.3)*.022);
 }
-export function manosEnLaMesa(actor){
+/**
+ * La jugada: la mano derecha agarra la ficha, la LLEVA hasta el tablero, la
+ * suelta y vuelve. Antes la ficha volaba sola desde la silla y las manos ni se
+ * enteraban — la animación que más importa en un juego de dominó no existía.
+ *
+ * La mano sigue a la FICHA MISMA (su posición en cada cuadro), no a una curva
+ * recalculada con otro reloj. La ficha avanza con dt recortado a .06 s por
+ * cuadro; con un reloj de pared aparte, en una tele lenta a 3 fps la mano
+ * acababa su viaje antes de que la ficha llegara a la mitad.
+ */
+const _rep=new THREE.Vector3(),_fic=new THREE.Vector3(),_tmp=new THREE.Vector3(),SOBRE=.03,AGARRE=.12,SUELTA=.12,VUELTA=.42,TOPE=4;
+const suave=p=>p*p*(3-2*p);
+function manoEnJugada(actor,brazo,time,reposo){
+ const j=actor.jugada;if(!j||brazo.lado!=='Right')return reposo;
+ // Red de seguridad: si la jugada siguiente reconstruyó el tablero a mitad de
+ // vuelo, la ficha que seguíamos ya no existe y su animación no avanza más.
+ if(time-j.t0>TOPE){actor.jugada=null;return reposo;}
+ const a=j.anim;
+ if(a.elapsed<a.duration){
+  _tmp.copy(j.obj.position);_tmp.y+=SOBRE;
+  return _fic.lerpVectors(reposo,_tmp,suave(Math.min(1,Math.max(0,a.elapsed)/AGARRE)));
+ }
+ if(j.aterrizo==null)j.aterrizo=time;
+ const e=time-j.aterrizo;
+ _tmp.copy(j.hasta);_tmp.y+=SOBRE;
+ if(e<SUELTA)return _fic.copy(_tmp);
+ const v=(e-SUELTA)/VUELTA;
+ if(v>=1){actor.jugada=null;return reposo;}
+ return _fic.copy(_tmp).lerp(reposo,suave(v));
+}
+export function manosEnLaMesa(actor,time=0){
  if(!actor.brazos)return;
  actor.holder.updateMatrixWorld(true);
- for(const brazo of actor.brazos) alcanzar(brazo,actor.holder.localToWorld(objetivoMano(actor,brazo)));
+ for(const brazo of actor.brazos){
+  const reposo=_rep.copy(actor.holder.localToWorld(objetivoMano(actor,brazo)));
+  alcanzar(brazo,manoEnJugada(actor,brazo,time,reposo));
+ }
+}
+
+/**
+ * Inclinados hacia la mesa, como quien juega y no como quien posa. Se gira el
+ * tronco sobre el eje lateral del asiento EN EL MUNDO — igual que el IK, sin
+ * adivinar el eje local del hueso. Girar +Y sobre +X lo lleva hacia +Z, que es
+ * la mesa. 11°: con menos, los hombros quedaban tan atrás que la única forma de llegar
+ * al atril era con el brazo estirado. Así el codo dobla y el antebrazo apoya.
+ */
+const INCLINACION=.19,_eje=new THREE.Vector3(),_hq=new THREE.Quaternion(),_lean=new THREE.Quaternion();
+function inclinar(actor){
+ if(!actor.brazos||!actor.spine||!actor.spine.parent)return;
+ actor.holder.updateMatrixWorld(true);
+ _eje.set(1,0,0).applyQuaternion(actor.holder.getWorldQuaternion(_hq));
+ giraEnMundo(actor.spine,_lean.setFromAxisAngle(_eje,INCLINACION));
 }
 
 export function applySeatedMotion(actor,time,reduced=false){
@@ -92,10 +143,11 @@ export function applySeatedMotion(actor,time,reduced=false){
  for(const p of actor.pose){p.bone.position.copy(p.position);p.bone.quaternion.copy(p.quaternion);p.bone.scale.copy(p.scale);}
  const motion=idleMotion(actor.index,time,reduced);
  if(actor.spine)actor.spine.quaternion.multiply(delta.setFromAxisAngle(X,motion.breath));
+ inclinar(actor);
  if(actor.head){actor.head.quaternion.multiply(delta.setFromAxisAngle(Y,motion.headYaw));actor.head.quaternion.multiply(delta.setFromAxisAngle(X,motion.headNod));}
 
  // A small, bounded acknowledgment belongs only to the acting player.
  if(!reduced&&actor.reaction){const elapsed=time-actor.reaction.time;if(elapsed>=0&&elapsed<1.2&&actor.head){const amount=Math.sin(elapsed/1.2*Math.PI)*.035;actor.head.quaternion.multiply(delta.setFromAxisAngle(X,amount));}}
- manosEnLaMesa(actor);
+ manosEnLaMesa(actor,time);
  actor.holder.updateMatrixWorld(true);
 }

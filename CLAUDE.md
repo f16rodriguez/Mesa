@@ -39,9 +39,10 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   RD/LatAm desde el día uno. Sin anuncios, sin cosméticos, sin cobro por mesa.
 - Kreyòl: fuera por ahora (decidido el 23 sep 2026). Español e inglés.
 - **Marca inclusiva** (decidido el 24 sep 2026): la interfaz, las páginas y la tarjeta
-  para compartir no dicen "dominicano". Mesa es **dominó en parejas** para todo el que
-  lo juega (Caribe, Latinoamérica, la diáspora). Las reglas, el colmado y la gente
-  de la mesa siguen igual; lo que cambia es cómo nos presentamos.
+  para compartir no dicen "dominicano". Mesa es **dominó**, para todo el que lo juega
+  (Caribe, Latinoamérica, la diáspora). Tampoco "en parejas": viene el 1 contra 1.
+  Las reglas, el colmado y la gente de la mesa siguen igual; lo que cambia es cómo
+  nos presentamos.
 - Ranked: parejas **asignadas**, no elegidas. Calificar la **decisión**, no solo el
   resultado — el motor conoce todas las alternativas legales de cada jugada.
 - Voz en línea: **una sola sala abierta**, sin canal privado de pareja. Mute por

@@ -2,7 +2,7 @@
    "usted", nada de emojis. Las claves son cortas y el texto vive aquí, no regado por el código.
    t('clave',{nombre:'Luis'}) sustituye {nombre}. */
 const ES={
- marca:'mesa',ubicacion:'EL COLMADO DE LA ESQUINA',subtitulo:'DOMINÓ EN PAREJAS',
+ marca:'mesa',ubicacion:'EL COLMADO DE LA ESQUINA',subtitulo:'DOMINÓ',
  titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'Siempre hay una silla en la esquina.<br>Trae a los tuyos. Quédate un rato.',
  abrirMesa:'Abrir una mesa',practica:'Una manita de práctica',seguirPractica:'Seguir la práctica',entrarCodigo:'Entrar con código',
  escuelita:'La escuelita',ajustes:'Ajustes',miPerfil:'Mi perfil',pantallaCompleta:'Pantalla completa',
@@ -87,7 +87,7 @@ const ES={
  aceptasTerminos:'Al crear tu cuenta aceptas los <a href="/legal/terminos.html{l}" target="_blank">términos</a> y la <a href="/legal/privacidad.html{l}" target="_blank">política de privacidad</a>.'
 };
 const EN={
- marca:'mesa',ubicacion:'THE CORNER COLMADO',subtitulo:'PARTNER DOMINOES',
+ marca:'mesa',ubicacion:'THE CORNER COLMADO',subtitulo:'DOMINOES',
  titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'There’s always a chair at the corner.<br>Bring your people. Stay a while.',
  abrirMesa:'Start a table',practica:'A quiet practice hand',seguirPractica:'Continue practice',entrarCodigo:'Join with a code',
  escuelita:'La escuelita',ajustes:'Settings',miPerfil:'My profile',pantallaCompleta:'Full screen',

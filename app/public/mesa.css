@@ -208,6 +208,43 @@ dialog::backdrop{background:rgba(12,20,15,.72)}
 .lesson-tab.active{background:var(--ivory);border-color:var(--ivory);color:var(--ink)}
 .school-lessons .hand-tiles{margin:1.2rem 0 .4rem;justify-content:flex-start}
 .exercise-result{font-size:.97rem;color:var(--gold);min-height:2.6em;padding-top:.6rem}
+/* La escuelita nueva: pasos, dibujo de cada lección y navegación */
+.leccion-pasos{display:flex;gap:.4rem;flex-wrap:wrap;margin:.2rem 0 1rem}
+.paso-leccion{width:1.6rem;height:.5rem;border-radius:99px;background:var(--linea-fuerte);transition:background .2s}
+.paso-leccion.hecho{background:color-mix(in srgb,var(--gold) 55%,transparent)}
+.paso-leccion.activo{background:var(--ivory)}
+.school-lessons .eyebrow{margin-top:.2rem}
+.school-lessons p+p{margin-top:.55rem}
+.leccion-vista{display:flex;flex-direction:column;align-items:center;gap:.55rem;margin:1.1rem 0 .2rem;padding:1.1rem .8rem;background:rgba(0,0,0,.2);border:1px solid var(--linea);border-radius:16px}
+.leccion-vista .tile{--l:3.4rem}
+.fila-fichas{display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center;align-items:flex-end}
+.fila-fichas figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.fila-fichas figcaption,.pie-vista{font:500 .78rem var(--mono);letter-spacing:.08em;color:var(--gold);margin:0!important}
+.fila-fichas.dorsos{gap:.35rem}
+.tile.dorso{background:linear-gradient(135deg,#2c4a3a,#1d3328);box-shadow:inset 0 0 0 2px rgba(243,238,227,.25),0 3px 7px rgba(0,0,0,.4)}
+.tile.dorso::after{display:none}
+.tile.h{flex-direction:row;width:var(--l);height:var(--a)}
+.tile.h::after{left:50%;right:auto;top:16%;bottom:16%;width:max(1px,calc(var(--a) * .035));height:auto;transform:translateX(-50%)}
+.cadena-leccion{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:center}
+.cadena{display:flex;align-items:center;gap:3px}
+.punta-leccion{font:500 .72rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--suave);display:flex;flex-direction:column;align-items:center;gap:.15rem}
+.punta-leccion b{font:800 1.5rem/1 var(--sans);color:var(--gold)}
+.mesa-dia{position:relative;width:15rem;height:11rem;display:grid;place-items:center}
+.pano-dia{width:7rem;height:5.2rem;border-radius:12px;background:var(--felt);box-shadow:inset 0 0 0 3px var(--wood);display:grid;place-items:center}
+.pano-dia .tile{--l:2.4rem}
+.mesa-dia .asiento{position:absolute;font:600 .8rem var(--sans);padding:.3em .7em;border-radius:99px;border:2px solid currentColor;background:rgba(0,0,0,.35);white-space:nowrap}
+.mesa-dia .asiento.pareja-a{color:var(--salsa)}.mesa-dia .asiento.pareja-b{color:var(--sky)}
+.mesa-dia .arriba{top:0;left:50%;transform:translateX(-50%)}.mesa-dia .abajo{bottom:0;left:50%;transform:translateX(-50%)}
+.mesa-dia .izq{left:0;top:50%;transform:translateY(-50%)}.mesa-dia .der{right:0;top:50%;transform:translateY(-50%)}
+.marcador-dia{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+.marcador-dia span{font:600 .9rem var(--sans);padding:.5em 1em;border-radius:12px;border:2px solid currentColor}
+.marcador-dia b{font:500 1.2rem var(--mono);margin-left:.4em}
+.marcador-dia .pareja-a{color:var(--salsa)}.marcador-dia .pareja-b{color:var(--sky)}
+.respuestas .g-button{margin:0}
+.respuestas .bien .tile,.respuestas .g-button.bien{box-shadow:0 0 0 3px var(--gold)}
+.respuestas .mal{opacity:.5}
+.leccion-nav{display:flex;justify-content:space-between;gap:.8rem;margin:.6rem 0 1rem}
+.leccion-nav .g-button{margin:0}
 
 /* Manos al final */
 .reveal-hands{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.4rem}

@@ -4,7 +4,7 @@ const CAST=['rafa','marisol','luis','carmen'];
    is shown always matches what is heard — the old code indexed a flat caption
    array by type, which silently goes wrong the moment one type has two clips.
    Lists may be uneven: a bot with one `think` and four is handled the same. */
-const LINES={
+const LINES_ES={
  rafa:{think:[['think','Déjame ver un chin.'],['think-2','Espera, déjame ver.'],['think-3','Un momentico.'],['think-4','Tranquilo, que ya voy.']],
        play:[['play','Ahí va.'],['play-2','Toma eso.'],['play-3','Por aquí va.']],
        pass:[['pass','Paso.']],win:[['win','¡Dominó!']],block:[['block','Se trancó.']]},
@@ -18,6 +18,25 @@ const LINES={
        play:[['play','Ahí te va.'],['play-2','Toma.'],['play-3','Por acá.']],
        pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']]},
 };
+/* Las mismas cuatro voces en inglés (clonadas de las tomas en español, así conservan el
+   acento), con los mismos nombres de archivo bajo public/audio/bots/<bot>/en/. */
+const LINES_EN={
+ rafa:{think:[['think','Let me see a sec.'],['think-2','Hold on, let me look.'],['think-3','One moment.'],['think-4',"Easy, I'm coming."]],
+       play:[['play','There it goes.'],['play-2','Take that.'],['play-3','Right here.']],
+       pass:[['pass','I pass.']],win:[['win','Domino!']],block:[['block',"It's locked."]]},
+ marisol:{think:[['think','Give me a second.'],['think-2','Ay, let me see.'],['think-3','One more second.'],['think-4','Almost, almost.']],
+       play:[['play','Here we go.'],['play-2','There you go.'],['play-3','This one!']],
+       pass:[['pass','I gotta pass.']],win:[['win','Domino, my people!']],block:[['block',"The table's closed."]]},
+ luis:{think:[['think','Hold up a sec.'],['think-2','Let me check that.'],['think-3','Coming, coming.'],['think-4','One more sec.']],
+       play:[['play','Take that one.'],['play-2','That one!'],['play-3','Right there for you.']],
+       pass:[['pass','I pass on this one.']],win:[['win','Domino!']],block:[['block','This is locked up.']]},
+ carmen:{think:[['think','Easy, easy.'],['think-2','In a minute, in a minute.'],['think-3','Let me think.'],['think-4','Right away.']],
+       play:[['play','There you go.'],['play-2','Here, take it.'],['play-3','Over here.']],
+       pass:[['pass',"Don't have it, I pass."]],win:[['win','Domino!']],block:[['block',"Well, it's locked."]]},
+};
+const LINES={es:LINES_ES,en:LINES_EN};
+/** El idioma de la página (lo pone textos.js); sin página, español. */
+const lengua=()=>typeof document!=='undefined'&&document.documentElement?.lang==='en'?'en':'es';
 const POSITIONS=[[0,1.18,1.01],[1.01,1.20,0],[0,1.18,-1.01],[-1.01,1.18,0]];
 export const botChatter={
  enabled:(()=>{try{return localStorage.getItem('mesa-bot-voices')!=='off';}catch{return true;}})(),context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},
@@ -27,10 +46,10 @@ export const botChatter={
     time — and a table you sit at for an hour notices. The bag also refuses to
     open on whatever it just closed on, so a repeat cannot straddle a reshuffle. */
  next(seat,type){
-  const name=CAST[seat],pool=LINES[name]?.[type];
+  const lang=lengua(),name=CAST[seat],pool=LINES[lang][name]?.[type];
   if(!pool||!pool.length)return null;
   if(pool.length===1)return pool[0];
-  const key=name+'/'+type;
+  const key=lang+'/'+name+'/'+type;
   let bag=this.bags[key];
   if(!bag||!bag.length){
    bag=pool.map((_,i)=>i);
@@ -43,7 +62,7 @@ export const botChatter={
  setEnabled(value){this.enabled=value;try{localStorage.setItem('mesa-bot-voices',value?'on':'off');}catch{}if(!value&&this.source){try{this.source.stop();}catch{}}},
  unlock(){if(!this.enabled)return;this.context??=new (window.AudioContext||window.webkitAudioContext)();return this.context.resume();},
  position(role,view,crowd){if(!this.context)return;let pos=[0,1.30,1.85],forward=[0,0,-1];if(role==='practice'){pos=POSITIONS[0];}else if(role==='spectator'){const i=Math.max(0,(crowd?.viewers||[]).findIndex(v=>v.id===crowd.you));pos=[-2.5+(i%4)*1.66,1.3,-2.5-Math.floor(i/4)*.65];const length=Math.hypot(pos[0],pos[2]);forward=[-pos[0]/length,0,-pos[2]/length];}const l=this.context.listener;if(l.positionX){l.positionX.value=pos[0];l.positionY.value=pos[1];l.positionZ.value=pos[2];l.forwardX.value=forward[0];l.forwardY.value=0;l.forwardZ.value=forward[2];l.upX.value=0;l.upY.value=1;l.upZ.value=0;}else{l.setPosition(...pos);l.setOrientation(...forward,0,1,0);}},
- async buffer(seat,file){const key=CAST[seat]+'/'+file;if(!this.cache.has(key)){const r=await fetch('/audio/bots/'+key+'.mp3');if(!r.ok)throw Error('Missing bot voice');this.cache.set(key,await this.context.decodeAudioData(await r.arrayBuffer()));}return this.cache.get(key);},
+ async buffer(seat,file){const key=CAST[seat]+'/'+(lengua()==='en'?'en/':'')+file;if(!this.cache.has(key)){const r=await fetch('/audio/bots/'+key+'.mp3');if(!r.ok)throw Error('Missing bot voice');this.cache.set(key,await this.context.decodeAudioData(await r.arrayBuffer()));}return this.cache.get(key);},
  async play(seat,type,force=false,antesDe=0){if(!this.enabled||!this.context||this.context.state!=='running'||this.busy||(!force&&performance.now()-this.lastSpoke<9500))return;
   const line=this.next(seat,type);if(!line)return;const [fileName,text]=line;this.busy=true;
   try{const buffer=await this.buffer(seat,fileName);

@@ -11,14 +11,19 @@ import { fileURLToPath } from 'node:url';
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = readFileSync(resolve(app, 'src/bot-chatter.js'), 'utf8');
-const block = source.slice(source.indexOf('const LINES='), source.indexOf('export const botChatter'));
+// Una tabla por idioma: español en public/audio/bots/<bot>/, inglés en <bot>/en/.
+const tabla = nombre => { const i = source.indexOf(`const ${nombre}=`); return i < 0 ? '' : source.slice(i, source.indexOf('\n};', i) + 3); };
 
 let missing = 0, counted = 0;
-for (const [, bot, body] of block.matchAll(/(\w+):\{([\s\S]*?)\}(?=,\n|\n\};)/g)) {
-  for (const [, file] of body.matchAll(/\['([\w-]+)',/g)) {
-    counted++;
-    const path = resolve(app, 'public/audio/bots', bot, file + '.mp3');
-    if (!existsSync(path)) { console.error(`  MISSING ${bot}/${file}.mp3`); missing++; }
+for (const [nombre, sub] of [['LINES_ES', ''], ['LINES_EN', 'en']]) {
+  const block = tabla(nombre);
+  if (!block) { console.error(`check-bot-lines: no encontré ${nombre} en bot-chatter.js`); process.exit(1); }
+  for (const [, bot, body] of block.matchAll(/(\w+):\{([\s\S]*?)\}(?=,\n|\n\};)/g)) {
+    for (const [, file] of body.matchAll(/\['([\w-]+)',/g)) {
+      counted++;
+      const path = resolve(app, 'public/audio/bots', bot, sub, file + '.mp3');
+      if (!existsSync(path)) { console.error(`  MISSING ${bot}/${sub ? sub + '/' : ''}${file}.mp3`); missing++; }
+    }
   }
 }
 if (!counted) { console.error('check-bot-lines: parsed no lines — the LINES shape changed'); process.exit(1); }

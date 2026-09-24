@@ -44,3 +44,15 @@ describe('bot lines never repeat before the bag is empty',()=>{
   expect(c.next(0,'capicua')).toBeNull();
  });
 });
+
+describe('bot lines follow the page language',()=>{
+ it('speaks English lines when the page is in English, with the same file names',async()=>{
+  const c=await load();const g=globalThis as any,antes=g.document;
+  try{
+   g.document={documentElement:{lang:'en'}};
+   const [file,text]=c.next(0,'pass');expect(file).toBe('pass');expect(text).toBe('I pass.');
+   g.document={documentElement:{lang:'es'}};
+   expect(c.next(0,'pass')[1]).toBe('Paso.');
+  }finally{g.document=antes;}
+ });
+});

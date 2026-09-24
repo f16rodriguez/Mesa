@@ -265,7 +265,17 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  }
  const repartoGroup=new THREE.Group();scene.add(repartoGroup);
  const fichas=new Map();let claveMesa='',paseVisto='';
- function pila(){for(let i=0;i<28;i++){const d=domino(0,0,true);d.position.set(((i*37)%23-11)*.016,DIM.surfaceY+DIM.tileThickness*(.55+(i%3)*.9),((i*13)%19-9)*.016);d.rotation.y=i*1.73;tileGroup.add(d);}}
+ /* La pila revuelta: 28 fichas boca abajo, ACOSTADAS en el paño y sin encimarse. Antes dos de cada
+    tres iban a una y dos fichas de alto sin nada debajo, y el reparto las sacaba a 6 mm del paño:
+    se veían flotando. Muestreo con distancia mínima (una ficha girada cabe en 5,8 cm), siempre igual. */
+ const PILA=(()=>{let sem=7;const rnd=()=>(sem=sem*16807%2147483647)/2147483647,out=[];let R=.2;
+  for(let i=0;i<28;i++){let ok=false;
+   for(let k=0;k<600&&!ok;k++){const a=rnd()*Math.PI*2,r=Math.sqrt(rnd())*R,x=Math.cos(a)*r,z=Math.sin(a)*r*.82;
+    if(out.every(q=>Math.hypot(q.x-x,q.z-z)>=.058)){out.push({x,z,ry:rnd()*Math.PI});ok=true;}}
+   if(!ok){R+=.012;i--;}}
+  return out;})();
+ const enPaño=DIM.surfaceY+DIM.tileThickness/2+.0003;
+ function pila(){for(let i=0;i<28;i++){const d=domino(0,0,true),q=PILA[i];d.position.set(q.x,enPaño,q.z);d.rotation.y=q.ry;tileGroup.add(d);}}
  const suave=p=>p*p*(3-2*p);
  /* Al cerrar la mano, cada quien acuesta lo que le quedó, boca arriba y hacia el centro, como
   se hace en la mesa de verdad: se cuentan los puntos con los ojos. Empieza cuando termina el
@@ -310,8 +320,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   if(view?.phase==='playing'&&view.handNo!==lastHand&&view.moves.length===0){
    lastHand=view.handNo;clear(repartoGroup);animations=animations.filter(a=>!a.reparto);dealUntil=performance.now()+3300;
    for(let s=0;s<4;s++)huecos[s]=Array.from({length:7},(_,j)=>(j-3)*DIM.rackSpacing);
-   for(let i=0;i<28;i++){const seat=i%4,slot=Math.floor(i/4),d=domino(0,0,true),start=v3(((i*37)%23-11)*.015,DIM.surfaceY+.012,((i*13)%19-9)*.015);
-    d.position.copy(start);d.rotation.y=i*1.73;repartoGroup.add(d);const meta=poseAtril(seat,(slot-3)*DIM.rackSpacing,new THREE.Object3D());
+   for(let i=0;i<28;i++){const seat=i%4,slot=Math.floor(i/4),d=domino(0,0,true),q=PILA[i],start=v3(q.x,enPaño,q.z);
+    d.position.copy(start);d.rotation.y=q.ry;repartoGroup.add(d);const meta=poseAtril(seat,(slot-3)*DIM.rackSpacing,new THREE.Object3D());
     animations.push({obj:d,from:start,to:meta.position.clone(),qFrom:d.quaternion.clone(),qTo:meta.quaternion.clone(),elapsed:-i*.065,duration:1.1,reparto:true});}
   }
   // Pase: quien pasa toca la mesa dos veces con los nudillos.

@@ -21,8 +21,11 @@ La ventaja nuestra es la sala y la enseñanza, no el 3D.
 
 ## Reglas del juego (decididas, no reabrir)
 
-Doble seis, 28 fichas, 4 jugadores en 2 parejas cruzadas, sin pozo. Sale el doble
-seis en la primera mano; después sale quien ganó (en tranque, quien trancó). Paso
+Doble seis, 28 fichas, 4 jugadores en 2 parejas cruzadas, sin pozo. El turno pasa a
+la derecha (contra el reloj). Sale el doble seis en la primera mano; después sale
+quien ganó; en tranque, la pareja que lo ganó (el que trancó si fue su pareja; si
+no, el de la pareja ganadora con menos puntos). Ambas cosas cambiadas el 24 sep 2026
+por la auditoría de reglas, con visto bueno de Trey. Paso
 obligado. Dominó = la pareja ganadora suma los pips en manos del contrario. Tranque =
 gana la pareja con menos pips, suma los del contrario; empate → gana quien trancó
 (configurable). Capicúa +25 (configurable). Serie a 200. Zapato = 200 a 0.

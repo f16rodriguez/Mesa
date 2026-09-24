@@ -1,5 +1,5 @@
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SEATS=[[0,1.18,1.01],[-1.01,1.18,0],[0,1.18,-1.01],[1.01,1.18,0]];
+const SEATS=[[0,1.18,1.01],[1.01,1.18,0],[0,1.18,-1.01],[-1.01,1.18,0]];
 function locationFor(meta,identity,crowd){if(meta.role==='player'&&meta.seat>=0&&meta.seat<4)return SEATS[meta.seat];if(meta.role==='spectator'){const live=(crowd?.viewers||[]).findIndex(x=>x.id===identity),i=Math.max(0,live>=0?live:meta.crowdIndex||0);return [-2.5+(i%4)*1.66,1.3,-2.5-Math.floor(i/4)*.65];}return [0,1.3,1.85];}
 export const proximityVoice={
  current:null,room:null,context:null,nodes:new Map(),error:'',connecting:false,mic:false,available:null,

@@ -92,6 +92,19 @@ export function validateAction(s,p,a) {
   if(a.type!=='play') return fail('Choose a tile or pass.');
   return legal.some(o=>o.tile===a.tile&&o.side===a.side)?{ok:true}:fail('That tile does not fit this end.');
 }
+/**
+ * Who leads the next hand. After a dominó, the one who went out. After a
+ * tranque, the pair that WON it: the blocker if it was his pair, otherwise the
+ * winning pair's player with fewer pips (the one next in turn on a tie). A tied
+ * tranque that nobody takes leaves the lead where it was this hand.
+ */
+function nextOpener(s, type, seat, team, pips) {
+  if(type!=='tranque') return seat;
+  if(team===null) return s.opener;
+  if(seat%2===team) return seat;
+  const a=(seat+1)%4, b=(seat+3)%4;
+  return pips[b]<pips[a]?b:a;
+}
 function closeHand(s, type, seat, capicua=false) {
   const pips=s.hands.map(sum), totals=[pips[0]+pips[2],pips[1]+pips[3]];
   let team=seat%2;
@@ -103,7 +116,7 @@ function closeHand(s, type, seat, capicua=false) {
   const series=team!==null&&scores[team]>=s.settings.target;
   const result={type:bonus>0?'capicua':type,seat,team,base,bonus,points,pips,totals,zapato:series&&scores[1-team]===0};
   const record={handNo:s.handNo,result,deal:s.deal,moves:s.moves};
-  return {...s,scores,phase:series?'seriesEnd':'handEnd',opener:type==='tranque'?s.lastPlay:seat,result,event:{type:result.type,seat},history:[...s.history,record].slice(-30)};
+  return {...s,scores,phase:series?'seriesEnd':'handEnd',opener:nextOpener(s,type,seat,team,pips),result,event:{type:result.type,seat},history:[...s.history,record].slice(-30)};
 }
 export function applyAction(state,p,a) {
   const s=JSON.parse(JSON.stringify(state));

@@ -18,7 +18,7 @@ const LINES={
        play:[['play','Ahí te va.'],['play-2','Toma.'],['play-3','Por acá.']],
        pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']]},
 };
-const POSITIONS=[[0,1.18,1.01],[-1.01,1.18,0],[0,1.18,-1.01],[1.01,1.20,0]];
+const POSITIONS=[[0,1.18,1.01],[1.01,1.20,0],[0,1.18,-1.01],[-1.01,1.18,0]];
 export const botChatter={
  enabled:(()=>{try{return localStorage.getItem('mesa-bot-voices')!=='off';}catch{return true;}})(),context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},
  /* Pull the next line for a bot, shuffled-bag style: every variant is heard

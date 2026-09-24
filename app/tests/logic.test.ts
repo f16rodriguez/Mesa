@@ -46,19 +46,25 @@ describe('Dominican double-six rules',()=>{
   expect((L.applyAction(s,'host',{type:'settings',settings:ok}) as any).settings.capicuaDistinct).toBe(false);
  });
  it('handles all-hands scoring and configurable bonus',()=>{let s=start();s.settings.allPips=true;s.settings.capicua=50;s.chain=[{...t(2,3),x:2,y:3}];s.left=2;s.right=3;s.turn=0;s.hands=[[t(2,3)],[t(1,4)],[t(5,5)],[t(1,6)]];s=play(s,'a',{type:'play',tile:'2-3',side:'right'});expect(s.result.points).toBe(72);});
- it('four legal passes close a tranque and the blocker opens next',()=>{let s=start();s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.lastPlay=3;s.hands=[[t(0,1)],[t(3,4)],[t(1,2)],[t(4,5)]];for(let i=0;i<4;i++)s=play(s,s.players[s.turn],{type:'pass'});expect(s.result.type).toBe('tranque');expect(s.result.team).toBe(0);expect(s.result.points).toBe(16);expect(s.opener).toBe(3);});
+ it('four legal passes close a tranque and the winning pair opens next',()=>{let s=start();s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.lastPlay=3;s.hands=[[t(0,1)],[t(3,4)],[t(1,2)],[t(4,5)]];for(let i=0;i<4;i++)s=play(s,s.players[s.turn],{type:'pass'});expect(s.result.type).toBe('tranque');expect(s.result.team).toBe(0);expect(s.result.points).toBe(16);expect(s.opener).toBe(0);});   // seat 3 trancó and lost: seat 0 (1 pip) leads, not seat 2 (3)
  it('closes a tranque the moment nobody holds either end, with the player who closed it as blocker',()=>{
   const blocked=(hands:any[][])=>{let s=start();s.chain=[{...t(1,6),x:1,y:6}];s.left=1;s.right=6;s.turn=0;s.lastPlay=3;s.passes=0;s.moves=[];s.hands=hands;return play(s,'a',{type:'play',tile:'1-1',side:'left'});};
   let s=blocked([[t(1,1),t(2,3)],[t(0,2)],[t(3,4)],[t(0,5)]]);
   expect(s.phase).toBe('handEnd');expect(s.result.type).toBe('tranque');expect(s.result.seat).toBe(0);
   expect(s.moves).toEqual([{type:'play',seat:0,tile:'1-1',side:'left'}]);
-  expect(s.result.totals).toEqual([12,7]);expect(s.result.team).toBe(1);expect(s.result.points).toBe(12);expect(s.opener).toBe(0);
+  expect(s.result.totals).toEqual([12,7]);expect(s.result.team).toBe(1);expect(s.result.points).toBe(12);expect(s.opener).toBe(1);   // the blocker lost: seat 1 (2 pips) leads
   s=blocked([[t(1,1),t(2,3)],[t(0,2)],[t(0,4)],[t(3,4)]]);        // 9 against 9: the pair that trancó takes it
   expect(s.result.team).toBe(0);expect(s.result.points).toBe(9);
   s=blocked([[t(1,1),t(2,3)],[t(0,2)],[t(3,4)],[t(5,6)]]);        // seat 3 still has a 6: play on
   expect(s.phase).toBe('playing');expect(s.turn).toBe(1);
  });
- it('settles tied tranque with blocker or no score as configured',()=>{for(const tie of ['blocker','none']){let s=start();s.settings.tie=tie;s.chain=[{...t(6,6),x:6,y:6}];s.left=s.right=6;s.turn=0;s.lastPlay=3;s.hands=[[t(0,1)],[t(0,2)],[t(2,3)],[t(1,3)]];for(let i=0;i<4;i++)s=play(s,s.players[s.turn],{type:'pass'});expect(s.result.team).toBe(tie==='blocker'?1:null);expect(s.result.points).toBe(tie==='blocker'?6:0);expect(s.opener).toBe(3);}});
+ it('settles tied tranque with blocker or no score as configured',()=>{for(const tie of ['blocker','none']){let s=start();s.settings.tie=tie;s.chain=[{...t(6,6),x:6,y:6}];s.left=s.right=6;s.turn=0;s.lastPlay=3;s.opener=2;s.hands=[[t(0,1)],[t(0,2)],[t(2,3)],[t(1,3)]];for(let i=0;i<4;i++)s=play(s,s.players[s.turn],{type:'pass'});expect(s.result.team).toBe(tie==='blocker'?1:null);expect(s.result.points).toBe(tie==='blocker'?6:0);expect(s.opener).toBe(tie==='blocker'?3:2);}});
+ it('after a tranque the winning pair leads, the lighter hand first and the next in turn on a tie',()=>{
+  const blocked=(hands:any[][])=>{let s=start();s.chain=[{...t(1,6),x:1,y:6}];s.left=1;s.right=6;s.turn=0;s.lastPlay=3;s.passes=0;s.moves=[];s.hands=hands;return play(s,'a',{type:'play',tile:'1-1',side:'left'});};
+  expect(blocked([[t(1,1),t(0,2)],[t(3,4)],[t(0,3)],[t(4,5)]]).opener).toBe(0);   // seat 0 trancó and his pair won: he leads
+  expect(blocked([[t(1,1),t(4,5)],[t(0,3)],[t(3,4)],[t(0,2)]]).opener).toBe(3);   // pair 1 won: seat 3 has 2 pips, seat 1 has 3
+  expect(blocked([[t(1,1),t(4,5)],[t(0,2)],[t(3,4)],[t(0,2)]]).opener).toBe(1);   // 2 against 2: seat 1 is next after the blocker
+ });
  it('detects a 200–0 zapato and reveals hands only after closing',()=>{let s=start();s.scores=[198,0];s.chain=[{...t(1,2),x:1,y:2}];s.left=1;s.right=2;s.turn=0;s.hands=[[t(2,4)],[t(3,6)],[t(5,5)],[t(0,3)]];s=play(s,'a',{type:'play',tile:'2-4',side:'right'});expect(L.isGameOver(s).over).toBe(true);expect(s.result.zapato).toBe(true);expect((L.viewFor(s,'spectator') as any).revealed).not.toBeNull();expect((L.viewFor(s,'spectator') as any).replay.deal).toBeDefined();});
  it('completes fixed-seed full series with tile conservation and matching invariant',()=>{for(const seed of [17,8128,625]){let s=initial();s.seed=seed;s=play(s,'host',{type:'start'});let steps=0;while(s.phase!=='seriesEnd'&&steps++<2000){if(s.phase==='handEnd'){s=play(s,'host',{type:'next'});continue;}const p=s.players[s.turn],v:any=L.viewFor(s,p),o=v.legal[0];s=play(s,p,o?{type:'play',...o}:{type:'pass'});expect(s.hands.flat().length+s.chain.length).toBe(28);for(let i=1;i<s.chain.length;i++)expect(s.chain[i-1].y).toBe(s.chain[i].x);}expect(s.phase).toBe('seriesEnd');expect(steps).toBeLessThan(2000);}});
 });

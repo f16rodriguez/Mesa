@@ -16,7 +16,9 @@ export const DIM = {
  // (a 25–26 cm, un 3–4 % de partidas se encierran solas).
  boardLimit:.27,
 } as const;
-export const seats:number[][]=[[0,DIM.seatDistance,Math.PI],[-DIM.seatDistance,0,Math.PI/2],[0,-DIM.seatDistance,0],[DIM.seatDistance,0,-Math.PI/2]];
+// El turno pasa a la derecha, como se juega: sentado en la silla 0 (de frente a la
+// mesa, mirando hacia -z), la derecha es +x, así que la silla 1 va a +x.
+export const seats:number[][]=[[0,DIM.seatDistance,Math.PI],[DIM.seatDistance,0,-Math.PI/2],[0,-DIM.seatDistance,0],[-DIM.seatDistance,0,Math.PI/2]];
 export type BoardTile={id:string;x:number;y:number};
 export type BoardMove={type:string;tile?:string;side?:string};
 export type Placement={id:string;x:number;z:number;yaw:number;vertical:boolean;isDouble:boolean;dx:number;dz:number;side:'left'|'right'|'root'};

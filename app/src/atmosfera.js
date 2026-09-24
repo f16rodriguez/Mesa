@@ -190,13 +190,13 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
  function calidad(q){usar=!software&&q==='high';if(usar)armar();bulb.halo.visible=true;street.farol.visible=q==='high';}
  function resize(w,h){if(composer){composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h);}vista.aspect=camera.aspect;vista.updateProjectionMatrix();}
 
- const luzBase=bulbLight?bulbLight.position.clone():null,_b=new THREE.Vector3();
+
  function frame(t,dt,{reduced,view,ends,temblor=0}){
   // Cámara con vaivén: posición y mirada, en fracciones de centímetro.
   vista.copy(camera);
   if(!reduced){_d.set(Math.sin(t*.11)*.012+Math.sin(t*.037)*.008,Math.sin(t*.083+1)*.007,Math.cos(t*.097)*.01);if(temblor)_d.add(_t.set(Math.sin(t*97)*temblor,Math.sin(t*113)*temblor*.6,Math.cos(t*89)*temblor));vista.position.add(_d);_t.copy(controls.target).addScaledVector(_d,.35);vista.lookAt(_t);}
-  // El bombillo se mece en su cordón (1,1 m, ~2,2 s de período): la luz y las sombras respiran.
-  if(!reduced){const a=.012*Math.sin(t*2.86),b=.008*Math.sin(t*2.3+1.3);_b.set(Math.sin(a)*1.1,0,Math.sin(b)*1.1);bulb.g.position.copy(bulbPos).add(_b);bulb.g.rotation.set(b,0,-a);if(bulbLight)bulbLight.position.copy(luzBase).add(_b);}
+  // El bombillo cuelga quieto. Antes se mecía en su cordón, y con él se paseaban todas las sombras
+  // del piso de un lado a otro, sin que se viera por qué (Trey, 24 sep 2026).
   vista.updateMatrixWorld();
   // Bombillo: un parpadeo de voltaje casi imperceptible, palomillas dando vueltas.
   bulb.halo.material.opacity=.5+.05*Math.sin(t*23)*Math.sin(t*1.7)+(reduced?0:.03*Math.sin(t*3.1));

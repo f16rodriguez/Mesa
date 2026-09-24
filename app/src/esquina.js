@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {MOSTRADOR} from './scene-layout.ts';
 
 /**
  * La esquina al caer la tarde: lo que hace que la mesa esté frente a un colmado de barrio y no
@@ -110,7 +111,7 @@ export function armarEsquina({scene,texture,mat,box,cylinder,staticGeo,random}){
   lista.forEach((p,i)=>{o.position.copy(p.pos);o.scale.copy(p.s);o.rotation.set(0,(random()-.5)*.12,0);o.updateMatrix();m.setMatrixAt(i,o.matrix);m.setColorAt(i,p.col);});
   m.frustumCulled=false;scene.add(m);}
  // El frente del mostrador: vitrinas de vidrio con picaderas y dulces, prendidas por dentro.
- {const W=1024,H=368,vitrinas=[[.05,.47],[.53,.95]],dibujar=(c,luz)=>{c.fillStyle=luz?'#000':'#5b3b24';c.fillRect(0,0,W,H);
+ {const W=1024,H=Math.round(1024*(MOSTRADOR.tope-.1)/MOSTRADOR.ancho),vitrinas=[[.05,.47],[.53,.95]],dibujar=(c,luz)=>{c.fillStyle=luz?'#000':'#5b3b24';c.fillRect(0,0,W,H);
    if(!luz){for(let i=0;i<500;i++){c.fillStyle=i%2?'rgba(150,100,60,.25)':'rgba(30,18,10,.25)';c.fillRect(Math.random()*W,Math.random()*H,20+Math.random()*80,1+Math.random()*2);}c.fillStyle='#3a2616';c.fillRect(0,H*.88,W,H*.12);}
    for(const [a,b] of vitrinas){const x0=a*W,x1=b*W,y0=H*.12,y1=H*.82;c.fillStyle=luz?'#6e6a60':'#d9d3c1';c.fillRect(x0,y0,x1-x0,y1-y0);
     for(let f=0;f<2;f++){const fy=y0+(f+.5)*(y1-y0)/2;c.fillStyle=luz?'#6f6a60':'#b9b3a2';c.fillRect(x0,fy+(y1-y0)*.2,x1-x0,4);
@@ -122,7 +123,7 @@ export function armarEsquina({scene,texture,mat,box,cylinder,staticGeo,random}){
      c.globalAlpha=1;}
     if(!luz){c.fillStyle='rgba(255,255,255,.22)';c.beginPath();c.moveTo(x0+20,y0);c.lineTo(x0+70,y0);c.lineTo(x0+20,y1);c.lineTo(x0-10+20,y1);c.fill();c.strokeStyle='#3a2616';c.lineWidth=10;c.strokeRect(x0,y0,x1-x0,y1-y0);}}};
   const mk=luz=>texture(c=>dibujar(c,luz),W,H),m=new THREE.MeshStandardMaterial({map:mk(false),emissive:'#fff4de',emissiveMap:mk(true),emissiveIntensity:.2,roughness:.55});
-  const frente=new THREE.Mesh(new THREE.PlaneGeometry(3.9,1.4),m);frente.position.set(0,.70,-3.924);scene.add(frente);}
+  const alto=MOSTRADOR.tope-.1,frente=new THREE.Mesh(new THREE.PlaneGeometry(MOSTRADOR.ancho,alto),m);frente.position.set(0,alto/2,MOSTRADOR.z+MOSTRADOR.fondo/2+.006);scene.add(frente);}
  // Tiras de picaderas colgando a los lados del mostrador.
  const tira=texture((c,w,h)=>{const n=7,ph=h/n;c.fillStyle='#8a7a5a';c.fillRect(w/2-2,0,4,h);
   for(let i=0;i<n;i++){const y=i*ph+4;c.fillStyle=paleta[(i*5+3)%paleta.length];c.fillRect(6,y,w-12,ph-8);c.fillStyle='rgba(255,255,255,.3)';c.fillRect(10,y+6,w*.16,ph-20);c.fillStyle='rgba(255,255,255,.75)';c.fillRect(w*.3,y+ph*.36,w*.4,ph*.16);}},64,448);

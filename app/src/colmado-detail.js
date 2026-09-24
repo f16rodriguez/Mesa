@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {MOSTRADOR} from './scene-layout.ts';
 export function dressColmado({scene,texture,mat,box,cylinder,random,teal,wood,storeSign}){
  const paint=texture((c,w,h)=>{c.fillStyle='#e0d3b4';c.fillRect(0,0,w,h);const g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,'#cac09b18');g.addColorStop(.7,'#14382d00');g.addColorStop(1,'#162d2566');c.fillStyle=g;c.fillRect(0,0,w,h);for(let i=0;i<7000;i++){c.fillStyle=i%3?'#b4ad8618':'#142d2924';c.fillRect(random()*w,random()*h,1+random()*3,1+random()*2);}for(let i=0;i<70;i++){const x=random()*w,y=i<50?h*(.72+random()*.28):random()*h,r=5+random()*14;c.fillStyle=i%3?'rgba(160,145,112,.35)':'rgba(120,110,90,.25)';c.beginPath();for(let j=0;j<8;j++){const a=j*Math.PI/4,rr=r*(.6+random()*.5);c.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr*.65);}c.fill();}c.strokeStyle='#1b372e24';for(let y=48;y<h;y+=57){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();}},1024,1024);
  teal.map=paint;teal.color.set('#f2ecde');teal.needsUpdate=true;wood.color.set('#bca98a');wood.roughness=.84;
@@ -47,9 +48,11 @@ export function dressColmado({scene,texture,mat,box,cylinder,random,teal,wood,st
   pie.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});}
  const plants=[];
  // A working counter, not an empty bar: bread, jars, a drawer and a notebook.
- box(-1.12,1.59,-4.0,.42,.21,.31,'#677761');box(-1.12,1.61,-3.836,.34,.10,.016,'#414b3d');box(-.38,1.50,-3.98,.30,.018,.22,'#c5b887');
- for(const [x,z,color]of[[.7,-4.03,'#8b7747'],[.98,-4.07,'#637751'],[1.29,-4.02,'#a88b50']]){cylinder(x,1.60,z,.07,.075,.25,color,14);cylinder(x,1.739,z,.077,.077,.028,'#aaa386',12);}
- box(.20,1.51,-4.01,.40,.07,.28,'#6c5838');for(let i=0;i<4;i++){const loaf=new THREE.Mesh(new THREE.SphereGeometry(1,10,6),mat(i%2?'#bca276':'#a98e61'));loaf.scale.set(.055,.035,.115);loaf.position.set(.07+i*.085,1.57,-4.0);loaf.rotation.y=(i-1.5)*.13;scene.add(loaf);}
+ // Todo relativo al tope y al centro del mostrador (MOSTRADOR en scene-layout.ts).
+ const T=MOSTRADOR.tope,Z=MOSTRADOR.z;
+ box(-1.12,T+.11,Z+.24,.42,.21,.31,'#677761');box(-1.12,T+.13,Z+.404,.34,.10,.016,'#414b3d');box(-.38,T+.02,Z+.26,.30,.018,.22,'#c5b887');
+ for(const [x,z,color]of[[.7,Z+.21,'#8b7747'],[.98,Z+.17,'#637751'],[1.29,Z+.22,'#a88b50']]){cylinder(x,T+.12,z,.07,.075,.25,color,14);cylinder(x,T+.259,z,.077,.077,.028,'#aaa386',12);}
+ box(.20,T+.03,Z+.23,.40,.07,.28,'#6c5838');for(let i=0;i<4;i++){const loaf=new THREE.Mesh(new THREE.SphereGeometry(1,10,6),mat(i%2?'#bca276':'#a98e61'));loaf.scale.set(.055,.035,.115);loaf.position.set(.07+i*.085,T+.09,Z+.24);loaf.rotation.y=(i-1.5)*.13;scene.add(loaf);}
  const wear=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,map:texture((c,w,h)=>{for(let i=0;i<90;i++){c.fillStyle=i%2?'#152c2110':'#3036230a';c.beginPath();c.ellipse(w/2+(random()-.5)*w*.45,h/2+(random()-.5)*h*.45,random()*w*.24,random()*h*.18,random()*Math.PI,0,Math.PI*2);c.fill();}},256,256)});for(const [x,z,w,h]of[[-2.4,-2.2,1.1,.9],[2.5,-2.5,1.3,.8],[0,-3.25,2,.6]]){const stain=new THREE.Mesh(new THREE.PlaneGeometry(w,h),wear);stain.rotation.x=-Math.PI/2;stain.position.set(x,.008,z);scene.add(stain);}
  for(const [x,z]of[[-3,-.90],[3.3,-1.5]]){cylinder(x,.18,z,.18,.13,.34,'#87553c',14);cylinder(x,.354,z,.16,.16,.012,'#3f422d',12);const plant=new THREE.Group();plant.position.set(x,.36,z);scene.add(plant);for(let i=0;i<7;i++){const shape=new THREE.Shape();shape.moveTo(0,0);shape.quadraticCurveTo(-.09,.23,0,.55+random()*.12);shape.quadraticCurveTo(.09,.23,0,0);const leaf=new THREE.Mesh(new THREE.ShapeGeometry(shape,5),new THREE.MeshStandardMaterial({color:i%2?'#597d4f':'#3c603e',roughness:1,side:THREE.DoubleSide}));leaf.rotation.set(.3+random()*.4,i*Math.PI*2/7,0);plant.add(leaf);}plants.push(plant);}
  const clothGeo=new THREE.PlaneGeometry(.55,1.30,5,9),cloth=new THREE.Mesh(clothGeo,new THREE.MeshStandardMaterial({color:'#b2a27c',roughness:1,side:THREE.DoubleSide}));cloth.position.set(-2.85,1.75,-3.05);scene.add(cloth);const vertices=clothGeo.attributes.position,base=vertices.array.slice();

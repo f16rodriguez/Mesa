@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
+import {MOSTRADOR} from './scene-layout.ts';
 
 /**
  * La gente que pasa por la esquina.
  *
  * - Enfrente y por la calle de al lado pasa gente cada rato (se ve al girar la cámara).
  * - Por el patio, detrás de la mesa, cruza alguien o entra un cliente al colmado, compra
- *   y se va. El colmadero (el cuerpo de Don Rafa, con otra ropa y gorra) vive en la punta del
+ *   y se va. El colmadero (el cuerpo de Don Rafa, con otra ropa y gorra) está detrás del
  *   mostrador: vigila la mesa y la calle, y atiende al que llega. De vez en cuando ese cliente se para, saluda a uno de la mesa por su nombre
  *   y el bot le contesta (el sonido lo pone client.js al oír `mesa:saludo`).
  *
@@ -201,12 +202,12 @@ const P=(...ps)=>ps.map(([x,z])=>v3(x,0,z));
 const PATIO_DER=P([10,-.25],[6.5,-.3],[4.6,-.4],[3.3,-.62],[2.25,-1.1],[1.2,-1.8]);
 const PATIO_MEDIO=P([1.2,-1.8],[.35,-2.15],[-.6,-2.05],[-1.35,-1.65]);
 const PATIO_IZQ=P([-1.35,-1.65],[-2.35,-1.0],[-2.65,.2],[-4.5,.95],[-9,1.15],[-17,1.2]);
-/* Al mostrador se compra por la punta izquierda, donde está el colmadero: detrás del mostrador
-   no cabe nadie (0,4 m hasta la pared y el primer anaquel a la altura de la cabeza). */
-const AL_MOSTRADOR=P([1.2,-1.8],[.45,-2.45],[-.45,-3.05],[-1.3,-3.42]);
-const DEL_MOSTRADOR_IZQ=P([-1.3,-3.42],[-1.2,-2.75],[-1.28,-2.1],[-1.35,-1.65]);
-const COLMADERO=v3(-2.4,0,-3.95),ANAQUEL=v3(-2.85,0,-4.12),MOSTRADOR=v3(-1.3,0,-3.42);
-const hacia=(a,b)=>Math.atan2(b.x-a.x,b.z-a.z);
+/* El colmadero, detrás del mostrador (entre el tope y el primer anaquel); el cliente, delante,
+   frente a él. Se calcula del mostrador de scene-layout.ts. */
+const TOPE_ATRAS=MOSTRADOR.z+.04-(MOSTRADOR.fondo+.16)/2,TOPE_DELANTE=MOSTRADOR.z+.04+(MOSTRADOR.fondo+.16)/2;
+const COLMADERO=v3(-.6,0,TOPE_ATRAS-.19),EN_MOSTRADOR=v3(-.6,0,TOPE_DELANTE+.42);
+const AL_MOSTRADOR=P([1.2,-1.8],[.45,-2.4],[-.2,EN_MOSTRADOR.z+.2],[EN_MOSTRADOR.x,EN_MOSTRADOR.z]);
+const DEL_MOSTRADOR_IZQ=P([EN_MOSTRADOR.x,EN_MOSTRADOR.z],[-1.0,-2.62],[-1.28,-2.1],[-1.35,-1.65]);
 const unir=(...tramos)=>tramos.reduce((a,t)=>a.concat(a.length?t.slice(1):t),[]);
 const vuelta=ps=>ps.slice().reverse();
 const CALLE={
@@ -342,17 +343,17 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
    dispatchEvent(new CustomEvent('mesa:saludo',{detail:{seat:tramo.seat,voz:g.cuerpo.voz,pos:cab.toArray()}}));}
  }
 
- /* El colmadero: siempre en la punta del mostrador. Vigila la mesa y la calle; cuando llega
-    alguien, lo mira, va al anaquel, estira el brazo, vuelve y se lo da (y el otro lo recibe). */
+ /* El colmadero: detrás del mostrador. Vigila la mesa y la calle; cuando llega alguien, lo
+    mira, se vira al anaquel, estira el brazo y se lo da (y el otro lo recibe). */
  function ponerColmadero(g){
   g.libre=false;g.fijo=true;g.zona='colmado';colmadero=g;g.velocidad=.8;
   g.u.colCamisa.value.set('#3e6a47');g.u.colPantalon.value.set('#23262d');g.u.tonoPiel.value.setRGB(.74,.68,.64);
   if(g.gorra){g.gorra.visible=true;g.gorra.children.forEach(c=>c.material.color.set('#a1302a'));}
   g.holder.scale.set(1.04,1.03,1.04);g.malla.castShadow=true;
-  g.holder.position.copy(COLMADERO);g.yaw=.5;g.holder.rotation.y=g.yaw;g.mirar.set(0,.8,0);
+  g.holder.position.copy(COLMADERO);g.yaw=0;g.holder.rotation.y=g.yaw;g.mirar.set(0,.8,0);
   g.guion=[vigilar()];g.i=0;g.guion[0].t0=0;scene.add(g.holder);
  }
- function vigilar(){return {tipo:'quieto',dur:1e9,yaw:.5,vigila:true};}
+ function vigilar(){return {tipo:'quieto',dur:1e9,yaw:0,vigila:true};}
  function vigilando(tramo,estado){
   if(tramo.cambio&&reloj<tramo.cambio)return tramo.mira;
   tramo.cambio=reloj+azar(3,6.5);const v=estado?.view,r=Math.random(),cab=estado?.cabezas,alguien=gente.find(g=>g.zona==='patio');
@@ -362,11 +363,10 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   return v3(azar(-4,4),1.5,6);
  }
  function servir(c,cliente){
-  const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),ida=hacia(COLMADERO,ANAQUEL),vuelta_=hacia(ANAQUEL,COLMADERO),alCliente=hacia(COLMADERO,MOSTRADOR);
-  c.guion=[quieto(1.4,{yaw:alCliente,miraA:cliente}),quieto(.7,{yaw:ida}),ruta(P([COLMADERO.x,COLMADERO.z],[ANAQUEL.x,ANAQUEL.z]),.8),
-   quieto(2.2,{yaw:-Math.PI/2,mira:v3(-3.4,1.75,-4.12),brazo:{alto:1}}),quieto(.7,{yaw:vuelta_}),ruta(P([ANAQUEL.x,ANAQUEL.z],[COLMADERO.x,COLMADERO.z]),.8),
-   quieto(2.4,{yaw:alCliente,miraA:cliente,brazo:{alto:.15,entrega:cliente}}),quieto(4,{yaw:alCliente,miraA:cliente})];
-  for(const t of c.guion)if(t.tipo==='ruta')t.v=c.velocidad;
+  const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),anaquel=v3(COLMADERO.x+azar(-.5,.5),1.72,-4.8);
+  // Lo mira, se vira al anaquel de atrás, estira el brazo, se vira y se lo da por encima del mostrador.
+  c.guion=[quieto(1.4,{yaw:0,miraA:cliente}),quieto(.9,{yaw:Math.PI,mira:anaquel}),quieto(2.2,{yaw:Math.PI,mira:anaquel,brazo:{alto:1}}),
+   quieto(.9,{yaw:0,miraA:cliente}),quieto(2.4,{yaw:0,miraA:cliente,brazo:{alto:.15,entrega:cliente}}),quieto(4,{yaw:0,miraA:cliente})];
   c.i=0;c.guion[0].t0=c.t;
  }
  function cliente(g){
@@ -376,7 +376,7 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   if(saluda)guion.push({tipo:'quieto',dur:3.2,saludo:true});
   guion.push(ruta(derecha?AL_MOSTRADOR:vuelta(DEL_MOSTRADOR_IZQ),1));
   // En el mostrador, de cara al colmadero, que lo atiende.
-  guion.push(colmadero?{tipo:'quieto',dur:azar(14,24),yaw:hacia(MOSTRADOR,COLMADERO),miraA:colmadero,atender:true}:{tipo:'quieto',dur:azar(14,24),yaw:Math.PI,mira:v3(-.6,1.35,-4.4)});
+  guion.push({tipo:'quieto',dur:azar(14,24),yaw:Math.PI,...(colmadero?{miraA:colmadero,atender:true}:{mira:v3(-.6,1.35,-4.6)})});
   if(Math.random()<.6)guion.push(ruta(unir(DEL_MOSTRADOR_IZQ,PATIO_IZQ),1));
   else guion.push(ruta(unir(vuelta(AL_MOSTRADOR),vuelta(PATIO_DER)),1));
   return guion;

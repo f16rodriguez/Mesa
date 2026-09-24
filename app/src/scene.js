@@ -5,7 +5,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 const TAU=Math.PI*2, v3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
-import {DIM,seats,chainLayout,openEnds} from './scene-layout.ts';
+import {DIM,MOSTRADOR,seats,chainLayout,openEnds} from './scene-layout.ts';
 import {capturePose,applySeatedMotion} from './scene-motion.js';
 import {dressColmado} from './colmado-detail.js';
 import {armarEsquina} from './esquina.js';
@@ -78,7 +78,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  box(-3.48,1.1,-2.52,.7,2.3,.32,teal);box(3.45,1.1,-2.52,.8,2.3,.32,teal);
  box(0,2.95,-2.52,7.5,.42,.35,coral);box(0,3.24,-3.7,8,.12,4.4,'#435451');
  for(let i=0;i<30;i++)box(-4+i*.276,3.15,-3.7,.028,.055,4.6,'#82928a');
- box(0,.70,-4.24,3.9,1.40,.62,wood);box(0,1.43,-4.2,4.08,.10,.78,wood);
+ {const M=MOSTRADOR,alto=M.tope-.1;box(0,alto/2,M.z,M.ancho,alto,M.fondo,wood);box(0,M.tope-.05,M.z+.04,M.ancho+.18,.10,M.fondo+.16,wood);}
  for(let row=0;row<3;row++){box(-.6,1.58+row*.48,-4.78,5.8,.065,.38,wood);box(-.6,1.84+row*.48,-4.98,5.8,.48,.065,'#443e30');}
  box(2.95,1.02,-4.55,1.02,2.1,.8,'#d0ceb8');box(2.95,1.12,-4.11,.84,1.55,.035,'#254c51');
  

@@ -18,6 +18,10 @@ export const DIM = {
 } as const;
 // El turno pasa a la derecha, como se juega: sentado en la silla 0 (de frente a la
 // mesa, mirando hacia -z), la derecha es +x, así que la silla 1 va a +x.
+/** El mostrador del colmado. El tope va a 1,06 m (antes a 1,48: al cliente le llegaba a la
+    barbilla) y el mostrador está corrido 35 cm hacia la calle, para que el colmadero quepa
+    detrás, entre el mostrador y el primer anaquel. z es el centro del cuerpo; el tope sobresale. */
+export const MOSTRADOR={tope:1.06,z:-3.89,fondo:.62,ancho:3.9} as const;
 export const seats:number[][]=[[0,DIM.seatDistance,Math.PI],[DIM.seatDistance,0,-Math.PI/2],[0,-DIM.seatDistance,0],[-DIM.seatDistance,0,Math.PI/2]];
 export type BoardTile={id:string;x:number;y:number};
 export type BoardMove={type:string;tile?:string;side?:string};

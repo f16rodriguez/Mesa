@@ -93,9 +93,10 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo` en `bot-chatter.js`;
   audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la cámara mira hacia abajo y
   al que está de pie se le ve de la cintura para abajo; en el lobby se ve entero.
-  El colmadero (cuerpo de Don Rafa, camisa verde y gorra roja) atiende en la punta izquierda del
-  mostrador: detrás no cabe nadie (0,4 m hasta la pared y el primer anaquel a la altura de la
-  cabeza). Al cliente lo mira, va al anaquel del lado, estira el brazo y se lo da.
+  El colmadero (cuerpo de Don Rafa, camisa verde y gorra roja) atiende detrás del mostrador: lo
+  mira, se vira al anaquel, estira el brazo y se lo da por encima. El mostrador (`MOSTRADOR` en
+  `scene-layout.ts`) tiene el tope a 1,06 m y está corrido hacia la calle para que él quepa; lo que
+  va encima y su frente de vitrinas se calculan de ahí.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

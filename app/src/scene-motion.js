@@ -158,7 +158,8 @@ function manoEnJugada(actor,time,reposo){
  * afuera y abajo, como bebe la gente, no pegado atrás contra el pecho, que era
  * lo que retorcía el brazo. La bebida va pegada al hueso de la mano ya resuelto.
  */
-const TRAMOS=[1.0,2.2,3.5,4.7,5.6];   // coger, subir (1,2 s), beber, bajar (1,2 s), volverlet ultimoTrago=-1e9;
+// Coger, subir (1,2 s), beber, bajar (1,2 s), volver.
+const TRAMOS=[1.0,2.2,3.5,4.7,5.6];let ultimoTrago=-1e9;
 function tragoEn(actor,time,ctx){
  const b=actor.bebida;if(!b)return null;
  if(actor.trago){const e=actor.trago.fijo??time-actor.trago.t0;if(e<0||e>=TRAMOS[4]||actor.jugada){actor.trago=null;dejarVaso(b);actor.sed=time+90+Math.random()*150;return null;}return e;}

@@ -36,7 +36,7 @@ const server = Bun.serve({ port: 0, async fetch(req) {
 
 // Una comprobación que se cuelga no puede tumbar un despliegue: si en 90 s no
 // ha terminado, lo dice y se aparta.
-setTimeout(() => { console.warn('check-page: SIN COMPROBAR — no terminó en 90 s'); process.exit(0); }, 90000).unref?.();
+setTimeout(() => { console.warn('check-page: SIN COMPROBAR — no terminó en 150 s'); process.exit(0); }, 150000).unref?.();
 const errores = [];
 let navegador;
 try {
@@ -54,6 +54,15 @@ pagina.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/40
 await pagina.goto(`http://localhost:${server.port}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 await pagina.waitForTimeout(4000);
 const botones = await pagina.evaluate(() => [...document.querySelectorAll('[data-action]')].map(e => e.dataset.action));
+// La portada no mueve a nadie: el código de la escena (gestos, tragos, cámara) solo corre en una
+// mesa. Se abre una práctica y se deja andar unos segundos con la gente cargada. Así se escapó un
+// `ultimoTrago` sin declarar que tiraba un error en cada cuadro.
+let mesa = 'sin probar';
+if (botones.includes('practice')) {
+  await pagina.evaluate(() => document.querySelector('[data-action="practice"]').click());
+  try { await pagina.waitForFunction(() => window.mesaDiagnostics?.characters >= 4, null, { timeout: 90000 }); await pagina.waitForTimeout(5000); mesa = 'práctica sin errores'; }
+  catch { console.warn('check-page: la práctica no cargó a tiempo; se revisó solo la portada'); }
+}
 await navegador.close(); server.stop(true);
 
 if (errores.length) { console.error('check-page: la portada lanzó errores\n  ' + errores.join('\n  ')); process.exit(1); }
@@ -61,4 +70,4 @@ if (errores.length) { console.error('check-page: la portada lanzó errores\n  ' 
 for (const necesario of ['host', 'practice', 'join']) {
   if (!botones.includes(necesario)) { console.error(`check-page: la portada cargó sin el botón "${necesario}"`); process.exit(1); }
 }
-console.log(`page OK — portada sin errores, ${botones.length} acciones`);
+console.log(`page OK — portada sin errores, ${botones.length} acciones; ${mesa}`);

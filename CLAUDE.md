@@ -70,6 +70,13 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   momentos grandes (nunca < 32 px, siempre con la sombra salsa dura corrida `.043em`),
   DM Sans para la interfaz, IBM Plex Mono para puntos, códigos y rótulos. La portada es
   el logo sobre el paño, sin la mesa 3D detrás (la tele la carga escondida).
+- **La esquina es al atardecer** (decidido el 24 sep 2026, con las fotos de referencia de
+  Trey): cielo naranja detrás del colmado, lila y luna saliendo sobre la calle, bombillo y
+  tubo ya prendidos. El colmado queda en la esquina de verdad (calle de al lado), con
+  fachada turquesa y crema, letrero pintado a mano, toldo, segundo piso con tinaco y
+  varillas. Todo en `app/src/esquina.js` y `atmosfera.js`. El sonido (`app/src/ambiente.js`)
+  es sintetizado: calle, vecinos, nevera, perro, y la bachata de la bocina del colmado; si
+  se ponen canciones con licencia en `app/public/audio/musica/`, suenan esas en su lugar.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

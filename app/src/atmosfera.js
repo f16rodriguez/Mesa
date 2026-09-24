@@ -8,12 +8,12 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {DIM,seats} from './scene-layout.ts';
 
 /**
- * La noche del colmado: todo lo que no es la mesa ni la gente, pero que decide
- * si esto se siente como un patio de barrio a las once o como una maqueta.
+ * El atardecer en la esquina del colmado: todo lo que no es la mesa ni la gente, pero
+ * que decide si esto se siente como un patio de barrio o como una maqueta.
  *
- *  - Cielo de noche con estrellas y luna, y la calle de enfrente: casas de
- *    colores con ventanas prendidas, postes, cables, palmas y un farol de sodio.
- *    Antes, detrás de la gente había un color plano.
+ *  - Cielo de atardecer (naranja detrás del colmado, lila y luna saliendo sobre
+ *    la calle) y la calle de enfrente: casas desteñidas con las primeras ventanas
+ *    prendidas, postes, cables, palmas y un farol de sodio recién encendido.
  *  - El bombillo cuelga bajo sobre la mesa, como en cualquier mesa de dominó,
  *    con su halo y unas palomillas dándole vueltas.
  *  - Posproceso barato: bloom solo en lo que brilla de verdad (bombillos,
@@ -28,29 +28,45 @@ const R=(()=>{let s=7;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return 
 function textura(draw,w=256,h=256){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 function halo(color='255,214,150'){return textura((g,w,h)=>{const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,`rgba(${color},1)`);r.addColorStop(.18,`rgba(${color},.55)`);r.addColorStop(.5,`rgba(${color},.12)`);r.addColorStop(1,`rgba(${color},0)`);g.fillStyle=r;g.fillRect(0,0,w,h);});}
 
+/* El sol acaba de ponerse detrás del colmado (al fondo, un poco a la izquierda): de ese lado el
+   horizonte queda naranja y el cielo pasa por lila a azul hondo arriba. Del lado de la calle, la
+   franja rosada sobre la sombra de la tierra y la luna llena saliendo, como pasa de verdad. */
+const SOL=new THREE.Vector3(-.55,-.035,-.83).normalize();
 function cielo(scene){
  const g=new THREE.Group();
  const domo=new THREE.Mesh(new THREE.SphereGeometry(80,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
+  uniforms:{uSol:{value:SOL}},
   vertexShader:`varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`varying vec3 vP;
-   void main(){float h=vP.y;
-    vec3 zen=vec3(.004,.008,.022),hor=vec3(.035,.05,.075),ciudad=vec3(.16,.075,.035);
-    vec3 c=mix(hor,zen,smoothstep(0.,.5,h));
-    c+=ciudad*pow(max(0.,1.-max(h,0.)*7.),3.)*.9;
+  fragmentShader:`varying vec3 vP;uniform vec3 uSol;
+   float azar(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+   float ruido(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(azar(i),azar(i+vec2(1,0)),f.x),mix(azar(i+vec2(0,1)),azar(i+vec2(1,1)),f.x),f.y);}
+   float capas(vec2 p){float v=0.,a=.55;for(int k=0;k<4;k++){v+=a*ruido(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
+   void main(){vec3 d=normalize(vP);float h=d.y;
+    vec2 az=normalize(d.xz+vec2(1e-4)),azSol=normalize(uSol.xz);float lado=dot(az,azSol)*.5+.5,haciaSol=pow(lado,2.6);
+    vec3 zen=vec3(.028,.042,.115),alto=vec3(.11,.11,.27),horSol=vec3(1.,.5,.22),horOp=vec3(.36,.30,.44);
+    vec3 hor=mix(horOp,horSol,haciaSol);
+    vec3 c=mix(hor,alto,smoothstep(0.,.2,h));c=mix(c,zen,smoothstep(.2,.8,h));
+    float g=max(dot(d,uSol),0.);c+=vec3(1.,.42,.16)*(pow(g,6.)*.55+pow(g,40.)*.6)*(1.-smoothstep(-.02,.35,h));
+    c+=vec3(.34,.16,.24)*(1.-haciaSol)*exp(-pow((h-.1)/.06,2.))*.55;
+    // Nubes en tiras, bajas: encendidas por debajo del lado del sol, lilas del otro.
+    vec2 q=d.xz/(max(h,0.)+.09)*.32;float n=capas(q*vec2(1.,3.4)+vec2(3.1,0.));
+    float nube=smoothstep(.56,.8,n)*smoothstep(.015,.07,h)*(1.-smoothstep(.2,.42,h));
+    vec3 cn=mix(vec3(.27,.2,.3),vec3(1.,.52,.34),haciaSol*(1.-smoothstep(.05,.3,h)));
+    c=mix(c,cn,nube*.75);
     if(h<0.)c=hor*.5;
     gl_FragColor=vec4(c,1.);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
    }`}));
  domo.renderOrder=-10;g.add(domo);
- // Estrellas: unas mil, más apagadas cerca del horizonte (la luz del barrio).
- const n=900,pos=new Float32Array(n*3),col=new Float32Array(n*3);
- for(let i=0;i<n;i++){const u=R(),th=R()*Math.PI*2,y=.12+u*.88,r=Math.sqrt(1-y*y),k=.3+.7*R()*y;pos.set([Math.cos(th)*r*75,y*75,Math.sin(th)*r*75],i*3);col.set([k*.85,k*.9,k],i*3);}
+ // Las primeras estrellas: pocas, arriba, del lado ya oscuro.
+ const n=220,pos=new Float32Array(n*3),col=new Float32Array(n*3);
+ for(let i=0;i<n;i++){const u=R(),th=R()*Math.PI*2,y=.45+u*.55,r=Math.sqrt(1-y*y),k=.25+.55*R()*y;pos.set([Math.cos(th)*r*75,y*75,Math.sin(th)*r*75],i*3);col.set([k*.85,k*.9,k],i*3);}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(col,3));
- g.add(new THREE.Points(geo,new THREE.PointsMaterial({size:1.6,sizeAttenuation:false,vertexColors:true,fog:false,depthWrite:false,transparent:true,opacity:.85})));
- // Luna sobre la calle, con su halo.
- const luna=new THREE.Mesh(new THREE.CircleGeometry(1.6,32),new THREE.MeshBasicMaterial({color:'#f3ecd2',fog:false}));luna.position.set(-22,24,52);luna.lookAt(0,1,0);g.add(luna);
- const hl=new THREE.Sprite(new THREE.SpriteMaterial({map:halo('210,220,255'),fog:false,transparent:true,opacity:.35,depthWrite:false,blending:THREE.AdditiveBlending}));hl.scale.setScalar(14);hl.position.copy(luna.position);g.add(hl);
+ g.add(new THREE.Points(geo,new THREE.PointsMaterial({size:1.3,sizeAttenuation:false,vertexColors:true,fog:false,depthWrite:false,transparent:true,opacity:.45})));
+ // Luna llena saliendo sobre la calle, grande y apenas cálida, con su halo.
+ const luna=new THREE.Mesh(new THREE.CircleGeometry(2.1,40),new THREE.MeshBasicMaterial({color:'#f6e7cc',fog:false}));luna.position.set(26,11,58);luna.lookAt(0,1,0);g.add(luna);
+ const hl=new THREE.Sprite(new THREE.SpriteMaterial({map:halo('255,226,200'),fog:false,transparent:true,opacity:.28,depthWrite:false,blending:THREE.AdditiveBlending}));hl.scale.setScalar(13);hl.position.copy(luna.position);g.add(hl);
  scene.add(g);return g;
 }
 
@@ -58,10 +74,10 @@ function cielo(scene){
  *  ventanas encendidas, postes con cables, palmas y un farol de sodio. Todo en
  *  pocas mallas (se funden por material). */
 function calle(scene){
- // De noche las fachadas casi no se ven: el color va apagado y lo que manda es la luz de las ventanas.
- const porMaterial=new Map(),mat=(c,e=0,ei=0)=>{const k=c+e+ei;if(!porMaterial.has(k))porMaterial.set(k,{m:new THREE.MeshStandardMaterial({color:e?c:new THREE.Color(c).multiplyScalar(.5),roughness:.9,emissive:e||'#000',emissiveIntensity:ei}),g:[]});return porMaterial.get(k);};
+ // Al atardecer las fachadas todavía se ven, desteñidas por el sol; las ventanas se van prendiendo.
+ const porMaterial=new Map(),mat=(c,e=0,ei=0)=>{const k=c+e+ei;if(!porMaterial.has(k))porMaterial.set(k,{m:new THREE.MeshStandardMaterial({color:e?c:new THREE.Color(c).multiplyScalar(.85),roughness:.9,emissive:e||'#000',emissiveIntensity:ei}),g:[]});return porMaterial.get(k);};
  const poner=(geo,m,x,y,z,ry=0)=>{geo.rotateY(ry);geo.translate(x,y,z);m.g.push(geo);};
- const colores=['#b8654a','#c9a14f','#4f8a84','#a8566b','#7f9a57','#c47f45','#5f7ea0'];
+ const colores=['#c98a64','#d8b46a','#6fa9a0','#c48d95','#a3b777','#dca16a','#86a3bf','#e2d3b0'];
  let x=-20;
  while(x<20){
   const w=3.4+R()*2.6,h=3+R()*2.8,z=10.5+R()*.8,c=colores[Math.floor(R()*colores.length)];
@@ -69,10 +85,10 @@ function calle(scene){
   poner(new THREE.BoxGeometry(w+.12,.18,2.6),mat('#d9d2bf'),x+w/2,h+.09,z+1.2);
   // Ventanas y puerta: unas prendidas (amarillo cálido o azul de televisor), otras no.
   const nv=Math.max(1,Math.floor(w/1.5));
-  for(let i=0;i<nv;i++){const vx=x+(i+.5)*w/nv,prendida=R()<.62,tv=R()<.22;
-   const m=prendida?mat(tv?'#9fc3ff':'#ffd08a',tv?'#6f9cff':'#ffb35a',tv?2.4:3.2):mat('#1e2a2e');
+  for(let i=0;i<nv;i++){const vx=x+(i+.5)*w/nv,prendida=R()<.4,tv=R()<.2;
+   const m=prendida?mat(tv?'#9fc3ff':'#ffd08a',tv?'#6f9cff':'#ffb35a',tv?1.6:2.2):mat('#2a3436');
    poner(new THREE.PlaneGeometry(.75,.95),m,vx,1.55,z-.005,Math.PI);
-   if(h>4.2)poner(new THREE.PlaneGeometry(.7,.8),R()<.5?mat('#ffd08a','#ffb35a',1.8):mat('#1e2a2e'),vx,h-1.1,z-.005,Math.PI);
+   if(h>4.2)poner(new THREE.PlaneGeometry(.7,.8),R()<.35?mat('#ffd08a','#ffb35a',1.5):mat('#2a3436'),vx,h-1.1,z-.005,Math.PI);
    poner(new THREE.BoxGeometry(.9,.06,.12),mat('#2c3432'),vx,2.08,z-.06);}
   // Rejas de hierro de las galerías: unas barras finas.
   for(let b=0;b<Math.floor(w/.22);b++)poner(new THREE.BoxGeometry(.018,.9,.018),mat('#1b2224'),x+.11+b*.22,.45,z-.55);
@@ -89,12 +105,12 @@ function calle(scene){
  for(const [px,pz,h] of [[-9,12.8,7.5],[11,13.1,8.4],[2.5,13.4,6.4]]){
   const curva=new THREE.CatmullRomCurve3([new THREE.Vector3(px,0,pz),new THREE.Vector3(px+.3,h*.5,pz),new THREE.Vector3(px+.8,h,pz-.2)]);
   poner(new THREE.TubeGeometry(curva,12,.16,6),mat('#5d5445'),0,0,0);
-  for(let k=0;k<9;k++){const a=k/9*Math.PI*2,hoja=new THREE.ConeGeometry(.28,2.6,4,1);hoja.rotateZ(Math.PI/2+.55);hoja.translate(1.3,0,0);hoja.rotateY(a);poner(hoja,mat('#233428'),px+.8,h,pz-.2);}
+  for(let k=0;k<9;k++){const a=k/9*Math.PI*2,hoja=new THREE.ConeGeometry(.28,2.6,4,1);hoja.rotateZ(Math.PI/2+.55);hoja.translate(1.3,0,0);hoja.rotateY(a);poner(hoja,mat('#34503a'),px+.8,h,pz-.2);}
  }
  const merged=[];
  for(const {m,g} of porMaterial.values()){const geo=mergeGeometries(g,false);g.forEach(x=>x.dispose());if(!geo)continue;const mesh=new THREE.Mesh(geo,m);mesh.receiveShadow=true;scene.add(mesh);merged.push(mesh);}
  // El farol: luz naranja de sodio sobre la calle, sin sombra (es barata).
- const farol=new THREE.PointLight('#ff9d4d',9,14,1.8);farol.position.set(6,5.9,8.6);scene.add(farol);
+ const farol=new THREE.PointLight('#ffa35c',6,14,1.8);farol.position.set(6,5.9,8.6);scene.add(farol);
  const bomb=new THREE.Mesh(new THREE.SphereGeometry(.14,12,8),new THREE.MeshStandardMaterial({color:'#ffcf94',emissive:'#ff9a45',emissiveIntensity:5}));bomb.position.copy(farol.position);scene.add(bomb);
  const brazo=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1.3,6),new THREE.MeshStandardMaterial({color:'#4f4a40'}));brazo.rotation.z=Math.PI/2;brazo.position.set(6,6.05,8.9);scene.add(brazo);
  return {merged,farol};
@@ -113,21 +129,20 @@ function bombillo(scene,pos){
  return {g,halo:h,polillas};
 }
 
-/* Entorno de noche para los reflejos (PMREM): cielo oscuro, el bombillo cálido arriba, la luz
-   fría del colmado hacia atrás y el sodio de la calle en el horizonte. El RoomEnvironment de
-   antes era un estudio blanco: daba brillos de caja de luz y todo se veía de computadora. */
+/* Entorno para los reflejos (PMREM): el cielo del atardecer (naranja hacia el sol, lila del otro
+   lado, azul arriba), el bombillo cálido y la luz fría del colmado. */
 function escenaEntorno(){
  const e=new THREE.Scene();
- e.add(new THREE.Mesh(new THREE.SphereGeometry(10,24,12),new THREE.ShaderMaterial({side:THREE.BackSide,vertexShader:`varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec3 vP;void main(){gl_FragColor=vec4(mix(vec3(.07,.1,.13),vec3(.012,.02,.04),smoothstep(-.1,.6,vP.y)),1.);}`})));
+ e.add(new THREE.Mesh(new THREE.SphereGeometry(10,24,12),new THREE.ShaderMaterial({side:THREE.BackSide,uniforms:{uSol:{value:SOL}},vertexShader:`varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec3 vP;uniform vec3 uSol;void main(){float l=dot(normalize(vP.xz+vec2(1e-4)),normalize(uSol.xz))*.5+.5;vec3 hor=mix(vec3(.3,.25,.36),vec3(.85,.45,.25),pow(l,2.5));gl_FragColor=vec4(mix(hor,vec3(.05,.07,.17),smoothstep(-.05,.7,vP.y))*mix(.35,1.,smoothstep(-.3,0.,vP.y)),1.);}`})));
  const luz=(c,k,w,h,pos,mira)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(c).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(...pos);m.lookAt(...mira);e.add(m);};
- luz('#ffcf94',8,1.2,1.2,[0,6,0],[0,0,0]);luz('#bfe3d6',2,5,2,[0,2.5,-8],[0,1,0]);luz('#ff9a3c',.6,18,.8,[0,.6,9],[0,1,0]);
+ luz('#ffcf94',6,1.2,1.2,[0,6,0],[0,0,0]);luz('#dff3ea',2,5,2,[0,2.5,-8],[0,1,0]);
  return e;
 }
 export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLight}){
- function entorno(){const pm=new THREE.PMREMGenerator(renderer),fuente=escenaEntorno(),rt=pm.fromScene(fuente,.02);scene.environment?.dispose?.();scene.environment=rt.texture;scene.environmentIntensity=.6;pm.dispose();fuente.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
+ function entorno(){const pm=new THREE.PMREMGenerator(renderer),fuente=escenaEntorno(),rt=pm.fromScene(fuente,.02);scene.environment?.dispose?.();scene.environment=rt.texture;scene.environmentIntensity=.75;pm.dispose();fuente.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
  entorno();
- scene.background=new THREE.Color('#05080f');
- scene.fog=new THREE.FogExp2('#0b1419',.035);
+ scene.background=new THREE.Color('#2a2d4a');
+ scene.fog=new THREE.FogExp2('#5a5670',.017);
  const sky=cielo(scene),street=calle(scene);
  const bulbPos=new THREE.Vector3(0,DIM.surfaceY+1.3,0),bulb=bombillo(scene,bulbPos);
 
@@ -164,9 +179,9 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
     void main(){vec4 c=texture2D(tDiffuse,vUv);
      vec2 q=vUv-.5;float v=1.-uVineta*smoothstep(.25,.85,length(q*vec2(1.15,1.)));
      c.rgb*=v;
-     // Sombras un pelín más frías y luces más cálidas: noche con bombillo.
+     // Sombras hacia el lila y luces cálidas: el atardecer con el bombillo ya prendido.
      float l=dot(c.rgb,vec3(.2126,.7152,.0722));
-     c.rgb*=mix(vec3(.93,.97,1.05),vec3(1.04,1.,.94),smoothstep(.02,.4,l));
+     c.rgb*=mix(vec3(.96,.95,1.06),vec3(1.04,1.,.93),smoothstep(.02,.4,l));
      c.rgb+=(azar(vUv*vec2(1920.,1080.))-.5)*uGrano*(.4+l);
      gl_FragColor=c;}`});
   composer.addPass(grado);

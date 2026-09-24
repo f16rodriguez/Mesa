@@ -8,16 +8,17 @@ const TAU=Math.PI*2, v3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 import {DIM,seats,chainLayout,openEnds} from './scene-layout.ts';
 import {capturePose,applySeatedMotion} from './scene-motion.js';
 import {dressColmado} from './colmado-detail.js';
+import {armarEsquina} from './esquina.js';
 import {servirBebidas} from './bebidas.js';
 import {crearAtmosfera} from './atmosfera.js';
 const pips=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 export async function createWorld(container,{onProgress=()=>{}}={}){
- const scene=new THREE.Scene();scene.background=new THREE.Color('#132931');scene.fog=new THREE.FogExp2('#132931',.024);
+ const scene=new THREE.Scene();scene.background=new THREE.Color('#2a2d4a');scene.fog=new THREE.FogExp2('#5a5670',.017);
  const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.08,90);camera.position.set(3.1,2.65,4.2);
  let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});}catch{throw Error('This device could not start WebGL. Try a recent desktop browser.');}
  // ?hq fuerza la calidad completa aunque el GPU sea por software: sin eso las
  // capturas automáticas salen sin sombras y a 65 % y no sirven para juzgar luz.
- const software=!new URLSearchParams(location.search).has('hq')&&/SwiftShader|llvmpipe|Software/i.test((()=>{const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'';})());
+ const forzarHQ=new URLSearchParams(location.search).has('hq'),software=!forzarHQ&&/SwiftShader|llvmpipe|Software/i.test((()=>{const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'';})());
  renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(software?.65:Math.min(devicePixelRatio,1.5,1920/innerWidth));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.24;renderer.shadowMap.enabled=!software;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.info.autoReset=false;container.appendChild(renderer.domElement);
  // Sin mapa de entorno todo MeshStandardMaterial se ve de plástico: no tiene
  // nada que reflejar, así que la madera, la loza y la piel salen planas. Una
@@ -26,15 +27,15 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  /* El entorno ya no es un estudio blanco (eso era lo que hacía que todo se viera de
    computadora): lo arma atmosfera.js con la noche, el bombillo y la luz fría del colmado. */
  const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=.8;controls.maxDistance=8;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
- // El relleno de hemisferio a 1.05 lo aplastaba todo: misma luz por todos lados,
- // cero volumen. Baja a .42 y el bombillo pasa a ser la luz que manda.
- const cielo=new THREE.HemisphereLight('#9fb3cc','#3a2c22',.3);scene.add(cielo);const moon=new THREE.DirectionalLight('#7f9cc8',.18);moon.position.set(-5,9,5);scene.add(moon);
+ // Atardecer: el cielo todavía da una luz pareja y lila, pero baja (a 1.05 lo aplastaba todo),
+ // así el bombillo sigue siendo la luz que manda en la mesa.
+ const CIELO=.5,cielo=new THREE.HemisphereLight('#a3a8d8','#6a4e3c',CIELO);scene.add(cielo);const resplandor=new THREE.DirectionalLight('#ffa06a',.55);resplandor.position.set(-6,2.6,-9);scene.add(resplandor);
  /* El bombillo cuelga a 1,3 m del paño, como en cualquier mesa de dominó: un charco de luz cálida
    sobre la mesa y la gente, y el resto del patio en penumbra. Antes colgaba a 3,7 m y la luz era pareja. */
  const bulbLight=new THREE.SpotLight('#ffc98a',5.2,7,Math.PI*.32,.6,2);bulbLight.position.set(0,DIM.surfaceY+1.26,0);bulbLight.target.position.set(0,0,0);const relleno=new THREE.PointLight('#ffc07a',.45,3.2,2);relleno.position.set(0,DIM.surfaceY+1.2,0);scene.add(relleno);bulbLight.castShadow=true;/* Sombra enfocada (fov ~60° y no 155°): ~1 mm por texel en la mesa. normalBias va en metros
    del mundo en r186: con .035 el paño se probaba 3,5 cm por encima y nada tenía sombra de contacto. */
  bulbLight.shadow.mapSize.set(software?1024:2048,software?1024:2048);bulbLight.shadow.focus=.52;bulbLight.shadow.bias=-.0002;bulbLight.shadow.normalBias=.004;bulbLight.shadow.radius=3;bulbLight.shadow.camera.near=.2;bulbLight.shadow.camera.far=4;scene.add(bulbLight,bulbLight.target);
- /* Adentro, luz fría de tubo fluorescente; afuera, el bombillo cálido: ese contraste es el colmado de noche. */
+ /* Adentro, luz fría de tubo fluorescente; afuera, el bombillo cálido: ese contraste es el colmado cuando cae la tarde. */
  const storeGlow=new THREE.PointLight('#cfeee0',13,9,2);storeGlow.position.set(0,2.5,-3.5);scene.add(storeGlow);
  {const tubo=new THREE.Mesh(new THREE.BoxGeometry(1.2,.03,.03),new THREE.MeshStandardMaterial({color:'#e6fff4',emissive:'#e6fff4',emissiveIntensity:4}));tubo.position.set(0,3.12,-3.6);scene.add(tubo);}
  const materials=new Map(),batches=new Map();
@@ -45,7 +46,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  function texture(draw,w=512,h=512){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;}
  let seed=191;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  const woodtex=texture((c,w,h)=>{c.fillStyle='#65432b';c.fillRect(0,0,w,h);for(let i=0;i<700;i++){c.strokeStyle=`rgba(${random()>.5?'170,122,70':'35,22,14'},${.08+random()*.2})`;c.lineWidth=.3+random()*2;c.beginPath();const y=random()*h;c.moveTo(0,y);for(let x=0;x<w;x+=20)c.lineTo(x,y+Math.sin(x*.013+i)*3);c.stroke();}});
- const wood=new THREE.MeshStandardMaterial({map:woodtex,roughness:.65,color:'#e7bc8c'}),darkwood=mat('#4c3022',.75),teal=mat('#287770'),cream=mat('#d2c5a2'),coral=mat('#a65443');
+ const wood=new THREE.MeshStandardMaterial({map:woodtex,roughness:.65,color:'#e7bc8c'}),darkwood=mat('#4c3022',.75),teal=mat('#287770'),cream=mat('#d2c5a2'),coral=mat('#3d938e');
 
  // Loseta hidráulica: el piso de cualquier colmado. Antes era un marrón liso en
  // cuadros de 2 m, que desde la cámara se leía como cartón. Ahora 2×2 losetas de
@@ -66,9 +67,9 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   for(let i=0;i<9000;i++){c.fillStyle=random()>.5?'rgba(235,228,205,.07)':'rgba(30,28,24,.09)';c.fillRect(random()*w,random()*h,1+random()*2,1+random()*2);}
   for(let i=0;i<40;i++){const g=c.createRadialGradient(0,0,0,0,0,1),x=random()*w,y=random()*h,r=20+random()*90;
    c.save();c.translate(x,y);c.scale(r,r);g.addColorStop(0,'rgba(40,34,26,.10)');g.addColorStop(1,'rgba(40,34,26,0)');c.fillStyle=g;c.fillRect(-1,-1,2,2);c.restore();}
- },1024,1024);groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping;groundTex.repeat.set(32/.9,25/.9);
+ },1024,1024);groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping;groundTex.repeat.set(20.6/.9,25/.9);
  // El piso de losetas llega hasta el contén; después la calle (antes el piso la tapaba entera).
- box(0,-.10,-4.575,32,.2,15.85,new THREE.MeshStandardMaterial({map:groundTex,roughness:.86,color:'#9d937f'}));box(0,-.2,8.5,40,.1,10.3,'#2b3133');box(0,-.075,3.45,40,.15,.2,'#a8a391');
+ box(-5.7,-.10,-4.575,20.6,.2,15.85,new THREE.MeshStandardMaterial({map:groundTex,roughness:.86,color:'#9d937f'}));box(0,-.2,8.5,40,.1,10.3,'#2b3133');box(0,-.075,3.45,40,.15,.2,'#a8a391');
  for(let i=-10;i<11;i++)box(i*1.8,-.146,6.3,.7,.008,.06,'#b9ad83');
  // The colmado is a room: solid walls, inset shelving and an open front.
  box(0,1.6,-5.1,7.5,3.4,.2,teal);box(-3.8,1.6,-3.85,.2,3.4,2.7,teal);box(3.8,1.6,-3.85,.2,3.4,2.7,teal);
@@ -78,23 +79,23 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  box(0,.70,-4.24,3.9,1.40,.62,wood);box(0,1.43,-4.2,4.08,.10,.78,wood);
  for(let row=0;row<3;row++){box(-.6,1.58+row*.48,-4.78,5.8,.065,.38,wood);box(-.6,1.84+row*.48,-4.98,5.8,.48,.065,'#443e30');}
  box(2.95,1.02,-4.55,1.02,2.1,.8,'#d0ceb8');box(2.95,1.12,-4.11,.84,1.55,.035,'#254c51');
- for(let r=0;r<3;r++)box(2.95,.59+r*.51,-4.05,.8,.025,.05,'#b3c5bc');
- const bottles=[];for(let i=0;i<87;i++){const row=Math.floor(i/29),col=i%29;bottles.push({pos:[-3.18+col*.182,1.615+row*.48,-4.69],scale:.70+(i%5)*.07,color:['#566641','#a27735','#293f37','#6b3126'][i%4]});}
+ 
+ const bottles=[];for(let col=0;col<29;col++)bottles.push({pos:[-3.18+col*.182,2.095,-4.69],scale:.70+(col%5)*.07,color:['#566641','#b0762a','#2e5a45','#7a3024','#c9b36a','#3b4f7a'][(col*7)%6]});
  const bottleGeo=new THREE.LatheGeometry([new THREE.Vector2(0,0),new THREE.Vector2(.036,0),new THREE.Vector2(.043,.025),new THREE.Vector2(.043,.17),new THREE.Vector2(.019,.205),new THREE.Vector2(.017,.285),new THREE.Vector2(.021,.29),new THREE.Vector2(.021,.305),new THREE.Vector2(0,.31)],12);
  bottles.forEach(b=>staticGeo(bottleGeo.clone(),mat(b.color,.3),b.pos,[0,0,0],[b.scale,b.scale,b.scale]));
  // Crates, patio seating, and warm windows down the street.
- for(const [x,z,c] of [[-3.1,-1.9,'#a15340'],[3.1,-2.0,'#9d6540'],[-2.55,-1.95,'#5f6e39']]){for(let j=0;j<3;j++){box(x,.19+j*.34,z,.52,.30,.40,c);for(let k=0;k<5;k++)box(x-.2+k*.1,.18+j*.34,z+.204,.055,.16,.015,'#2c3025');}}
- for(let i=0;i<5;i++){const x=-7-i*3.5;box(x,1.5,-3.0,3.1,3.0,3.2,i%2?'#b3694f':'#4c8174');box(x,2.2,-1.38,1.0,.8,.045,'#b59961');box(x,2.2,-1.35,.045,.86,.055,'#273e37');box(x,.98,-1.38,.9,1.9,.04,'#354e49');}
+ for(const [x,z,c] of [[-3.1,-1.9,'#a8483a']]){for(let j=0;j<3;j++){box(x,.19+j*.34,z,.52,.30,.40,c);for(let k=0;k<5;k++)box(x-.2+k*.1,.18+j*.34,z+.204,.055,.16,.015,'#2c3025');}}
+ for(let i=0;i<5;i++){const x=-7-i*3.5;box(x,1.5,-3.0,3.1,3.0,3.2,['#d9a35c','#7fb1a4','#d8c7a2','#c98d7c','#a6bf8e'][i]);box(x,2.2,-1.38,1.0,.8,.045,'#b59961');box(x,2.2,-1.35,.045,.86,.055,'#273e37');box(x,.98,-1.38,.9,1.9,.04,'#354e49');}
  for(let i=0;i<4;i++){cylinder(-5-i*5,2.3,-1.0,.08,.09,4.6,'#665443');box(-5-i*5,4.2,-1.0,1.8,.09,.09,'#514b3d');}
  function cable(a,b,mid,color='#202d28'){const curve=new THREE.QuadraticBezierCurve3(v3(...a),v3(...mid),v3(...b));staticGeo(new THREE.TubeGeometry(curve,20,.008,4,false),mat(color),[0,0,0]);}
  /* Guirnaldas de bombillitos sobre el patio: del dintel del colmado a dos palos al frente, y entre
    los palos. Cada bombillito cuelga del cable mismo (antes seguían una curva que no era la del cable). */
  const bombillitos=[];for(const x of [-1.95,1.95]){cylinder(x,1.45,2.55,.035,.045,2.9,'#5b4a38',8);}
  for(const [a,b,sag] of [[[-2.7,2.9,-2.45],[-1.95,2.85,2.55],.5],[[2.7,2.9,-2.45],[1.95,2.85,2.55],.5],[[-1.95,2.85,2.55],[1.95,2.85,2.55],.32]]){const A=v3(...a),B=v3(...b),M=A.clone().lerp(B,.5);M.y-=sag*2;const curva=new THREE.QuadraticBezierCurve3(A,M,B);staticGeo(new THREE.TubeGeometry(curva,24,.006,4,false),mat('#1c2320'),[0,0,0]);const n=Math.round(A.distanceTo(B)/.42);for(let k=1;k<n;k++){const q=curva.getPointAt(k/n);bombillitos.push(q.setY(q.y-.035));}}
- {const g=new THREE.SphereGeometry(.022,10,8);g.scale(1,1.3,1);const colores=['#ffd89a','#ffb56b','#ff8f7a','#9fe0c9','#ffe38a'],m=new THREE.InstancedMesh(g,new THREE.MeshBasicMaterial({color:new THREE.Color(4.5,4.5,4.5)}),bombillitos.length),o=new THREE.Object3D();bombillitos.forEach((q,i)=>{o.position.copy(q);o.updateMatrix();m.setMatrixAt(i,o.matrix);m.setColorAt(i,new THREE.Color(colores[i%colores.length]));});scene.add(m);}
+ {const g=new THREE.SphereGeometry(.022,10,8);g.scale(1,1.3,1);const colores=['#ffd89a','#ffc27a','#ffe3a8'],m=new THREE.InstancedMesh(g,new THREE.MeshBasicMaterial({color:new THREE.Color(4.5,4.5,4.5)}),bombillitos.length),o=new THREE.Object3D();bombillitos.forEach((q,i)=>{o.position.copy(q);o.updateMatrix();m.setMatrixAt(i,o.matrix);m.setColorAt(i,new THREE.Color(colores[i%colores.length]));});scene.add(m);}
  cable([0,3.22,-1.6],[0,3.19,0],[0,3.02,-.8]);
  // Light catches a little metal awning and the leaves; no flat photo wall.
- const foliage=new THREE.Group();foliage.position.set(4.8,0,-2.8);scene.add(foliage);const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.1,.15,4.5,9),mat('#696047'));trunk.position.y=2.25;foliage.add(trunk);
+ const foliage=new THREE.Group();foliage.position.set(4.3,0,-1.7);scene.add(foliage);const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.1,.15,4.5,9),mat('#696047'));trunk.position.y=2.25;foliage.add(trunk);
  for(let i=0;i<9;i++){const leaf=new THREE.Mesh(new THREE.SphereGeometry(1,10,5),mat(i%2?'#4a654c':'#344e3d'));leaf.scale.set(.27,.075,1.5);leaf.position.set(Math.sin(i*TAU/9)*.72,4.35,Math.cos(i*TAU/9)*.72);leaf.rotation.set(.23,i*TAU/9,0);foliage.add(leaf);}
  // Physical game table.
  const barniz=new THREE.MeshPhysicalMaterial({map:woodtex,color:'#d9a877',roughness:.5,clearcoat:.55,clearcoatRoughness:.28});
@@ -120,18 +121,19 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    c.fillStyle=`rgb(${tono+30},${tono+8},${tono-45})`;const o=k*t/3+t*.04,g=t/3-t*.08;
    if(horiz)c.fillRect(gx*t+1,gy*t+o,t-2,g);else c.fillRect(gx*t+o,gy*t+1,g,t-2);}}
   c.fillStyle='rgba(40,28,14,.18)';for(let q=0;q<=n;q++){c.fillRect(q*t-1,0,2,h);c.fillRect(0,q*t-1,w,2);}},256,256)});
- for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#2f5f94':'#a63d2d',.62);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
+ for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#5e9fb2':'#b53f2e',.62);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
  function sign(text,width,height,bg,fg,size=60){const t=texture((c,w,h)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.font=`bold ${size}px Georgia`;c.fillText(text,w/2,h/2);},1024,256);return new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:t}));}
  const storeSign=sign('COLMADO  LA ESQUINA',4.8,.38,'#a05d42','#f8e8b9',64);storeSign.position.set(0,2.94,-2.33);scene.add(storeSign);
  const tableLogo=sign('MESA',.11,.029,'#284e3e','#81906b',77);tableLogo.material=new THREE.MeshStandardMaterial({map:tableLogo.material.map,roughness:1});tableLogo.rotation.x=-Math.PI/2;tableLogo.position.set(0,DIM.surfaceY+.001,.30);scene.add(tableLogo);
  // Shop fan, rotating in actual scene coordinates.
- const fan=new THREE.Group();fan.position.set(0,2.62,-2.20);fan.rotation.x=-Math.PI/2;scene.add(fan);cylinder(0,2.90,-2.20,.015,.015,.56,'#777a68',8);cylinder(0,3.18,-2.20,.075,.075,.025,'#767763',12);const hub=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),mat('#41493d'));fan.add(hub);for(let i=0;i<5;i++){const blade=new THREE.Mesh(new THREE.BoxGeometry(.13,.50,.025),mat('#85856e',.88,.05));blade.position.set(Math.sin(i*TAU/5)*.285,Math.cos(i*TAU/5)*.285,0);blade.rotation.z=-i*TAU/5;fan.add(blade);}
+ const fan=new THREE.Group();fan.position.set(-.9,2.62,-3.45);fan.rotation.x=-Math.PI/2;scene.add(fan);cylinder(-.9,2.90,-3.45,.015,.015,.56,'#777a68',8);cylinder(-.9,3.16,-3.45,.075,.075,.025,'#767763',12);const hub=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),mat('#41493d'));fan.add(hub);for(let i=0;i<5;i++){const blade=new THREE.Mesh(new THREE.BoxGeometry(.13,.50,.025),mat('#85856e',.88,.05));blade.position.set(Math.sin(i*TAU/5)*.285,Math.cos(i*TAU/5)*.285,0);blade.rotation.z=-i*TAU/5;fan.add(blade);}
  // A quiet moto crossing the street. It is a visible passing prop, not traffic AI.
  const moto=new THREE.Group();moto.position.set(-12,.05,5.2);scene.add(moto);for(const x of [-.36,.36]){const wheel=new THREE.Mesh(new THREE.TorusGeometry(.19,.038,7,14),mat('#182221'));wheel.position.set(x,.2,0);moto.add(wheel);}const bikeBody=new THREE.Mesh(new RoundedBoxGeometry(.65,.17,.20,2,.04),mat('#823e2f',.45,.25));bikeBody.position.y=.49;moto.add(bikeBody);const seatMesh=new THREE.Mesh(new THREE.BoxGeometry(.35,.06,.22),mat('#202725'));seatMesh.position.set(-.08,.61,0);moto.add(seatMesh);const handle=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.45,6),mat('#8c9c96',.4,.5));handle.position.set(.32,.59,0);handle.rotation.z=-.3;moto.add(handle);
  // Weathered surfaces and everyday groceries reuse the existing scene assets.
  const colmado=dressColmado({scene,texture,mat,box,cylinder,random,teal,wood,storeSign});
+ const esquina=armarEsquina({scene,texture,mat,box,cylinder,staticGeo,random,renderer});
  // Merge static architecture by material instead of hundreds of draw calls.
- for(const {material,geos} of batches.values()){const merged=mergeGeometries(geos,false);if(merged){const mesh=new THREE.Mesh(merged,material);mesh.receiveShadow=true;merged.computeBoundingBox();mesh.castShadow=merged.boundingBox.distanceToPoint(v3(0,.8,0))<1.6&&merged.boundingBox.getSize(v3()).length()<8;scene.add(mesh);}geos.forEach(g=>g.dispose());}
+ for(const {material,geos} of batches.values()){const merged=mergeGeometries(geos.some(g=>!g.index)?geos.map(g=>g.index?g.toNonIndexed():g):geos,false);/* RoundedBoxGeometry no tiene índice: si hay mezcla, todo va sin índice */if(merged){const mesh=new THREE.Mesh(merged,material);mesh.receiveShadow=true;merged.computeBoundingBox();mesh.castShadow=merged.boundingBox.distanceToPoint(v3(0,.8,0))<1.6&&merged.boundingBox.getSize(v3()).length()<8;scene.add(mesh);}geos.forEach(g=>g.dispose());}
  const tileGroup=new THREE.Group(),rackGroup=new THREE.Group();scene.add(tileGroup,rackGroup);
  /* Fichas de hueso pulido: base marfil con laca (clearcoat), el lomo un poco más oscuro, los
    puntos negros hundidos y el clavito de bronce en el centro, como las de verdad. */
@@ -319,9 +321,9 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   const rawDt=clock.getDelta(),dt=Math.min(rawDt,.06),t=visualTime??clock.elapsedTime,now=performance.now();
   fpsFrames++;fpsTime+=rawDt;if(fpsTime>1){fps=fpsFrames/fpsTime;fpsFrames=0;fpsTime=0;
    // Si la tele no da, baja sola la calidad una vez (sin posproceso, sombras más baratas).
-   if(!bajadaAuto&&quality==='high'&&now-arranque>9000&&now-arranque<30000&&fps<30){bajadaAuto=now;api.quality('low');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'low'}));}
+   if(!forzarHQ&&!bajadaAuto&&quality==='high'&&now-arranque>9000&&now-arranque<30000&&fps<30){bajadaAuto=now;api.quality('low');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'low'}));}
    // Si ni así da (menos de 20 cuadros), un escalón más: menos píxeles todavía. La mesa se ve más suave, pero fluye.
-   else if(quality==='low'&&!bajadaMin&&now-(bajadaAuto||arranque)>9000&&now-(bajadaAuto||arranque)<40000&&fps<20){bajadaMin=true;api.quality('min');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'min'}));}}
+   else if(!forzarHQ&&quality==='low'&&!bajadaMin&&now-(bajadaAuto||arranque)>9000&&now-(bajadaAuto||arranque)<40000&&fps<20){bajadaMin=true;api.quality('min');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'min'}));}}
   frame++;renderer.info.reset();
   const reduced=document.documentElement.classList.contains('reduced');
   if(vuelta&&clock.elapsedTime>vuelta.at){camTween={from:camera.position.clone(),to:vuelta.pos,fromTarget:controls.target.clone(),toTarget:vuelta.target,t:0,dur:1.2};vuelta=null;controls.minDistance=distanciaAntes;}
@@ -331,7 +333,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    if(e<.5){const amp=.0045*Math.exp(-e*8)*Math.sin(e*TAU*18);tileGroup.position.y=amp;rackGroup.position.y=amp;temblor=reduced?0:.004*Math.exp(-e*9);bulbLight.intensity=bulbBase*(1+.35*Math.exp(-e*14));}
    else{sacudida=-1;tileGroup.position.y=0;rackGroup.position.y=0;bulbLight.intensity=bulbBase;}}
   if(camTween){camTween.t=Math.min(1,camTween.t+dt/(camTween.dur||1.1));const q=suave(camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,q);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,q);if(camTween.t===1)camTween=null;}
-  if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);}
+  if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);esquina.update(t);}
   const v=currentView;
   const ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
   for(const c of characters){if(!c)continue;applySeatedMotion(c,t,reduced,ctx);moverParpados(c);}
@@ -385,7 +387,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
       doblan el sombreado de media pantalla, y cada luz puntual se paga en todos los píxeles. Se apagan,
       y el cielo sube un poco para que no se note el relleno que falta. */
    for(const [m,orig] of fisicos){const cc=baja?0:orig.clearcoat,sh=baja?0:orig.sheen;if(m.clearcoat!==cc||m.sheen!==sh){m.clearcoat=cc;m.sheen=sh;m.needsUpdate=true;}}
-   relleno.visible=!baja;cielo.intensity=baja?.38:.3;
+   relleno.visible=!baja;cielo.intensity=baja?CIELO+.1:CIELO;
    renderer.setPixelRatio(ratio());atmos.calidad(q);atmos.resize(innerWidth,innerHeight);},
   // En el teléfono, cuando es solo mando, la mesa 3D no se dibuja: batería y calor.
   pause(){pausado=true;},

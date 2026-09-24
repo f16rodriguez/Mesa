@@ -44,7 +44,7 @@ export const ambiente={
   // Grillos: dos, bajitos; la noche todavía no ha caído del todo.
   for(let k=0;k<2;k++)this.grillo(3900+R()*1100,(k%2?1:-1)*(.4+R()*.5),.002+R()*.002);
   // Eco de calle: rebota entre las casas y aleja lo que pasa por él (el gentío, los pregones).
-  {const sr=ctx.sampleRate,n=Math.floor(sr*1.7),ir=ctx.createBuffer(2,n,sr);for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<n;i++){const t=i/sr;lp+=.25*((R()*2-1)-lp);d[i]=lp*Math.exp(-t/.38)*(t<.012?0:1);}for(const [ms,a] of [[23,.5],[41,.35],[67,.25]])d[Math.floor(ms/1000*sr)+c*37]+=a;}
+  {const sr=ctx.sampleRate,n=Math.floor(sr*1.1),ir=ctx.createBuffer(2,n,sr);for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<n;i++){const t=i/sr;lp+=.25*((R()*2-1)-lp);d[i]=lp*Math.exp(-t/.3)*(t<.012?0:1);}for(const [ms,a] of [[23,.5],[41,.35],[67,.25]])d[Math.floor(ms/1000*sr)+c*37]+=a;}
    const eco=this.eco=ctx.createConvolver();eco.buffer=ir;const g=ctx.createGain();g.gain.value=.9;eco.connect(g).connect(m);}
   this.nevera();this.vecinos();this.gentio();this.calle();this.perro();this.timers.push(setTimeout(()=>this.pregonero(),25000+R()*35000));
  },
@@ -108,15 +108,15 @@ export const ambiente={
   this.timers.push(setTimeout(()=>{if(!this.on)return;
    // Motores, los menos (Trey: sobraban); más carros y alguna guagua.
    const x=R(),tipo=x<.24?'moto':x<.44?'concho':x<.84?'carro':'guagua';
-   this.sonar(pasada(22050,tipo));
-   if((tipo==='moto'||tipo==='concho')&&R()<.08)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(pasada(22050,'moto'));},2000+R()*2500));
+   pasada(22050,tipo,R,ceder).then(b=>{if(this.on)this.sonar(b);});
+   if((tipo==='moto'||tipo==='concho')&&R()<.08)this.timers.push(setTimeout(()=>{if(this.on)pasada(22050,'moto',R,ceder).then(b=>{if(this.on)this.sonar(b);});},2000+R()*2500));
    this.calle();},9000+R()*15000));
  },
  /* Un perro lejos, cada 25–70 s; a veces le contesta otro del otro lado. */
  perro(){
   this.timers.push(setTimeout(()=>{if(!this.on)return;
-   const pan=(R()-.5)*1.5;this.sonar(ladridos(22050,pan));
-   if(R()<.3)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(ladridos(22050,-pan*.8));},1500+R()*1800));
+   const pan=(R()-.5)*1.5;ladridos(22050,pan,R,ceder).then(b=>{if(this.on)this.sonar(b);});
+   if(R()<.3)this.timers.push(setTimeout(()=>{if(this.on)ladridos(22050,-pan*.8,R,ceder).then(b=>{if(this.on)this.sonar(b);});},1500+R()*1800));
    this.perro();},25000+R()*45000));
  },
  /* El gentío de más allá: diez voces sin palabras, encimadas, con alguna carcajada, pasadas por
@@ -197,57 +197,72 @@ const entre=([a,b],r)=>a+(b-a)*r;
 function resonador(sr){let y1=0,y2=0,a1=0,a2=0,g=0;return {fijar(f,q){const r=Math.exp(-Math.PI*f/q/sr),w=2*Math.PI*f/sr;a1=2*r*Math.cos(w);a2=r*r;g=(1-r)*Math.sqrt(1-2*r*Math.cos(2*w)+r*r);},paso(x){const y=g*x+a1*y1-a2*y2;y2=y1;y1=y;return y;}};}
 /** Los rebotes en las casas de enfrente, y la bajada de agudos al final (en el sitio). */
 function espacio(L,D,sr,taps){const n=L.length,oL=L.slice(),oD=D.slice();for(const [ms,a] of taps){const k=Math.floor(ms/1000*sr);for(let i=k;i<n;i++){oL[i]+=a*D[i-k];oD[i]+=a*L[i-k];}}L.set(oL);D.set(oD);}
-export function pasada(sr,tipo,rnd=Math.random){
+// Todo esto corre en el hilo principal, junto al 3D: se calcula por bloques de 32 muestras (lo que
+// cambia despacio: distancia, doppler, revoluciones, aire, paneo) y, si se le pasa `ceder`, suelta
+// el hilo cada ~0,2 s de audio. Antes una pasada eran 80–200 ms seguidos: un tirón cada tanto.
+export async function pasada(sr,tipo,rnd=Math.random,ceder=null){
  const V=VEHICULOS[tipo]||VEHICULOS.moto,v=entre(V.v,rnd()),d=entre(V.d,rnd()),dir=rnd()<.5?-1:1,Lm=46,dur=2*Lm/v,n=Math.floor(dur*sr);
- const res=V.f.map(()=>resonador(sr)),rpm0=entre(V.rpm,rnd()*.5),rpm1=entre(V.rpm,.5+rnd()*.5),acelera=tipo!=='guagua'&&rnd()<.55;
+ const nr=V.f.length,pesos=Float64Array.from(V.f,f=>f[2]),A1=new Float64Array(nr),A2=new Float64Array(nr),G=new Float64Array(nr),Y1=new Float64Array(nr),Y2=new Float64Array(nr),rpm0=entre(V.rpm,rnd()*.5),rpm1=entre(V.rpm,.5+rnd()*.5),acelera=tipo!=='guagua'&&rnd()<.55;
  const cambios=acelera?[.25+rnd()*.1,.52+rnd()*.12]:[],moto=tipo==='concho'||tipo==='moto',pito=moto?rnd()<.35:rnd()<.08,tPito=dur*(.38+rnd()*.08);
- const bocinaF=moto?[420+rnd()*80]:[350,440];
+ const bocinaF=moto?[420+rnd()*80]:[350,440],golpes=moto?[0,.2]:[0],B=32,nb=Math.ceil(n/B);
  // Primera pasada, en el sitio del vehículo: motor, gomas y bocina por separado (con doppler).
- const motor=new Float32Array(n),goma=new Float32Array(n),bocina=new Float32Array(n),geo=new Float32Array(n*2);
+ const motor=new Float32Array(n),goma=new Float32Array(n),bocina=new Float32Array(n),bx=new Float32Array(nb),br=new Float32Array(nb);
  let fase=0,pulso=0,envR=0,g1=0,g2=0,g3=0;const pf=[0,0];
- for(let i=0;i<n;i++){
-  const t=i/sr,u=t/dur,x=dir*(-Lm+v*t),r=Math.hypot(x,d),vr=v*x*dir/r,dop=343/(343+vr);geo[2*i]=x;geo[2*i+1]=r;
-  // Coeficientes cada 32 muestras: el doppler mueve también los formantes.
-  if(i%32===0)V.f.forEach(([f,q],k)=>res[k].fijar(Math.min(f*dop,sr*.45),q));
+ for(let b0=0,bi=0;b0<n;b0+=B,bi++){
+  const t=b0/sr,u=t/dur,x=dir*(-Lm+v*t),r=Math.hypot(x,d),dop=343/(343+v*x*dir/r);bx[bi]=x;br[bi]=r;
+  // El doppler mueve también los formantes.
+  // Resonadores de dos polos con ganancia 1 en su pico (en línea: son lo que más cuesta).
+  for(let k=0;k<nr;k++){const f=Math.min(V.f[k][0]*dop,sr*.45),rr=Math.exp(-Math.PI*f/V.f[k][1]/sr),w=2*Math.PI*f/sr;A1[k]=2*rr*Math.cos(w);A2[k]=rr*rr;G[k]=(1-rr)*Math.sqrt(1-2*rr*Math.cos(2*w)+rr*rr);}
   // Revoluciones: crucero con su vaivén, o acelerando con dos cambios de marcha.
-  let rpm;if(acelera){const c=cambios.findIndex(c=>u<c),i0=c<0?cambios.length:c,a=i0?cambios[i0-1]:0,b=c<0?1:cambios[c],fr=(u-a)/(b-a);rpm=rpm0+(rpm1-rpm0)*Math.min(1,fr*1.3)-(i0?120:0);}
+  let rpm;if(acelera){let c=0;while(c<cambios.length&&u>=cambios[c])c++;const a=c?cambios[c-1]:0,b=c<cambios.length?cambios[c]:1;rpm=rpm0+(rpm1-rpm0)*Math.min(1,(u-a)/(b-a)*1.3)-(c?120:0);}
   else rpm=(rpm0+rpm1)/2*(1+.04*Math.sin(2*Math.PI*.35*t)+.02*Math.sin(2*Math.PI*1.7*t));
-  fase+=rpm/60*V.cil/(V.t/2)*dop/sr;
-  if(fase>=1){fase-=1;pulso=.8+rnd()*.4;envR=1;}
-  const ex=pulso+(rnd()*2-1)*V.ruido*(.18+envR);pulso*=.35;envR*=.985;
-  let y=0;for(let k=0;k<res.length;k++)y+=res[k].paso(ex)*V.f[k][2];motor[i]=y;
-  // Gomas en el asfalto: un rugido sordo (200–700 Hz), no un soplido.
-  if(V.goma){const w=rnd()*2-1;g1+=.18*(w-g1);g2+=.18*(g1-g2);g3+=.05*(g2-g3);goma[i]=g2-g3;}
-  // La bocina, cuando toca: pulsos cuadrados de 0,12 s (dos veces el motor, una el carro).
-  if(pito){const tp=t-tPito;for(const t0 of moto?[0,.2]:[0])if(tp>=t0&&tp<t0+.12)bocinaF.forEach((f,j)=>{pf[j]=(pf[j]+f*dop/sr)%1;bocina[i]+=pf[j]<.5?1:-1;});}
+  const paso=rpm/60*V.cil/(V.t/2)*dop/sr,fin=Math.min(n,b0+B);
+  for(let i=b0;i<fin;i++){
+   fase+=paso;if(fase>=1){fase-=1;pulso=.8+rnd()*.4;envR=1;}
+   const ex=pulso+(rnd()*2-1)*V.ruido*(.18+envR);pulso*=.35;envR*=.985;
+   let y=0;for(let k=0;k<nr;k++){const o=G[k]*ex+A1[k]*Y1[k]-A2[k]*Y2[k];Y2[k]=Y1[k];Y1[k]=o;y+=o*pesos[k];}motor[i]=y;
+   // Gomas en el asfalto: un rugido sordo (200–700 Hz), no un soplido.
+   if(V.goma){const w=rnd()*2-1;g1+=.18*(w-g1);g2+=.18*(g1-g2);g3+=.05*(g2-g3);goma[i]=g2-g3;}
+   // La bocina, cuando toca: pulsos cuadrados de 0,12 s (dos veces el motor, una el carro).
+   if(pito){const tp=i/sr-tPito;if(tp>=0&&tp<.33)for(const t0 of golpes)if(tp>=t0&&tp<t0+.12)for(let j=0;j<bocinaF.length;j++){pf[j]=(pf[j]+bocinaF[j]*dop/sr)%1;bocina[i]+=pf[j]<.5?1:-1;}}
+  }
+  if(ceder&&(b0&4095)===0)await ceder();
  }
  // Cada fuente a su nivel, medido por su energía (el motor es de pulsos, las gomas de ruido).
+ if(ceder)await ceder();
  const rms=a=>{let e=0;for(let i=0;i<n;i++)e+=a[i]*a[i];return Math.sqrt(e/n)||1;},km=1/rms(motor),kg=V.goma/rms(goma);
  // Segunda pasada, en la oreja: aire, 1/distancia, entrada y salida suaves, paneo y dos rebotes.
  const L=new Float32Array(n),D=new Float32Array(n);let lp=0,lpB=0,gS=0;
- for(let i=0;i<n;i++){
-  const x=geo[2*i],r=geo[2*i+1],u=i/n,y=motor[i]*km+goma[i]*kg,fc=1800+14000*Math.exp(-r/22),a=1-Math.exp(-2*Math.PI*fc/sr);
-  lp+=a*(y-lp);lpB+=.35*(bocina[i]-lpB);
-  const g=(6/Math.max(r,3))*Math.min(1,u*8,(1-u)*8);gS+=.002*(g-gS);
-  const pan=Math.max(-1,Math.min(1,x/Math.max(r,1))),ang=(pan+1)*Math.PI/4,s=(lp+lpB*2.2)*gS;
-  L[i]=s*Math.cos(ang);D[i]=s*Math.sin(ang);
+ for(let b0=0,bi=0;b0<n;b0+=B,bi++){
+  const x=bx[bi],r=br[bi],fc=1800+14000*Math.exp(-r/22),a=1-Math.exp(-2*Math.PI*fc/sr),pan=Math.max(-1,Math.min(1,x/Math.max(r,1))),ang=(pan+1)*Math.PI/4,cL=Math.cos(ang),cD=Math.sin(ang),atn=6/Math.max(r,3),fin=Math.min(n,b0+B);
+  for(let i=b0;i<fin;i++){
+   const u=i/n,y=motor[i]*km+goma[i]*kg;lp+=a*(y-lp);lpB+=.35*(bocina[i]-lpB);
+   gS+=.002*(atn*Math.min(1,u*8,(1-u)*8)-gS);const s=(lp+lpB*2.2)*gS;L[i]=s*cL;D[i]=s*cD;
+  }
+  if(ceder&&(b0&4095)===0)await ceder();
  }
- let pico=0;for(let i=0;i<n;i++)pico=Math.max(pico,Math.abs(L[i]),Math.abs(D[i]));
+ if(ceder)await ceder();
+ let pico=0;for(let i=0;i<n;i++){const a=Math.abs(L[i]),b=Math.abs(D[i]);if(a>pico)pico=a;if(b>pico)pico=b;}
  const k=pico>0?V.pico*(6/Math.max(d,3))/pico:0;for(let i=0;i<n;i++){L[i]*=k;D[i]*=k;}
+ if(ceder)await ceder();
  espacio(L,D,sr,[[38+rnd()*20,.22],[95+rnd()*40,.12]]);
  return [L,D];
 }
 /** Un perro lejos: dos a cuatro ladridos. Cada uno, una voz que sube y cae con sus formantes. */
-export function ladridos(sr,pan=0,rnd=Math.random){
+export async function ladridos(sr,pan=0,rnd=Math.random,ceder=null){
  const cuantos=2+Math.floor(rnd()*3),grande=rnd()<.5,f0=grande?250+rnd()*80:420+rnd()*160,dist=14+rnd()*26;
  const gol=[];let t=.05;for(let k=0;k<cuantos;k++){gol.push([t,.13+rnd()*.09]);t+=(k===1&&rnd()<.4?.6:.26)+rnd()*.16;}
  const n=Math.floor((t+.6)*sr),M=new Float32Array(n),FORM=grande?[[520,1],[1100,.7],[2300,.25]]:[[750,1],[1500,.8],[2900,.3]];
  const peso=f=>FORM.reduce((s,[c,w])=>s+w*Math.exp(-(((f-c)/260)**2)),0)+.05;
  for(const [t0,du] of gol){
   const a=Math.floor(t0*sr),m=Math.floor(du*sr),f1=f0*(.92+rnd()*.16);let ph=0,ruido=0;
-  for(let j=0;j<m&&a+j<n;j++){const u=j/m,f=f1*(u<.2?1+u*1.2:1.24-.5*(u-.2)),env=Math.min(1,j/(.007*sr))*Math.exp(-Math.max(0,u-.25)*5.5);
-   ph+=2*Math.PI*f/sr;let y=0;for(let h=1;h<=14&&h*f<sr*.45;h++)y+=Math.sin(h*ph)*peso(h*f)/Math.sqrt(h);
-   ruido+=.3*((rnd()*2-1)-ruido);M[a+j]+=(y+ruido*.9)*env;}}
+  const w=new Float64Array(15);let f=f1,nh=0;
+  for(let j=0;j<m&&a+j<n;j++){const u=j/m;
+   if(j%32===0){f=f1*(u<.2?1+u*1.2:1.24-.5*(u-.2));nh=0;for(let h=1;h<=14&&h*f<sr*.45;h++){w[h]=peso(h*f)/Math.sqrt(h);nh=h;}}
+   const env=Math.min(1,j/(.007*sr))*Math.exp(-Math.max(0,u-.25)*5.5);
+   ph+=2*Math.PI*f/sr;let y=0;for(let h=1;h<=nh;h++)y+=Math.sin(h*ph)*w[h];
+   ruido+=.3*((rnd()*2-1)-ruido);M[a+j]+=(y+ruido*.9)*env;}
+  if(ceder)await ceder();}
  // Lejos: pierde agudos y rebota en las paredes.
  const fc=2600+4000*Math.exp(-dist/20),al=1-Math.exp(-2*Math.PI*fc/sr);let lp=0,pico=0;
  for(let i=0;i<n;i++){lp+=al*(M[i]-lp);M[i]=lp;pico=Math.max(pico,Math.abs(lp));}

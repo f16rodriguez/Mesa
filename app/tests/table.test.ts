@@ -82,12 +82,14 @@ describe('the room clock',()=>{
    expect(await state.storage.getAlarm()).toBe(alarm);
   });
  });
- it('lets the bot take a seat that has been away 20 s, and knocks a forced pass in about a second',async()=>{
+ it('lets the bot take a seat that has been away 20 s, and plays an only tile or a forced pass in about a second',async()=>{
   const now=Date.now(),g=table(now);
   g.members.a={...g.members.a,away:true,awaySince:now-COVER_MS-1,lastSeen:now-COVER_MS-1};
   await inRoom(g,async(room,state)=>{
    await room.commit(await stored(state));
-   let h=await stored(state);expect(h.botKey).toBe(botTurnKey(1,0,0));expect(h.botDue-now).toBeGreaterThanOrEqual(3800);
+   let h=await stored(state);expect(h.botKey).toBe(botTurnKey(1,0,0));
+   // The 6-6 is the only tile it can open with: nothing to think about, it goes down in about a second.
+   expect(h.botDue-now).toBeGreaterThanOrEqual(900);expect(h.botDue-now).toBeLessThanOrEqual(1700);
    h.botDue=Date.now()-1;await state.storage.put('mesa',h);await room.alarm();
    h=await stored(state);expect(h.state.moves).toEqual([{type:'play',seat:0,tile:'6-6',side:'right'}]);
    // Seat 1 is next and present: no bot, the alarm waits for it to go quiet.

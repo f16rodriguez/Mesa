@@ -1,11 +1,11 @@
 import * as rules from './rules.js';
 import QRCode from './qr.js';
-import {botThinkingMs} from './bot-rhythm.js';
+import {botThinkingMs,botQuickMs} from './bot-rhythm.js';
 import {botChatter} from './bot-chatter.js';
 import {ambiente} from './ambiente.js';
 import {chooseMove} from './bot.js';
 import {proximityVoice} from './proximity-voice.js';
-import {t,idioma,ponerIdioma,LECCIONES} from './textos.js';
+import {t,idioma,ponerIdioma,LECCIONES,traducirError} from './textos.js';
 import {sonidos,vibrar,VIBRA} from './sonidos.js';
 import {telemetria} from './telemetria.js';
 // El mismo reloj de pensar que usa el servidor: la voz sabe cuánto le queda al bot.
@@ -84,10 +84,11 @@ function startPractice(){disconnect();role='practice';room='';view=null;lastHand
 function seguirPractica(){const p=practicaGuardada();if(!p){startPractice();return;}telemetria.evento('practica',{nivel,sigue:1});disconnect();practice=p;role='practice';room='';view=null;lastHand=p.handNo;page='room';history.pushState({},'','?practice=1');receive(rules.viewFor(practice,'local'));scheduleBot();}
 function scheduleBot(){clearTimeout(botTimer);if(!practice||page!=='room')return;
  if(practice.phase!=='playing'||practice.turn===0)return;
- const v0=rules.viewFor(practice,practice.players[practice.turn]),pasa=!v0.legal.length;
- botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing'||page!=='room')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id);practice=rules.applyAction(practice,id,jugadaBot(v));almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},
-  // Un pase obligado no se piensa: un segundo y ya.
-  pasa?1100:Math.max(practice.moves.length===0?4200:0,botThinkingMs(practice.handNo,practice.moves.length,practice.turn)));}
+ const v0=rules.viewFor(practice,practice.players[practice.turn]),pasa=!v0.legal.length,unica=new Set(v0.legal.map(o=>o.tile)).size===1;
+ // Un pase obligado no se piensa (un segundo y ya), y una sola ficha posible se juega de una.
+ const n=practice.moves.length,demora=pasa?1100:Math.max(n===0?4200:0,unica?botQuickMs(practice.handNo,n,practice.turn):botThinkingMs(practice.handNo,n,practice.turn));
+ botChatter.botHasta=performance.now()+demora;
+ botTimer=setTimeout(()=>{if(!practice||practice.phase!=='playing'||page!=='room')return;const id=practice.players[practice.turn],v=rules.viewFor(practice,id);practice=rules.applyAction(practice,id,jugadaBot(v));almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();},demora);}
 
 /* ── Conexión ─────────────────────────────────────────────────────────────── */
 function token(){const key='mesa-seat-'+room+'-'+role;let x=almacen.get(key);if(!x){x=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');almacen.set(key,x);}return x;}
@@ -101,8 +102,8 @@ function connect(name=conexion.nombre){
  const gen=conexion.gen,s=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/${encodeURIComponent(room)}`);ws=s;
  s.onopen=()=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();s.send(JSON.stringify({type:'join',role,token:token(),name:name||profile?.name||almacen.get('mesa-name','')}));pedirWakeLock();};
  s.onmessage=e=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();if(e.data==='__pong')return;let m;try{m=JSON.parse(e.data);}catch{return;}
-  if(m.type==='error'){soltarPendiente();toast(m.error);if(!view)joinScreen(m.error);return;}
-  if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;mesaInfo=m.mesa||null;receive(m.view,m.presence);if(!antes)marcarConexion();}};
+  if(m.type==='error'){soltarPendiente();const e=traducirError(m.error);toast(e);if(!view)joinScreen(e);return;}
+  if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;mesaInfo=m.mesa||null;botChatter.botHasta=m.mesa?.botMs!=null?performance.now()+m.mesa.botMs:0;receive(m.view,m.presence);if(!antes)marcarConexion();}};
  s.onclose=()=>{if(gen!==conexion.gen)return;connected=false;marcarConexion();reconectar();};
  s.onerror=()=>{};
 }
@@ -118,7 +119,7 @@ function wire(msg,silencioso=false){if(ws?.readyState===1){ws.send(JSON.stringif
 function soltarPendiente(){pendiente=false;clearTimeout(pendienteTimer);document.body.classList.remove('pendiente');}
 // Un doble toque no manda dos veces: la segunda volvía como "espera tu turno" justo después de jugar.
 function action(a){unlockSound();
- if(practice){const check=rules.validateAction(practice,'local',a);if(!check.ok){vibrar(VIBRA.error);return toast(check.error);}practice=rules.applyAction(practice,'local',a);almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();return;}
+ if(practice){const check=rules.validateAction(practice,'local',a);if(!check.ok){vibrar(VIBRA.error);return toast(traducirError(check.error));}practice=rules.applyAction(practice,'local',a);almacen.set('mesa-practice',JSON.stringify(practice));receive(rules.viewFor(practice,'local'));scheduleBot();return;}
  if(pendiente)return;if(!wire({type:'action',action:a}))return;pendiente=true;document.body.classList.add('pendiente');clearTimeout(pendienteTimer);pendienteTimer=setTimeout(soltarPendiente,4000);}
 async function pedirWakeLock(){try{if('wakeLock' in navigator&&!wakeLock&&!document.hidden){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener?.('release',()=>{wakeLock=null;});}}catch{}}
 function liberarWakeLock(){try{wakeLock?.release();}catch{}wakeLock=null;}
@@ -295,7 +296,7 @@ function rulesModal(){openModal(t('asiSeJuega'),`<p class="modal-copy">${t('regl
 function reveal(){openModal(t('manosAbiertas'),`<div class="reveal-hands">${view.revealed.map((h,i)=>`<div class="reveal-row pareja-${i%2?'b':'a'}"><strong>${esc(nombreDe(i))} · ${view.result.pips[i]}</strong><div>${h.length?ordenar(h).map(x=>tile(x.a,x.b)).join(''):t('sinFichas')}</div></div>`).join('')}</div><div class="divider"></div>${button(t('descargarMano'),'replay','full')}${button(t('volverMesa'),'close','primary full')}`);}
 
 /* ── Cuentas ──────────────────────────────────────────────────────────────── */
-async function api(path,input){const r=await fetch('/api/'+path,{method:input?'POST':'GET',credentials:'include',headers:input?{'content-type':'application/json'}:{},body:input?JSON.stringify(input):undefined});let b={};try{b=await r.json();}catch{}if(!r.ok)throw Error(b.error||'Please try again.');return b;}
+async function api(path,input){const r=await fetch('/api/'+path,{method:input?'POST':'GET',credentials:'include',headers:input?{'content-type':'application/json'}:{},body:input?JSON.stringify(input):undefined});let b={};try{b=await r.json();}catch{}if(!r.ok)throw Error(traducirError(b.error||'Please try again.'));return b;}
 async function loadProfile(){try{profile=(await api('me')).profile;}catch{profile=null;}await cargarPagos();if(page==='room'&&view&&mesaInfo?.pagos&&!modal.open)renderRoom();}
 async function showProfile(){await loadProfile();if(!profile){showAuth();return;}openModal(t('tuLugar'),`<div class="eyebrow">@${esc(profile.username)} · ${t('miembroDesde',{n:new Date(profile.createdAt).getFullYear()})}</div><div class="profile-stats"><div><b>${profile.games}</b><span>${t('series')}</span></div><div><b>${profile.wins}</b><span>${t('victorias')}</span></div><div><b>${profile.losses}</b><span>${t('derrotas')}</span></div></div><form id="profile-form"><label class="field">${t('nombrePantalla')}<input name="name" value="${esc(profile.name)}" maxlength="24" required></label><label class="field">${t('pais')}<input name="country" value="${esc(profile.country)}" maxlength="40" placeholder="${t('paisEjemplo')}"></label><label class="field">${t('edad')}<select name="ageBand">${['','18–24','25–34','35–44','45–54','55–64','65+'].map(x=>`<option value="${x}" ${profile.ageBand===x?'selected':''}>${x||t('prefieroNo')}</option>`).join('')}</select></label><button class="g-button primary full">${t('guardarPerfil')}</button><p class="form-error" id="account-error"></p></form><button class="text-link" data-action="logout">${t('salirCuenta')}</button>`);}
 function showAuth(nota=''){openModal(t('guardaTuSilla'),`<div class="profile-tabs"><button data-auth="login" class="${authMode==='login'?'active':''}">${t('entrarCuenta')}</button><button data-auth="signup" class="${authMode==='signup'?'active':''}">${t('crearPerfil')}</button></div><p class="modal-copy">${nota||t('invitadosPueden')}</p><form id="auth-form">${authMode==='signup'?`<label class="field">${t('nombrePantalla')}<input name="name" maxlength="24" autocomplete="nickname" required></label>`:''}<label class="field">${t('usuario')}<input name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" required></label><label class="field">${t('clave')}<input name="password" type="password" minlength="8" maxlength="128" autocomplete="${authMode==='signup'?'new-password':'current-password'}" required></label><button class="g-button primary full">${authMode==='signup'?t('crearPerfil'):t('entrarCuenta')}</button><p class="form-error" id="account-error"></p>${authMode==='signup'?`<p class="tiny acepta">${t('aceptasTerminos',{l:idioma()==='en'?'?lang=en':''})}</p>`:''}</form>`);}

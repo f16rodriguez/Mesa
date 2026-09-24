@@ -163,6 +163,35 @@ let lengua='es';
 try{const g=localStorage.getItem('mesa-idioma');lengua=g==='en'||g==='es'?g:'es';}catch{}
 export const idioma=()=>lengua;
 export function ponerIdioma(l){lengua=l==='en'?'en':'es';try{localStorage.setItem('mesa-idioma',lengua);}catch{}document.documentElement.lang=lengua;}
+/* Lo que contesta el servidor viene en inglés (así lo leen los logs y las pruebas); aquí
+   se traduce por la frase exacta. Un mensaje nuevo sin traducir sale tal cual. */
+const ERRORES={
+ 'Join this table before entering voice.':'Entra a la mesa antes de usar la voz.',
+ 'The table could not process that request. Please try again.':'La mesa no pudo con eso. Prueba otra vez.',
+ 'Message too large.':'Ese mensaje es muy largo.','Invalid message.':'No se entendió el mensaje.','Already joined.':'Ya estás en la mesa.',
+ 'Invalid seat credential. Reload and try again.':'Tu silla no se reconoce. Recarga y prueba otra vez.',
+ 'This table is not open yet. Ask the host to open it.':'Esa mesa todavía no está abierta. Que la abran en la tele.',
+ 'This table is full.':'La mesa está llena.',
+ 'This hand has started. Watch this table, or use your original phone to return.':'La mano ya empezó. Puedes mirar, o volver con el mismo teléfono de antes.',
+ 'All four seats are taken. You can still watch.':'Las cuatro sillas están ocupadas. Puedes mirar.',
+ 'Tell us your name to take a seat.':'Dinos tu nombre para sentarte.',
+ 'Your profile already has a seat. Use your original phone.':'Tu cuenta ya tiene silla en esta mesa. Usa el mismo teléfono.',
+ 'Join the table first.':'Primero entra a la mesa.','The host has muted your messages at this table.':'En esta mesa te silenciaron los mensajes.',
+ 'Keep table talk between 1 and 180 characters.':'Entre 1 y 180 letras, por favor.','Let the table breathe. Wait a moment between messages.':'Deja respirar la mesa: espera un momento entre mensajes.',
+ 'Only the table host can do that.':'Eso lo hace quien manda en la mesa.','Choose a table participant.':'Elige a alguien de la mesa.',
+ 'Voice moderation did not complete.':'No se pudo silenciar la voz.','Unknown action.':'Esa acción no existe.','Invalid move.':'Esa jugada no vale.','Invalid action.':'Esa jugada no vale.',
+ 'The hand has already started.':'La mano ya empezó.','Finish this hand first.':'Primero terminen esta mano.','Finish the series first.':'Primero terminen la serie.',
+ 'House rules are locked after the first deal.':'Las reglas de la casa se fijan con el primer reparto.','Choose valid house rules.':'Esas reglas no valen.',
+ 'Wait for the next deal.':'Espera el próximo reparto.','Spectators cannot play.':'Mirando no se juega.','Wait for your turn.':'Espera tu turno.',
+ 'You have a legal tile. Play it instead of passing.':'Tienes ficha que pega: no puedes pasar.','Choose a tile or pass.':'Elige una ficha o pasa.',
+ 'That tile does not fit this end.':'Esa ficha no pega por esa punta.',
+ 'Username or password is incorrect.':'El usuario o la contraseña no cuadran.','That username is already taken.':'Ese usuario ya existe.',
+ 'Use a 3–20 character username and a password of at least 8 characters.':'El usuario va de 3 a 20 letras y la contraseña de 8 o más.',
+ 'Too many attempts. Wait a minute.':'Muchos intentos. Espera un minuto.','Sign in to save your profile.':'Entra a tu cuenta para guardar el perfil.',
+ 'Check your name, country and character.':'Revisa tu nombre y tu país.','Please use Mesa on its own domain.':'Abre Mesa desde su propia dirección.',
+ 'Request too large':'Eso es muy grande.','Invalid request':'No se entendió.','Profile service is temporarily unavailable.':'Las cuentas no están disponibles ahora mismo.','Please try again.':'Prueba otra vez.'
+};
+export function traducirError(m){const s=String(m??'');return lengua==='en'?s:(ERRORES[s]||s);}
 export function t(k,v={}){const s=(lengua==='en'?EN:ES)[k]??ES[k]??k;return s.replace(/\{(\w+)\}/g,(_,n)=>v[n]??'');}
 document.documentElement.lang=lengua;
 // Lecciones de la escuelita.

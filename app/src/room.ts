@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
 import * as logic from './logic.js';
 import { accountFor, cleanName, cleanText, recordSeries } from './accounts';
-import {botThinkingMs,botTurnKey} from './bot-rhythm';
+import {botQuickMs,botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
 import {joinVoice,setVoicePublish} from './voice';
 import {SERIES_GRATIS,pagosActivos,patrocinar} from './pagos';
@@ -130,7 +130,7 @@ export class Room extends DurableObject<Env>{
   const now=Date.now(),viewers=this.spectators(g);
   for(const ws of this.ctx.getWebSockets()){
    const id=ws.deserializeAttachment()?.id;if(!id||!g.members[id])continue;
-   this.send(ws,{type:'state',mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
+   this.send(ws,{type:'state',mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null,botMs:g.botDue!==undefined?Math.max(0,g.botDue-now):null},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
   }
  }
  /** Bot turn and hand-closing bookkeeping. Returns whether anything changed. */
@@ -139,8 +139,8 @@ export class Room extends DurableObject<Env>{
   if(s.phase==='playing'&&botMayCover(g,s.turn,now)){
    const key=botTurnKey(s.handNo,s.moves.length,s.turn);
    if(g.botKey!==key){
-    const forced=!(logic.viewFor(s,s.players[s.turn]) as any).legal.length;
-    g.botKey=key;g.botDue=now+Math.max(minimumDelay,forced?FORCED_PASS_MS:botThinkingMs(s.handNo,s.moves.length,s.turn));changed=true;
+    const legal=(logic.viewFor(s,s.players[s.turn]) as any).legal,forced=!legal.length,unica=new Set(legal.map((o:any)=>o.tile)).size===1;
+    g.botKey=key;g.botDue=now+Math.max(minimumDelay,forced?FORCED_PASS_MS:unica?botQuickMs(s.handNo,s.moves.length,s.turn):botThinkingMs(s.handNo,s.moves.length,s.turn));changed=true;
    }
   }else if(g.botKey!==undefined||g.botDue!==undefined){delete g.botKey;delete g.botDue;changed=true;}
   if(s.phase==='handEnd'){if(g.closedAt===undefined){g.closedAt=now;changed=true;}}

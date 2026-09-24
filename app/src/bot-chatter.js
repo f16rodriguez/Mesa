@@ -68,7 +68,8 @@ export const botChatter={
    // A los 0.9 s, cuando la ficha del anterior ya cayó y no encima de ella; y
    // solo si al bot le queda pensar para decirlo entero con 1.4 s de sobra.
    const turno=key,piensa=this.pensar?this.pensar(v.handNo,v.moves.length,v.turn):4000,ya=performance.now();
-   setTimeout(()=>{if(this.lastKey===turno)this.play(v.turn,'think',false,ya+piensa-1400);},900);}else if(Number.isInteger(seat)&&v.bots[seat]&&event.type==='play'&&pick%7===0)this.play(seat,'play');
+   // Si el servidor (o la práctica) dijo cuándo juega el bot, eso manda sobre la predicción.
+   setTimeout(()=>{if(this.lastKey!==turno)return;const hasta=this.botHasta>performance.now()?this.botHasta:ya+piensa;this.play(v.turn,'think',false,hasta-1400);},900);}else if(Number.isInteger(seat)&&v.bots[seat]&&event.type==='play'&&pick%7===0)this.play(seat,'play');
  },
  async preview(){this.setEnabled(true);await this.unlock();this.demoing=true;this.position('host',null,null);try{for(let i=0;i<4;i++){if(!this.enabled)break;await this.play(i,'think',true);await new Promise(r=>setTimeout(r,600));}}finally{this.demoing=false;}},
 };

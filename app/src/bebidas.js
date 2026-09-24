@@ -8,7 +8,7 @@ import {DIM,seats} from './scene-layout.ts';
  * - Presidente: la jumbo verde de 650 ml, sudada. Etiqueta genérica blanca
  *   con franja roja — se parece, no la copia.
  * - Morir soñando: jugo de naranja con leche en vaso alto, con hielo.
- * - Cafecito: tacita con plato.
+ * - Cafecito: taza con plato (un poco más grande que una tacita: desde la tele se tiene que ver).
  *
  * Cada bebida dice dónde se agarra (alto), qué tan ancha es (radio), cuánto se
  * inclina al beber y cuánto sobresale por encima del agarre (boca), que es lo
@@ -48,15 +48,15 @@ function morir(){
 }
 function cafe(){
  const g=new THREE.Group(),loza=new THREE.MeshStandardMaterial({color:'#efe9da',roughness:.22});
- const plato=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.008,28),loza);plato.position.y=.004;g.add(plato);
+ const plato=new THREE.Mesh(new THREE.CylinderGeometry(.053,.047,.008,28),loza);plato.position.y=.004;g.add(plato);
  // Taza abierta por arriba: con la tapa cerrada el café quedaba debajo y se veía vacía.
  const loza2=new THREE.MeshStandardMaterial({color:'#efe9da',roughness:.22,side:THREE.DoubleSide});
- const taza=new THREE.Mesh(new THREE.CylinderGeometry(.028,.021,.048,24,1,true),loza2);const fondoT=new THREE.Mesh(new THREE.CircleGeometry(.021,20),loza);fondoT.rotation.x=-Math.PI/2;fondoT.position.y=.0085;g.add(fondoT);taza.position.y=.032;g.add(taza);
- const cafe=new THREE.Mesh(new THREE.CircleGeometry(.0262,24),new THREE.MeshStandardMaterial({color:'#2a160c',roughness:.15}));cafe.rotation.x=-Math.PI/2;cafe.position.y=.049;g.add(cafe);
- const asa=new THREE.Mesh(new THREE.TorusGeometry(.012,.0035,6,12,Math.PI*1.3),loza);asa.position.set(.03,.034,0);asa.rotation.z=-Math.PI*.65;g.add(asa);
+ const taza=new THREE.Mesh(new THREE.CylinderGeometry(.034,.025,.056,24,1,true),loza2);const fondoT=new THREE.Mesh(new THREE.CircleGeometry(.025,20),loza);fondoT.rotation.x=-Math.PI/2;fondoT.position.y=.0085;g.add(fondoT);taza.position.y=.036;g.add(taza);
+ const cafe=new THREE.Mesh(new THREE.CircleGeometry(.0318,24),new THREE.MeshStandardMaterial({color:'#2a160c',roughness:.15}));cafe.rotation.x=-Math.PI/2;cafe.position.y=.056;g.add(cafe);
+ const asa=new THREE.Mesh(new THREE.TorusGeometry(.014,.004,6,12,Math.PI*1.3),loza);asa.position.set(.036,.038,0);asa.rotation.z=-Math.PI*.65;g.add(asa);
  // El plato se queda en la mesa: se levanta solo la taza.
  g.remove(plato);
- return {g,alto:.03,radio:.028,inclina:.9,boca:.03,plato};
+ return {g,alto:.034,radio:.034,inclina:.9,boca:.034,plato};
 }
 export function servirBebidas(scene){
  const out=[];

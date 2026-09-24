@@ -381,7 +381,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // Para capturas y pruebas.
  window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;libre=true;controls.minDistance=.1;controls.maxDistance=30;camera.position.set(...p);controls.target.set(...t);controls.update();};   // solo para capturas: sin recinto
  window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
- window.mesaBeber=(i,fijo)=>{const c=characters[i];if(c&&c.bebida&&!c.jugada)c.trago={t0:clock.elapsedTime,fijo};};
+ window.mesaBeber=(i,fijo)=>{const c=characters[i];if(!c||!c.bebida||c.jugada)return;if(c.trago&&fijo!=null&&c.trago.fijo!=null)c.trago.fijo=fijo;else c.trago={t0:clock.elapsedTime,fijo};};
+ window.mesaBrazo=i=>{const c=characters[i],b=c?.brazos?.[1];if(!b)return null;const v=o=>o.getWorldPosition(new THREE.Vector3()).toArray();return {codo:v(b.antebrazo),muneca:v(b.mano),vaso:c.bebida?c.bebida.group.position.toArray():null};};
  update(null);animate();
  /* De pie, el panel de fichas tapa la mitad de abajo: la imagen se corre hacia arriba. */
  const encuadre=()=>{if(camera.aspect<.95)camera.setViewOffset(innerWidth,innerHeight*1.24,0,innerHeight*.24,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();};

@@ -158,7 +158,7 @@ function manoEnJugada(actor,time,reposo){
  * afuera y abajo, como bebe la gente, no pegado atrás contra el pecho, que era
  * lo que retorcía el brazo. La bebida va pegada al hueso de la mano ya resuelto.
  */
-const TRAMOS=[1.0,1.9,3.3,4.3,5.2];let ultimoTrago=-1e9;
+const TRAMOS=[1.0,2.2,3.5,4.7,5.6];   // coger, subir (1,2 s), beber, bajar (1,2 s), volverlet ultimoTrago=-1e9;
 function tragoEn(actor,time,ctx){
  const b=actor.bebida;if(!b)return null;
  if(actor.trago){const e=actor.trago.fijo??time-actor.trago.t0;if(e<0||e>=TRAMOS[4]||actor.jugada){actor.trago=null;dejarVaso(b);actor.sed=time+90+Math.random()*150;return null;}return e;}
@@ -182,14 +182,27 @@ function manoEnTrago(actor,e,reposo,out){
  if(actor.bocaMundo){actor.bocaMundo(_boca);_boca.addScaledVector(_ejeZ,.006);}else{actor.front.getWorldPosition(_boca);_boca.y-=.075;_boca.addScaledVector(_ejeZ,.012);}
  const a=b.inclina;_eje2.copy(Y).multiplyScalar(Math.cos(a)).addScaledVector(_ejeZ,-Math.sin(a));
  _boca.addScaledVector(_eje2,-b.boca).addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fb,-.03);
+ // Mientras bebe, se apunta dónde quedó la boca; al bajar se usa esa, quieta: si la cabeza ya
+ // mira a la mesa, la mano no se va detrás de ella (eso era el tirón del codo).
+ const tr=actor.trago;if(tr){if(e<TRAMOS[2])(tr.boca??=new THREE.Vector3()).copy(_boca);else if(tr.boca)_boca.copy(tr.boca);}
+ // En arco, no en línea recta: a la bebida la mano llega por encima del borde de la mesa, y
+ // para subirla primero la levanta y después la trae a la cara (y al revés al bajarla).
  let dedos;
- if(e<TRAMOS[0]){out.lerpVectors(reposo,_agarre,suave(e/TRAMOS[0]));dedos=_Fa;}
- else if(e<TRAMOS[1]){const p=suave((e-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0]));out.lerpVectors(_agarre,_boca,p);dedos=_Fa.lerp(_Fb,p).normalize();}
+ if(e<TRAMOS[0]){arco(reposo,_agarre,.045,.5,suave(e/TRAMOS[0]),out);dedos=_Fa;}
+ else if(e<TRAMOS[1]){const p=suave((e-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0]));arco(_agarre,_boca,.1,.25,p,out);dedos=_Fa.lerp(_Fb,p).normalize();}
  else if(e<TRAMOS[2]){out.copy(_boca);dedos=_Fb;}
- else if(e<TRAMOS[3]){const p=suave((e-TRAMOS[2])/(TRAMOS[3]-TRAMOS[2]));out.lerpVectors(_boca,_agarre,p);dedos=_Fb.lerp(_Fa,p).normalize();}
- else {out.lerpVectors(_agarre,reposo,suave((e-TRAMOS[3])/(TRAMOS[4]-TRAMOS[3])));dedos=_Fa;}
+ else if(e<TRAMOS[3]){const p=suave((e-TRAMOS[2])/(TRAMOS[3]-TRAMOS[2]));arco(_agarre,_boca,.1,.25,1-p,out);dedos=_Fb.lerp(_Fa,p).normalize();}
+ else {arco(reposo,_agarre,.045,.5,1-suave((e-TRAMOS[3])/(TRAMOS[4]-TRAMOS[3])),out);dedos=_Fa;}
  return dedos;
 }
+/** Curva de a a b que sube `alto` metros por encima de la recta; `donde` (0–1) es dónde queda el punto de control. */
+const _ctl=new THREE.Vector3();
+function arco(a,b,alto,donde,p,out){
+ _ctl.lerpVectors(a,b,donde);_ctl.y=Math.max(a.y,b.y*donde+a.y*(1-donde))+alto;
+ const q=1-p;return out.set(q*q*a.x+2*q*p*_ctl.x+p*p*b.x,q*q*a.y+2*q*p*_ctl.y+p*p*b.y,q*q*a.z+2*q*p*_ctl.z+p*p*b.z);
+}
+/** Cuánto manda el trago sobre el brazo (0–1): entra mientras va a la bebida y sale mientras vuelve. */
+function pesoTrago(e){return e<TRAMOS[0]?suave(Math.min(1,e/(TRAMOS[0]*.85))):e<TRAMOS[3]?1:1-suave(Math.min(1,(e-TRAMOS[3])/((TRAMOS[4]-TRAMOS[3])*.85)));}
 const _pal=new THREE.Vector3(),_ded=new THREE.Vector3(),_arr=new THREE.Vector3();
 function vasoEnMano(actor,e){
  const b=actor.bebida,mano=actor.brazos[1].mano;
@@ -201,7 +214,10 @@ function vasoEnMano(actor,e){
  b.group.quaternion.setFromAxisAngle(_ejeX,-b.inclina*d);
  _arr.set(0,1,0).applyQuaternion(b.group.quaternion);
  b.group.position.copy(_mano).addScaledVector(_pal,b.radio+.015).addScaledVector(_ded,.03).addScaledVector(_arr,-b.alto);
+ // El brazo no siempre cae clavado en el agarre: el vaso pasa del sitio a la mano en 0,2 s.
+ const k=Math.min(1,(e-TRAMOS[0])/.2,(TRAMOS[3]-e)/.2);if(k<1){const s=suave(Math.max(0,k));b.group.position.lerpVectors(b.home,b.group.position,s);b.group.quaternion.slerpQuaternions(_q0.identity(),b.group.quaternion,s);}
 }
+const _q0=new THREE.Quaternion();
 
 /**
  * La cara: parpadeo y sonrisa (objetivos de morph añadidos con
@@ -259,7 +275,7 @@ function objetivoMirada(actor,time,ctx,out){
   if(gano&&ctx.cabezas[(i+2)%4])return out.copy(ctx.cabezas[(i+2)%4]);
   return enAsiento(actor,0,DIM.surfaceY,DIM.seatDistance-DIM.rackRadius,out);
  }
- if(actor.trago&&actor.bebida){const e=actor.trago.fijo??time-actor.trago.t0;if(e<1.1||(e>3.4&&e<4.3))return out.copy(actor.bebida.home);
+ if(actor.trago&&actor.bebida){const e=actor.trago.fijo??time-actor.trago.t0;if(e<TRAMOS[0]+.1||(e>TRAMOS[2]+.5&&e<TRAMOS[3]+.1))return out.copy(actor.bebida.home);
   // Bebiendo se mira al frente, no a otro: la cabeza que gira se aleja del vaso.
   if(e<=3.4){actor.head.getWorldPosition(out);return out.addScaledVector(_ejeZ,1).addScaledVector(Y,-.15);}}
  if(ctx.foco&&time-ctx.foco.t<1.4)return out.copy(ctx.foco.p);
@@ -360,7 +376,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
   }
  }
  inclinar(actor,INCLINACION*(actor.brazos?1:.6)+extra,giro);
- if(trago!=null){const w=trago<TRAMOS[1]?Math.sin(Math.min(1,trago/TRAMOS[0])*Math.PI/2)*(1-suave(Math.max(0,trago-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0]))):trago>TRAMOS[2]?Math.sin(Math.min(1,(trago-TRAMOS[2])/(TRAMOS[3]-TRAMOS[2]))*Math.PI):0;if(actor.spine)giraEnMundo(actor.spine,_lean.setFromAxisAngle(_ejeZ,.16*w));}
+ if(trago!=null){const cerca=(c,a)=>Math.max(0,1-Math.abs(trago-c)/a),w=suave(Math.max(cerca(TRAMOS[0],.9),cerca(TRAMOS[3],.9)));if(actor.spine)giraEnMundo(actor.spine,_lean.setFromAxisAngle(_ejeZ,.16*w));}
  if(vivo){
   if(actor.spine)giraEnMundo(actor.spine,_lean.setFromAxisAngle(Y,r.balanceo));
   if(actor.spine)giraEnMundo(actor.spine,_lean.setFromAxisAngle(_ejeZ,r.ladeo));
@@ -392,7 +408,10 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
   // Polo: el codo va abajo, afuera y atrás, que es como apoya quien juega.
   // Alcanzando, más afuera y menos atrás: el codo se abre, no se clava en las costillas.
   brazo.brazo.getWorldPosition(_pol);
-  if(dedos)_pol.add(dirAsiento(lado*.85,-.5,.05,_dd));
+  const wt=dedos?pesoTrago(trago):0;
+  // Bebiendo, el codo cuelga abajo y un poco al frente y afuera (como quien toma café), no
+  // abierto a la altura del hombro: eso era el "ala de pollo" que se veía raro.
+  if(wt>0){_pol.add(dirAsiento(lado*.32,-.75,-.6,_dd).lerp(dirAsiento(lado*.45,-.85,.25,_tmp),wt));}
   else _pol.add(dirAsiento(lado*(jugando?.55:.32),-.75,jugando?-.15:-.6,_dd));
   alcanzar(brazo,o,_pol);
   // Palma abajo; los dedos siguen al antebrazo, un poco hacia dentro y hacia la mesa.
@@ -401,7 +420,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
   _F.addScaledVector(_ejeX,-lado*(jugando?0:.12)).normalize();_F.y=jugando?-.55:-.3;
   _N.set(0,-1,0).addScaledVector(_ejeX,-lado*.22);
   if(brazo.lado==='Left'&&actor.gesto>0){const g=suave(actor.gesto);_N.lerp(_dd.copy(_ejeX).multiplyScalar(-1).add(_tmp.set(0,.4,0)),g*.8);_F.y+=.4*g;}
-  if(dedos){_F.copy(dedos);_N.copy(_ejeX).addScaledVector(Y,-.15);}
+  if(dedos){_F.lerp(dedos,wt).normalize();_N.lerp(_dd.copy(_ejeX).addScaledVector(Y,-.15),wt).normalize();}
   nivelarMano(brazo,_F,_N);
   if(dedos)vasoEnMano(actor,trago);
   // Quien espera tamborilea: dos golpecitos de dedos cada tantos segundos.

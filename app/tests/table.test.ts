@@ -7,7 +7,7 @@
 import {env,runInDurableObject,SELF} from 'cloudflare:test';
 import {describe,it,expect} from 'vitest';
 import * as L from '../src/logic.js';
-import {botTurnKey} from '../src/bot-rhythm';
+import {botQuickMs,botTurnKey} from '../src/bot-rhythm';
 import {cleanName} from '../src/accounts';
 import {AUTO_DEAL_MS,BOT_NAMES,COVER_MS,IDLE_TTL_MS,botMayCover,coverAt,coverMove,nextWake} from '../src/room';
 
@@ -86,10 +86,13 @@ describe('the room clock',()=>{
   const now=Date.now(),g=table(now);
   g.members.a={...g.members.a,away:true,awaySince:now-COVER_MS-1,lastSeen:now-COVER_MS-1};
   await inRoom(g,async(room,state)=>{
-   await room.commit(await stored(state));
+   const g0=await stored(state),antes=Date.now();await room.commit(g0);const despues=Date.now();
    let h=await stored(state);expect(h.botKey).toBe(botTurnKey(1,0,0));
    // The 6-6 is the only tile it can open with: nothing to think about, it goes down in about a second.
-   expect(h.botDue-now).toBeGreaterThanOrEqual(900);expect(h.botDue-now).toBeLessThanOrEqual(1700);
+   // Counted from the room's commit, not from the top of the test: a slow runner spent ~0,6 s setting
+   // the table up and the old `botDue-now <= 1700` failed on a delay that was right.
+   const rapido=botQuickMs(1,0,0);expect(rapido).toBeGreaterThanOrEqual(900);expect(rapido).toBeLessThanOrEqual(1600);
+   expect(h.botDue).toBeGreaterThanOrEqual(antes+rapido);expect(h.botDue).toBeLessThanOrEqual(despues+rapido);
    h.botDue=Date.now()-1;await state.storage.put('mesa',h);await room.alarm();
    h=await stored(state);expect(h.state.moves).toEqual([{type:'play',seat:0,tile:'6-6',side:'right'}]);
    // Seat 1 is next and present: no bot, the alarm waits for it to go quiet.

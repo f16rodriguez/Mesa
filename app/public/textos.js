@@ -1,8 +1,8 @@
-/* Todo lo que se lee en pantalla, en español dominicano primero y en inglés. Nada de
+/* Todo lo que se lee en pantalla, en español primero (el del Caribe: "te toca", "trancó", "paso") y en inglés. Nada de
    "usted", nada de emojis. Las claves son cortas y el texto vive aquí, no regado por el código.
    t('clave',{nombre:'Luis'}) sustituye {nombre}. */
 const ES={
- marca:'mesa',ubicacion:'EL COLMADO · SANTO DOMINGO',subtitulo:'DOMINÓ DOMINICANO',
+ marca:'mesa',ubicacion:'EL COLMADO DE LA ESQUINA',subtitulo:'DOMINÓ EN PAREJAS',
  titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'Siempre hay una silla en la esquina.<br>Trae a los tuyos. Quédate un rato.',
  abrirMesa:'Abrir una mesa',practica:'Una manita de práctica',seguirPractica:'Seguir la práctica',entrarCodigo:'Entrar con código',
  escuelita:'La escuelita',ajustes:'Ajustes',miPerfil:'Mi perfil',pantallaCompleta:'Pantalla completa',
@@ -62,7 +62,7 @@ const ES={
  tuLugar:'Tu lugar en la mesa.',miembroDesde:'MIEMBRO DESDE {n}',series:'SERIES',victorias:'GANADAS',derrotas:'PERDIDAS',
  guardarPerfil:'Guardar perfil',salirCuenta:'Cerrar sesión',guardaTuSilla:'Guarda tu silla.',entrarCuenta:'Entrar',crearPerfil:'Crear perfil',
  invitadosPueden:'Sin cuenta también se juega, con tu nombre. Un perfil guarda tus resultados en todos tus equipos.',
- usuario:'Usuario',clave:'Contraseña',nombrePantalla:'Nombre',pais:'País (opcional)',edad:'Edad (opcional · privado)',prefieroNo:'Prefiero no decir',
+ usuario:'Usuario',clave:'Contraseña',nombrePantalla:'Nombre',pais:'País (opcional)',paisEjemplo:'¿De dónde eres?',edad:'Edad (opcional · privado)',prefieroNo:'Prefiero no decir',
  perfilListo:'Tu perfil de Mesa está listo.',perfilGuardado:'Perfil guardado.',sesionCerrada:'Saliste de Mesa.',
  // Público
  mirando:'{n} mirando',hablaleMesa:'Háblale a la mesa.',silenciarPublico:'Silenciar al público',oirPublico:'Oír al público',silenciar:'Silenciar',
@@ -87,7 +87,7 @@ const ES={
  aceptasTerminos:'Al crear tu cuenta aceptas los <a href="/legal/terminos.html{l}" target="_blank">términos</a> y la <a href="/legal/privacidad.html{l}" target="_blank">política de privacidad</a>.'
 };
 const EN={
- marca:'mesa',ubicacion:'THE COLMADO · SANTO DOMINGO',subtitulo:'DOMINICAN DOMINOES',
+ marca:'mesa',ubicacion:'THE CORNER COLMADO',subtitulo:'PARTNER DOMINOES',
  titulo1:'Una mesa.',titulo2:'Tu gente.',lema:'There’s always a chair at the corner.<br>Bring your people. Stay a while.',
  abrirMesa:'Start a table',practica:'A quiet practice hand',seguirPractica:'Continue practice',entrarCodigo:'Join with a code',
  escuelita:'La escuelita',ajustes:'Settings',miPerfil:'My profile',pantallaCompleta:'Full screen',
@@ -137,7 +137,7 @@ const EN={
  tuLugar:'Your place at the table.',miembroDesde:'MEMBER SINCE {n}',series:'SERIES',victorias:'WINS',derrotas:'LOSSES',
  guardarPerfil:'Save profile',salirCuenta:'Sign out',guardaTuSilla:'Keep your seat.',entrarCuenta:'Sign in',crearPerfil:'Create profile',
  invitadosPueden:'Guests can always play with just a name. A profile keeps your results across devices.',
- usuario:'Username',clave:'Password',nombrePantalla:'Display name',pais:'Country (optional)',edad:'Age band (optional · private)',prefieroNo:'Prefer not to say',
+ usuario:'Username',clave:'Password',nombrePantalla:'Display name',pais:'Country (optional)',paisEjemplo:'Where are you from?',edad:'Age band (optional · private)',prefieroNo:'Prefer not to say',
  perfilListo:'Your Mesa profile is ready.',perfilGuardado:'Profile saved.',sesionCerrada:'Signed out of Mesa.',
  mirando:'{n} watching',hablaleMesa:'Talk to the table.',silenciarPublico:'Mute crowd',oirPublico:'Unmute crowd',silenciar:'Mute',
  invitarPublico:'Invite spectators',diAlgo:'Say something to the corner. Everyone at the table can read it.',dimeAVer:'Dime a ver…',

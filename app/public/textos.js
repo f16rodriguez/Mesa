@@ -83,6 +83,7 @@ const ES={
  primeroCuenta:'Primero tu cuenta, así el desbloqueo se queda contigo en cualquier mesa.',confirmandoPago:'Confirmando el pago…',
  mesaDesbloqueadaYa:'¡Listo! Mesa desbloqueada. Ahora sí, repartan.',pagoTarda:'El pago está tardando en llegar. Si ya te cobraron, se desbloquea solo en unos minutos.',
  pagosNoCargo:'No cargó el cobro. Revisa la conexión y prueba otra vez.',pagosNoDisponibles:'El cobro no está disponible ahora mismo.',
+ libre:'Libre',mandasEyebrow:'TÚ MANDAS EN ESTA MESA',mandasTu:'Toca una silla y después otra para cambiarlas.',tocaOtraSilla:'Ahora toca la otra silla.',tocaSillaLibre:'Toca una silla libre para cambiarte.',liberarSilla:'Liberar esta silla',miraTele:'¡Mira la tele!',listo:'Listo',listoYa:'Listo. Esperando a los demás…',listosN:'Listos {n} de {m}',proximaEn:'La próxima en {n} s',repartirYa:'Repartir ya',cambiarParejas:'Cambiar parejas',enEspera:'EN ESPERA',teSientasProxima:'Te sientas en la próxima mano.',cuandoCierre:'Cuando se cierre esta mano, coges la primera silla libre.',sinSilla:'SIN SILLA',noTienesSilla:'Ahora mismo estás mirando.',pideSillaTxt:'Pide silla y te sientas en la primera que se libere.',pedirSilla:'Pedir silla',mirandoUno:'mirando',
  precios:'Precios',terminos:'Términos',privacidad:'Privacidad',creditos:'Créditos',unJuegoDe:'Un juego de Three Thirteen Studios',rd:'República Dominicana',creadoPor:'Creado por',fuentesEstudio:'Fuentes: Archivo, Archivo Narrow, IBM Plex Mono (SIL Open Font License)',mesaUsa:'Mesa usa',personajes:'Personajes',reembolso14:'Reembolso en 14 días.',
  aceptasTerminos:'Al crear tu cuenta aceptas los <a href="/legal/terminos.html{l}" target="_blank">términos</a> y la <a href="/legal/privacidad.html{l}" target="_blank">política de privacidad</a>.'
 };
@@ -156,6 +157,7 @@ const EN={
  primeroCuenta:'Account first, so the unlock stays with you at any table.',confirmandoPago:'Confirming your payment…',
  mesaDesbloqueadaYa:'Done! Mesa is unlocked. Deal away.',pagoTarda:'Your payment is taking a while. If you were charged, it unlocks by itself in a few minutes.',
  pagosNoCargo:'Checkout didn’t load. Check your connection and try again.',pagosNoDisponibles:'Checkout isn’t available right now.',
+ libre:'Free',mandasEyebrow:'YOU RUN THIS TABLE',mandasTu:'Tap a seat, then another, to swap them.',tocaOtraSilla:'Now tap the other seat.',tocaSillaLibre:'Tap a free seat to move.',liberarSilla:'Free this seat',miraTele:'Look at the TV!',listo:'Ready',listoYa:'Ready. Waiting for the others…',listosN:'{n} of {m} ready',proximaEn:'Next hand in {n} s',repartirYa:'Deal now',cambiarParejas:'Change partners',enEspera:'WAITING',teSientasProxima:'You sit down next hand.',cuandoCierre:'When this hand closes, you take the first free seat.',sinSilla:'NO SEAT',noTienesSilla:'You are watching for now.',pideSillaTxt:'Ask for a seat and take the first one that frees up.',pedirSilla:'Ask for a seat',mirandoUno:'watching',
  precios:'Pricing',terminos:'Terms',privacidad:'Privacy',creditos:'Credits',unJuegoDe:'A Three Thirteen Studios game',rd:'Dominican Republic',creadoPor:'Created by',fuentesEstudio:'Fonts: Archivo, Archivo Narrow, IBM Plex Mono (SIL Open Font License)',mesaUsa:'Mesa uses',personajes:'Characters',reembolso14:'14-day refund.',
  aceptasTerminos:'By creating an account you accept the <a href="/legal/terminos.html{l}" target="_blank">terms</a> and the <a href="/legal/privacidad.html{l}" target="_blank">privacy policy</a>.'
 };
@@ -184,7 +186,7 @@ const ERRORES={
  'House rules are locked after the first deal.':'Las reglas de la casa se fijan con el primer reparto.','Choose valid house rules.':'Esas reglas no valen.',
  'Wait for the next deal.':'Espera el próximo reparto.','Spectators cannot play.':'Mirando no se juega.','Wait for your turn.':'Espera tu turno.',
  'You have a legal tile. Play it instead of passing.':'Tienes ficha que pega: no puedes pasar.','Choose a tile or pass.':'Elige una ficha o pasa.',
- 'That tile does not fit this end.':'Esa ficha no pega por esa punta.',
+ 'That tile does not fit this end.':'Esa ficha no pega por esa punta.','Let everyone see the hand first.':'Dejen ver la mano primero.','That seat is taken.':'Esa silla está ocupada.','Seats change between series.':'Las sillas se cambian entre series.','Choose a seat.':'Elige una silla.',
  'Username or password is incorrect.':'El usuario o la contraseña no cuadran.','That username is already taken.':'Ese usuario ya existe.',
  'Use a 3–20 character username and a password of at least 8 characters.':'El usuario va de 3 a 20 letras y la contraseña de 8 o más.',
  'Too many attempts. Wait a minute.':'Muchos intentos. Espera un minuto.','Sign in to save your profile.':'Entra a tu cuenta para guardar el perfil.',

@@ -67,13 +67,16 @@ function deal(s) {
 }
 /** The host, or anyone sitting at the table who is not a bot. */
 const canDeal=(s,p)=>{const seat=s.players.indexOf(p);return p===s.hostId||(seat>=0&&!s.bots[seat]);};
+/** Who runs the table: the TV (host) and the phone the room names as `vip` — the first
+ *  person seated with a live phone, so nobody needs a remote to deal or set rules. */
+const runs=(s,p)=>p===s.hostId||(!!s.vip&&p===s.vip);
 export function validateAction(s,p,a) {
   if(!s||!a||typeof a!=='object') return fail('Invalid action.');
   const seat=s.players.indexOf(p);
   if(['start','next','settings','newSeries'].includes(a.type)){
     // Opening the table and its house rules belong to the host. Dealing the
     // next hand does not: a TV that went to sleep must not freeze four people.
-    if(p!==s.hostId&&!(['next','newSeries'].includes(a.type)&&canDeal(s,p))) return fail('Only the table host can do that.');
+    if(!runs(s,p)&&!(['next','newSeries'].includes(a.type)&&canDeal(s,p))) return fail('Only the table host can do that.');
     if(a.type==='start'&&s.phase!=='lobby') return fail('The hand has already started.');
     if(a.type==='next'&&s.phase!=='handEnd') return fail('Finish this hand first.');
     if(a.type==='newSeries'&&s.phase!=='seriesEnd') return fail('Finish the series first.');
@@ -155,5 +158,5 @@ export function isGameOver(s) {
 }
 export function viewFor(s,p) {
   const seat=s.players.indexOf(p),closed=s.phase==='handEnd'||s.phase==='seriesEnd';
-  return {phase:s.phase,names:s.names,bots:s.bots,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
+  return {phase:s.phase,names:s.names,bots:s.bots,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,isVip:!!s.vip&&p===s.vip,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
 }

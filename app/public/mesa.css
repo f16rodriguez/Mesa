@@ -348,6 +348,33 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .resultado .acciones{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-top:1.3rem}
 .resultado .acciones p{font-size:.88rem;color:var(--tenue)}
 
+/* ── Sillas y fin de mano ────────────────────────────────────────────────── */
+/* En el teléfono, la mesa vista desde arriba: la silla 1 abajo, y el turno a la derecha. */
+.sillas-tel{display:grid;grid-template-columns:1fr 1.05fr 1fr;grid-template-areas:". s2 ." "s3 mesa s1" ". s0 .";gap:.5rem;align-items:center;justify-items:stretch;width:min(100%,21rem);margin:1rem auto .3rem}
+.mesita{grid-area:mesa;aspect-ratio:1;border-radius:14px;background:radial-gradient(circle at 50% 40%,#2f6b4c,#173d2c);box-shadow:inset 0 0 0 3px #5a3a22,0 8px 20px rgba(0,0,0,.4)}
+.silla-tel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;min-height:3.6rem;padding:.5rem .3rem;border-radius:14px;background:rgba(255,255,255,.05);border:2px solid color-mix(in srgb,var(--pareja) 65%,transparent);transition:transform .15s,box-shadow .2s;min-width:0}
+.silla-tel b{font:600 .9rem var(--sans);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.silla-tel small{font:600 .56rem var(--sans);letter-spacing:.14em;color:var(--pareja-claro)}
+.silla-tel.libre{border-style:dashed;color:var(--tenue);background:transparent}
+.silla-tel.mia{box-shadow:0 0 0 3px var(--ambar),0 0 18px rgba(255,181,71,.4)}
+.silla-tel:active{transform:scale(.95)}
+.silla-tel.elegida,.silla.elegida{box-shadow:0 0 0 3px var(--turquesa),0 0 22px rgba(45,225,194,.5);animation:elegida 1.2s ease-in-out infinite}
+@keyframes elegida{50%{box-shadow:0 0 0 5px rgba(45,225,194,.6),0 0 30px rgba(45,225,194,.5)}}
+.silla{width:100%;text-align:left;cursor:pointer;color:inherit}
+.nota-silla{font-size:.82rem!important;color:var(--suave);text-align:center;margin:.3rem 0 .5rem!important}
+.cartel .nota-silla{font-size:.75rem!important}
+.vip-acciones{display:flex;flex-direction:column;gap:.5rem;width:min(100%,21rem);margin-top:.5rem}
+.vip-acciones .g-button{margin-top:0!important;max-width:none!important}
+.lobby-tel h1{font-size:2rem!important;margin-bottom:0!important}
+.mira-tele{color:var(--ambar);text-shadow:0 0 30px rgba(255,181,71,.5);animation:latido 1.6s ease-in-out infinite}
+.listo-caja{width:min(100%,20rem);margin-top:1.2rem;display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.listo-caja .g-button{margin-top:0!important;max-width:none!important}
+.listo-ya{color:var(--turquesa)!important;font-weight:600}
+.listos{font:600 .74rem var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--suave);margin-top:.6rem}
+.listos:empty,.cuenta:empty{display:none}
+.cuenta{font:400 .95rem var(--display);color:var(--ambar);min-height:1.3em}
+.resultado .listos{margin-top:1rem}
+
 /* ── El desbloqueo ─────────────────────────────────────────────────────────── */
 .aviso-pago{padding:1rem 1.1rem;margin-bottom:.4rem;border-radius:16px;background:linear-gradient(180deg,rgba(255,77,141,.18),rgba(255,77,141,.06));border:1px solid rgba(255,77,141,.55);box-shadow:0 0 40px rgba(255,77,141,.18);text-align:left;animation:subir .4s both}
 .aviso-pago h3{font:400 1.25rem/1.15 var(--display);color:#ffd1e2;letter-spacing:.01em;margin-bottom:.35rem}

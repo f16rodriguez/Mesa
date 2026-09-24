@@ -14,7 +14,12 @@ export const PRESENT_MS=20000;
 /** Spectators leave the crowd count this long after their last word. */
 export const CROWD_MS=25000;
 /** A closed hand nobody has dealt on from is dealt by the room after this long. */
-export const AUTO_DEAL_MS=15000;
+export const AUTO_DEAL_MS=30000;
+/** Nobody deals for this long after a hand or series closes: the camera cut and the
+ *  hands turning face up are the best moment of the night, and one impatient tap
+ *  used to wipe them. After it, the hand deals as soon as every seated person says
+ *  "Listo", or by itself at AUTO_DEAL_MS. */
+export const ESPERA_FIN_MS=6000;
 /** A room where nobody has been seen for this long deletes itself. */
 export const IDLE_TTL_MS=12*3600*1000;
 /** A covered seat with no legal tile knocks this fast: there is nothing to think about. */
@@ -26,7 +31,9 @@ const AFTER_DEAL_MS=4200,AFTER_HUMAN_MS=1500;
 /** The same four the client shows in the lobby. */
 export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
 
-type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number};
+type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number;
+ /** Arrived mid-hand: sits in the first free seat when the hand closes. */
+ espera?:boolean};
 type Chat={id:string;sender:string;name:string;text:string;role:string;at:number};
 type Participant={id:string;won:boolean;ownScore:number;opponentScore:number};
 type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];featured:boolean;seriesId:string;
@@ -40,7 +47,9 @@ type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];f
  /** Quién cubre la serie en curso (nombre, no id: esto se manda a todos). */
  patrocinio?:{nombre:string;tipo:'unlock'|'trial';quedan:number}|null;
  /** Por qué no se pudo repartir: nadie sentado tiene cuenta, o a nadie le quedan series gratis. */
- bloqueo?:'sinCuenta'|'sinSeries'};
+ bloqueo?:'sinCuenta'|'sinSeries';
+ /** Seats that said "Listo" for the next hand. */
+ listos?:number[]};
 type Table={state:any;members:Record<string,Member|undefined>};
 
 const present=(m:Member|undefined,now:number)=>!!m&&!m.away&&now-m.lastSeen<PRESENT_MS;
@@ -71,9 +80,18 @@ export function coverAt(g:Table,seat:number,now:number):number|null{
 export function botMayCover(g:Table,seat:number,now:number){const t=coverAt(g,seat,now);return t!==null&&t<=now;}
 /** When the room should deal a closed hand itself: AUTO_DEAL_MS after it
  *  closed, and only while a seated human is there to play it. */
-export function autoDealAt(g:Table&{closedAt?:number},now:number):number|null{
+export function autoDealAt(g:Table&{closedAt?:number;listos?:number[]},now:number):number|null{
  const s=g.state;if(s.phase!=='handEnd'||g.closedAt===undefined)return null;
- return s.players.some((p:string,i:number)=>!s.bots[i]&&present(g.members[p],now))?Math.max(now,g.closedAt+AUTO_DEAL_MS):null;
+ const here=s.players.map((p:string,i:number)=>!s.bots[i]&&present(g.members[p],now)?i:-1).filter((i:number)=>i>=0);
+ if(!here.length)return null;
+ const ready=here.every((i:number)=>(g.listos??[]).includes(i));
+ return Math.max(now,g.closedAt+(ready?ESPERA_FIN_MS:AUTO_DEAL_MS));
+}
+/** The phone that runs the table: the first seat (in order) with a person whose phone is
+ *  live; if none is, the first seat with a person. Null with only bots. */
+export function vipOf(g:Table,now:number):string|null{
+ const s=g.state,humans=s.players.filter((_:string,i:number)=>!s.bots[i]);
+ return humans.find((p:string)=>present(g.members[p],now))??humans[0]??null;
 }
 export const lastActivity=(g:{members:Record<string,Member|undefined>})=>Math.max(0,...Object.values(g.members).map(m=>m?.lastSeen??0));
 /**
@@ -130,7 +148,8 @@ export class Room extends DurableObject<Env>{
   const now=Date.now(),viewers=this.spectators(g);
   for(const ws of this.ctx.getWebSockets()){
    const id=ws.deserializeAttachment()?.id;if(!id||!g.members[id])continue;
-   this.send(ws,{type:'state',mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null,botMs:g.botDue!==undefined?Math.max(0,g.botDue-now):null},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
+   const auto=autoDealAt(g,now),fin=g.closedAt!==undefined?{espera:Math.max(0,g.closedAt+ESPERA_FIN_MS-now),auto:auto===null?null:Math.max(0,auto-now),listos:g.listos??[]}:null;
+   this.send(ws,{type:'state',yo:{espera:!!g.members[id]!.espera},mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null,botMs:g.botDue!==undefined?Math.max(0,g.botDue-now):null,fin},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
   }
  }
  /** Bot turn and hand-closing bookkeeping. Returns whether anything changed. */
@@ -143,8 +162,8 @@ export class Room extends DurableObject<Env>{
     g.botKey=key;g.botDue=now+Math.max(minimumDelay,forced?FORCED_PASS_MS:unica?botQuickMs(s.handNo,s.moves.length,s.turn):botThinkingMs(s.handNo,s.moves.length,s.turn));changed=true;
    }
   }else if(g.botKey!==undefined||g.botDue!==undefined){delete g.botKey;delete g.botDue;changed=true;}
-  if(s.phase==='handEnd'){if(g.closedAt===undefined){g.closedAt=now;changed=true;}}
-  else if(g.closedAt!==undefined){delete g.closedAt;changed=true;}
+  if(s.phase==='handEnd'||s.phase==='seriesEnd'){if(g.closedAt===undefined){g.closedAt=now;changed=true;}}
+  else if(g.closedAt!==undefined||g.listos){delete g.closedAt;delete g.listos;changed=true;}
   return changed;
  }
  /**
@@ -154,12 +173,25 @@ export class Room extends DurableObject<Env>{
  private async commit(g:Store,{dirty=true,broadcast=true,minimumDelay=0}={}){
   const now=Date.now(),crowd=this.spectators(g);
   if(g.lastCrowd!==crowd.length){g.lastCrowd=crowd.length;dirty=true;broadcast=true;}
+  if(this.seatWaiting(g)){dirty=true;broadcast=true;}
+  const vip=vipOf(g,now);if((g.state.vip??null)!==vip){g.state.vip=vip;dirty=true;broadcast=true;}
   if(this.prepareTimers(g,now,minimumDelay))dirty=true;
   if(dirty)await this.save(g);
   if(broadcast)this.broadcast(g);
   const wake=nextWake(g,now,crowd);
   if(await this.ctx.storage.getAlarm()!==wake)await this.ctx.storage.setAlarm(wake);
  }
+ /** People who arrived mid-hand sit down once it closes, in the first free seat. */
+ private seatWaiting(g:Store){
+  const s=g.state;if(s.phase==='playing')return false;let changed=false;
+  for(const m of Object.values(g.members)){
+   if(!m.espera)continue;const seat=s.bots.findIndex((b:boolean)=>b);if(seat<0)break;
+   s.players[seat]=m.id;s.bots[seat]=false;s.names[seat]=m.name;m.role='player';delete m.espera;changed=true;
+  }
+  return changed;
+ }
+ /** The TV, or the phone the room names to run the table. */
+ private runs(g:Store,id:string){return id===g.state.hostId||(!!g.state.vip&&id===g.state.vip);}
  /** Queue a just-finished series for the profile database. The write itself
   *  happens after the state is saved, outside the table's lock. */
  private queueSeries(g:Store,now:number){
@@ -221,14 +253,15 @@ export class Room extends DurableObject<Env>{
     if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
     const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
     const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
+    let wait=false;
     if(role==='player'){
-     if(g.state.phase!=='lobby')return this.error(ws,'This hand has started. Watch this table, or use your original phone to return.');
      const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All four seats are taken. You can still watch.');
      if(!msg.name&&!att?.profileName)return this.error(ws,'Tell us your name to take a seat.');
      if(att?.profileId&&Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId))return this.error(ws,'Your profile already has a seat. Use your original phone.');
-     g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;
+     // With a hand in play, a newcomer watches and sits down when it closes.
+     if(g.state.phase==='playing')wait=true;else{g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;}
     }
-    g.members[id]={id,publicId:crypto.randomUUID(),name,role,lastSeen:now,away:false,...(att?.profileId?{profileId:att.profileId}:{})};
+    g.members[id]={id,publicId:crypto.randomUUID(),name,role:wait?'spectator':role,lastSeen:now,away:false,...(wait?{espera:true}:{}),...(att?.profileId?{profileId:att.profileId}:{})};
    }
    else if(att?.profileId&&!g.members[id]!.profileId&&!Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId)){
     // Alguien sentado acaba de crear su cuenta o entrar a ella: la silla se queda
@@ -256,6 +289,48 @@ export class Room extends DurableObject<Env>{
    if(now-(member.lastChat||0)<2500)return this.error(ws,'Let the table breathe. Wait a moment between messages.');
    member.lastChat=now;g.chat.push({id:crypto.randomUUID(),sender:member.publicId,name:member.name,text,role:member.role,at:now});g.chat=g.chat.slice(-40);await this.commit(g);return;
   }
+  if(msg.type==='listo'){
+   const seat=g.state.players.indexOf(id);if(g.state.phase!=='handEnd'||seat<0||g.state.bots[seat])return;
+   g.listos=[...new Set([...(g.listos??[]),seat])];await this.commit(g);return;
+  }
+  if(msg.type==='silla'){
+   // Sit in (or move to) a free seat. Seats move in the lobby; with a series going,
+   // asking for a seat queues you for the next free one when the hand closes.
+   const s=g.state,to=msg.to,from=s.players.indexOf(id);
+   if(member.role==='host')return this.error(ws,'Choose a seat.');
+   if(s.phase!=='lobby'){if(from>=0)return this.error(ws,'Seats change between series.');member.espera=true;await this.commit(g);return;}
+   if(!Number.isInteger(to)||to<0||to>3)return this.error(ws,'Choose a seat.');
+   if(!s.bots[to])return this.error(ws,'That seat is taken.');
+   s.players[to]=id;s.bots[to]=false;s.names[to]=from>=0?s.names[from]:member.name;
+   if(from>=0){s.players[from]='bot-'+from;s.bots[from]=true;s.names[from]='Seat '+(from+1);}else{member.role='player';delete member.espera;}
+   await this.commit(g);return;
+  }
+  if(msg.type==='cambiar'){
+   const s=g.state,a=msg.a,b=msg.b;
+   if(!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
+   if(s.phase!=='lobby')return this.error(ws,'Seats change between series.');
+   if(![a,b].every(x=>Number.isInteger(x)&&x>=0&&x<4)||a===b)return this.error(ws,'Choose a seat.');
+   for(const k of ['players','names','bots'])[s[k][a],s[k][b]]=[s[k][b],s[k][a]];
+   for(const i of [a,b])if(s.bots[i]){s.players[i]='bot-'+i;s.names[i]='Seat '+(i+1);}   // a bot id always matches its seat
+   await this.commit(g);return;
+  }
+  if(msg.type==='liberar'){
+   // Leave your seat, or (the TV / the table's phone) free someone else's. Mid-series a
+   // bot takes the seat and plays its tiles; in the lobby the chair is simply free.
+   const s=g.state,seat=msg.seat;
+   if(!Number.isInteger(seat)||seat<0||seat>3||s.bots[seat])return this.error(ws,'Choose a seat.');
+   const who=s.players[seat];if(who!==id&&!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
+   s.players[seat]='bot-'+seat;s.bots[seat]=true;if(s.phase==='lobby')s.names[seat]='Seat '+(seat+1);
+   const m=g.members[who];if(m){m.role='spectator';delete m.espera;}
+   await this.commit(g);return;
+  }
+  if(msg.type==='lobby'){
+   // After a series: back to the lobby to change partners, instead of the one-tap rematch.
+   if(!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
+   if(g.state.phase!=='seriesEnd')return this.error(ws,'Finish the series first.');
+   g.state=logic.applyAction(g.state,g.state.hostId,{type:'newSeries'});g.seriesId=crypto.randomUUID();g.recorded=false;delete g.patrocinio;
+   await this.commit(g);return;
+  }
   if(msg.type==='feature'||msg.type==='moderate'){
    if(id!==g.state.hostId)return this.error(ws,'Only the table host can do that.');
    if(msg.type==='feature')g.featured=msg.enabled===true;
@@ -270,6 +345,7 @@ export class Room extends DurableObject<Env>{
   if(msg.type!=='action')return this.error(ws,'Unknown action.');
   const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
   const type=msg.action.type,dealing=['start','next','newSeries'].includes(type);
+  if((type==='next'||type==='newSeries')&&g.closedAt!==undefined&&now<g.closedAt+ESPERA_FIN_MS)return this.error(ws,'Let everyone see the hand first.');
   if(type==='start'||type==='newSeries'){
    const serie=type==='newSeries'?crypto.randomUUID():g.seriesId;
    if(!await this.cubrir(g,serie)){await this.commit(g);return;}
@@ -277,9 +353,12 @@ export class Room extends DurableObject<Env>{
   }
   if(dealing)g.state.seed=freshSeed();
   g.state=logic.applyAction(g.state,id,msg.action);
+  // The rematch: same seats, dealt at once (a series used to fall back to the lobby,
+  // where only the TV could deal). Changing partners is the 'lobby' message.
+  if(type==='newSeries'){g.state.seed=freshSeed();g.state=logic.applyAction(g.state,g.state.hostId,{type:'start'});}
   if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
   const queued=this.queueSeries(g,now);
-  await this.commit(g,{minimumDelay:type==='start'||type==='next'?AFTER_DEAL_MS:AFTER_HUMAN_MS});
+  await this.commit(g,{minimumDelay:dealing?AFTER_DEAL_MS:AFTER_HUMAN_MS});
   if(queued)later.push(()=>this.flushRecords());
  }
  override async alarm(){

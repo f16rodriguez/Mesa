@@ -26,7 +26,7 @@ function etiqueta(){
 }
 function presidente(){
  const g=new THREE.Group(),P=(r,y)=>new THREE.Vector2(r,y);
- const perfil=[P(0,0),P(.034,0),P(.037,.006),P(.037,.165),P(.034,.188),P(.022,.222),P(.0145,.252),P(.0138,.274),P(.0158,.279),P(.0158,.29),P(0,.29)];
+ const perfil=[P(0,0),P(.034,0),P(.037,.006),P(.037,.165),P(.034,.188),P(.022,.222),P(.0145,.252),P(.0138,.274),P(.0158,.279),P(.0158,.29),P(.0112,.29),P(.0106,.268),P(.0112,.24)];   // destapada: el labio y el vidrio por dentro
  const vidrio=new THREE.MeshStandardMaterial({color:'#2d5a26',roughness:.18,metalness:.05,envMapIntensity:1.4});
  g.add(new THREE.Mesh(new THREE.LatheGeometry(perfil,20),vidrio));
  // Sudada: una capa apenas más grande, blanca y rugosa, casi transparente.
@@ -34,7 +34,7 @@ function presidente(){
  g.add(sudor);
  const et=new THREE.Mesh(new THREE.CylinderGeometry(.0376,.0376,.075,24,1,true),new THREE.MeshStandardMaterial({map:etiqueta(),roughness:.6}));et.position.y=.095;g.add(et);
  const cuello=new THREE.Mesh(new THREE.CylinderGeometry(.0149,.0152,.02,16,1,true),new THREE.MeshStandardMaterial({color:'#b3262d',roughness:.5}));cuello.position.y=.262;g.add(cuello);
- const tapa=new THREE.Mesh(new THREE.CylinderGeometry(.0165,.0165,.006,16),new THREE.MeshStandardMaterial({color:'#c9c4b6',roughness:.35,metalness:.7}));tapa.position.y=.291;g.add(tapa);
+ const hondo=new THREE.Mesh(new THREE.CircleGeometry(.0112,16),new THREE.MeshBasicMaterial({color:'#0d160c'}));hondo.rotation.x=-Math.PI/2;hondo.position.y=.245;g.add(hondo);   // la oscuridad de adentro, se ve por la boca
  return {g,alto:.11,radio:.037,inclina:1.25,boca:.18};
 }
 function morir(){

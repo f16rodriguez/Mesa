@@ -64,7 +64,7 @@ export const botChatter={
   if(v.phase!=='playing')return;
   if(Number.isInteger(seat)&&v.bots[seat]&&event.type==='pass'){this.play(seat,'pass');return;}
   const base=(v.handNo*17+v.moves.length*31+v.turn*19)>>>0;const mixed=Math.imul(base^(base>>>16),0x45d9f3b)>>>0;const pick=(mixed^(mixed>>>16))>>>0;
-  if(v.bots[v.turn]&&pick%4===0){
+  if(v.bots[v.turn]&&v.moves.length>0&&pick%4===0){   // en la primera jugada todavía se está repartiendo: callado
    // A los 0.9 s, cuando la ficha del anterior ya cayó y no encima de ella; y
    // solo si al bot le queda pensar para decirlo entero con 1.4 s de sobra.
    const turno=key,piensa=this.pensar?this.pensar(v.handNo,v.moves.length,v.turn):4000,ya=performance.now();

@@ -17,6 +17,7 @@
  */
 const R=Math.random;
 function ruidoBlanco(ctx,seg=4){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=R()*2-1;return b;}
+function ruidoRosa(ctx,seg=5){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);let b0=0,b1=0,b2=0;for(let i=0;i<d.length;i++){const w=R()*2-1;b0=.99765*b0+w*.099046;b1=.963*b1+w*.2965164;b2=.57*b2+w*1.0526913;d[i]=(b0+b1+b2+w*.1848)*.2;}return b;}
 function ruidoMarron(ctx,seg=6){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);let u=0;for(let i=0;i<d.length;i++){u=(u+.02*(R()*2-1))/1.02;d[i]=u*3.5;}return b;}
 export const ambiente={
  ctx:null,master:null,nodos:[],timers:[],on:false,blanco:null,
@@ -24,17 +25,18 @@ export const ambiente={
   if(this.on)return;this.on=true;this.ctx=ctx;
   const m=this.master=ctx.createGain();m.gain.value=0;m.connect(ctx.destination);m.gain.setTargetAtTime(1.2,ctx.currentTime,2);
   const fuente=(buf,rate=1)=>{const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;s.playbackRate.value=rate;s.start(ctx.currentTime+R()*.1,R()*buf.duration);this.nodos.push(s);return s;};
-  const blanco=this.blanco=ruidoBlanco(ctx),marron=ruidoMarron(ctx);
+  const blanco=this.blanco=ruidoBlanco(ctx),rosa=ruidoRosa(ctx),marron=ruidoMarron(ctx);
   // Sala
-  {const g=ctx.createGain();g.gain.value=.05;fuente(marron).connect(g).connect(m);}
+  // El ruido marrón solo cae 6 dB por octava: sin este filtro era la capa que más siseaba.
+  {const g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=260;lp.Q.value=.5;g.gain.value=.055;fuente(marron).connect(lp).connect(g).connect(m);}
   // Calle lejana, con un vaivén lento
   {const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=380;f.Q.value=.6;const g=ctx.createGain();g.gain.value=.02;
    const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=.037;lg.gain.value=.009;lfo.connect(lg).connect(g.gain);lfo.start();this.nodos.push(lfo);
-   fuente(blanco,.93).connect(f).connect(g).connect(m);}
+   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;lp.Q.value=.5;fuente(rosa,.93).connect(f).connect(lp).connect(g).connect(m);}
   // Abanico: soplido con pulso de aspas (~3,5 por segundo)
-  {const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=900;f.Q.value=.9;const g=ctx.createGain();g.gain.value=.006;
+  {const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=650;f.Q.value=1;const g=ctx.createGain();g.gain.value=.007;
    const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=3.5;lg.gain.value=.0025;lfo.connect(lg).connect(g.gain);lfo.start();this.nodos.push(lfo);
-   const p=ctx.createStereoPanner();p.pan.value=.1;fuente(blanco,1.07).connect(f).connect(g).connect(p).connect(m);}
+   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1300;lp.Q.value=.5;const p=ctx.createStereoPanner();p.pan.value=.1;fuente(rosa,1.07).connect(f).connect(lp).connect(g).connect(p).connect(m);}
   // Grillos: dos, bajitos; la noche todavía no ha caído del todo.
   for(let k=0;k<2;k++)this.grillo(3900+R()*1100,(k%2?1:-1)*(.4+R()*.5),.002+R()*.002);
   this.nevera();this.vecinos();this.calle();this.perro();
@@ -107,7 +109,7 @@ export const ambiente={
    p.pan.setValueAtTime(-.9*dir,t0);p.pan.linearRampToValueAtTime(.9*dir,t0+D);
    const m2=ctx.createGain();m2.gain.value=.5;o2.connect(m2).connect(f);o.connect(f).connect(g).connect(p).connect(this.master);
    // Las gomas del carro sobre el asfalto.
-   if(tipo==='carro'&&this.blanco){const n=ctx.createBufferSource(),nf=ctx.createBiquadFilter(),ng=ctx.createGain();n.buffer=this.blanco;nf.type='bandpass';nf.frequency.value=520;nf.Q.value=.7;ng.gain.setValueAtTime(0,t0);ng.gain.linearRampToValueAtTime(.012,t0+D*.5);ng.gain.linearRampToValueAtTime(0,t0+D);n.connect(nf).connect(ng).connect(p);n.start(t0,R()*2);n.stop(t0+D+.1);}
+   if(tipo==='carro'&&this.blanco){const n=ctx.createBufferSource(),nf=ctx.createBiquadFilter(),ng=ctx.createGain();n.buffer=this.blanco;nf.type='lowpass';nf.frequency.value=700;nf.Q.value=.6;ng.gain.setValueAtTime(0,t0);ng.gain.linearRampToValueAtTime(.012,t0+D*.5);ng.gain.linearRampToValueAtTime(0,t0+D);n.connect(nf).connect(ng).connect(p);n.start(t0,R()*2);n.stop(t0+D+.1);}
    // El motoconcho pita dos veces al pasar.
    if(tipo==='concho'&&R()<.35)for(const k of [0,.2]){const b=ctx.createOscillator(),bf=ctx.createBiquadFilter(),bg=ctx.createGain(),tb=t0+D*.42+k;b.type='square';b.frequency.value=415;bf.type='bandpass';bf.frequency.value=900;bf.Q.value=1.2;bg.gain.setValueAtTime(0,tb);bg.gain.linearRampToValueAtTime(.009,tb+.01);bg.gain.setValueAtTime(.009,tb+.11);bg.gain.linearRampToValueAtTime(0,tb+.13);b.connect(bf).connect(bg).connect(p);b.start(tb);b.stop(tb+.15);}
    o.start(t0);o2.start(t0);o.stop(t0+D+.1);o2.stop(t0+D+.1);
@@ -201,7 +203,7 @@ async function hornear(ctx,c){
    for(let i=0;i<L&&a+i<n;i++){const t=i/sr,fr=f*(1+.5*Math.exp(-t/.009));fase+=2*Math.PI*fr/sr;const env=(t<.003?t/.003:Math.exp(-(t-.003)/(d/6.5)))*.34*v;mix[a+i]+=Math.sin(fase)*env;}
    if(k===0){const o=Math.floor(R()*(cuero.length-sr*.04));for(let i=0;i<T(.03)&&a+i<n;i++)mix[a+i]+=cuero[o+i]*.18*Math.exp(-i/sr/.008);}});
   // Güira: corcheas parejas, raspado largo en el uno y el tres.
-  for(let k=0;k<8;k++){const a=T(t0+k*c.corchea),largo=k%4===0,v=(largo?1:k%2?.5:.72)*(seccion==='coro'?1.15:1)*.2,at=largo?.02:.003,sos=largo?.1:.012,fin=largo?.16:.05,o=Math.floor(R()*(guira.length-sr*.2));
+  for(let k=0;k<8;k++){const a=T(t0+k*c.corchea),largo=k%4===0,v=(largo?1:k%2?.5:.72)*(seccion==='coro'?1.15:1)*.13,at=largo?.02:.003,sos=largo?.1:.012,fin=largo?.16:.05,o=Math.floor(R()*(guira.length-sr*.2));
    for(let i=0;i<T(fin)&&a+i<n;i++){const t=i/sr,env=t<at?t/at:t<sos?1:Math.exp(-(t-sos)/((fin-sos)/5));mix[a+i]+=guira[o+i]*v*env;}}
  }
  let pico=0;for(let i=0;i<n;i++)pico=Math.max(pico,Math.abs(mix[i]));if(pico>0){const k=.85/pico;for(let i=0;i<n;i++)mix[i]*=k;}
@@ -214,7 +216,7 @@ export const bocina={
   if(!this.salida){
    // Bocinita dentro del colmado: sin graves ni agudos, con su "caja" en 1,2 kHz, algo saturada y con el eco del cuarto.
    const hp=ctx.createBiquadFilter(),lp=ctx.createBiquadFilter(),caja=ctx.createBiquadFilter(),sat=ctx.createWaveShaper(),cuarto=ctx.createDelay(.2),vuelta=ctx.createGain(),apagar=ctx.createBiquadFilter(),mezcla=ctx.createGain(),p=ctx.createStereoPanner();
-   hp.type='highpass';hp.frequency.value=190;lp.type='lowpass';lp.frequency.value=4300;caja.type='peaking';caja.frequency.value=1200;caja.Q.value=1;caja.gain.value=5;
+   hp.type='highpass';hp.frequency.value=190;lp.type='lowpass';lp.frequency.value=3800;caja.type='peaking';caja.frequency.value=1200;caja.Q.value=1;caja.gain.value=5;
    const curva=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;curva[i]=Math.tanh(1.8*x)/Math.tanh(1.8);}sat.curve=curva;
    cuarto.delayTime.value=.047;vuelta.gain.value=.28;apagar.type='lowpass';apagar.frequency.value=1800;mezcla.gain.value=.3;
    this.volumen=ctx.createGain();this.volumen.gain.value=0;p.pan.value=-.12;

@@ -54,7 +54,7 @@ const ES={
  reglasCierre:'Sale quien ganó la mano. Después de un tranque, sale la pareja que lo ganó: el que trancó si ganaron ellos; si no, el de la pareja ganadora con menos puntos. Las reglas de la casa deciden los tranques parejos.',volverMesa:'Volver a la mesa',
  manosAbiertas:'Ahora sí se enseñan las manos.',sinFichas:'No le quedaron fichas.',descargarMano:'Descargar la mano',
  // Escuelita
- escuelitaTitulo:'La escuelita.',leccionDe:'Lección {n} de {t}',siguiente:'Siguiente',anterior:'Anterior',listoEscuelita:'Ya sabes lo básico. Lo demás se aprende jugando: practica contra los bots en fácil, sin presión.',aPracticar:'A practicar',volverMesa:'Volver a la mesa',tu:'Tú',tuPareja:'Tu pareja',contrario:'Contrario',punta:'Punta',tuMano:'Tu mano',sinApuesta:'Aquí no se apuesta nada. Prueba.',ayudaTelefono:'Esta ayuda se queda en tu teléfono.',ayudaMesa:'Ábrela antes de repartir para aprender juntos.',
+ escuelitaTitulo:'La escuelita.',leccionDe:'Lección {n} de {t}',turnoDerecha:'El turno va a la derecha',siguiente:'Siguiente',anterior:'Anterior',listoEscuelita:'Ya sabes lo básico. Lo demás se aprende jugando: practica contra los bots en fácil, sin presión.',aPracticar:'A practicar',volverMesa:'Volver a la mesa',tu:'Tú',tuPareja:'Tu pareja',contrario:'Contrario',punta:'Punta',tuMano:'Tu mano',sinApuesta:'Aquí no se apuesta nada. Prueba.',ayudaTelefono:'Esta ayuda se queda en tu teléfono.',ayudaMesa:'Ábrela antes de repartir para aprender juntos.',
  // Perfil
  tuLugar:'Tu lugar en la mesa.',miembroDesde:'MIEMBRO DESDE {n}',series:'SERIES',victorias:'GANADAS',derrotas:'PERDIDAS',
  guardarPerfil:'Guardar perfil',salirCuenta:'Cerrar sesión',guardaTuSilla:'Guarda tu silla.',entrarCuenta:'Entrar',crearPerfil:'Crear perfil',
@@ -104,7 +104,7 @@ const EN={
  camara:'Camera',vistaMesa:'Table',vistaTablero:'Board',vistaCerca:'Close-up',vistaSilla:'From your seat',
  arrastraMirar:'Drag to look around',
  aDoscientos:'TO {n}',
- domino:'¡Dominó!',capicua:'¡Capicúa!',tranque:'¡Se trancó!',zapato:'¡Zapato!',
+ domino:'Domino!',capicua:'Capicúa!',tranque:'Tranque!',zapato:'Zapato!',
  ganan:'{a} & {b} take it',ganaron:'{a} & {b} win the series',empate:'Even tranque. Nobody scores.',
  puntos:'+{n}',pipsDetalle:'{n} pips in the other pair’s hands',pipsCapicua:'{n} pips + {c} capicúa',
  sale:'{nombre} leads',repartirOtra:'Deal the next hand',otraSerie:'Another series',verManos:'Show the hands',esperandoReparto:'Waiting for the deal.',
@@ -130,7 +130,7 @@ const EN={
  capicuaTxt:'Closing tile fits both ends → bonus.',zapatoTxt:'A series with no points conceded.',
  reglasCierre:'The winner leads the next hand. After a tranque, the pair that won it leads: the blocker if it was his pair, otherwise the winning pair’s player with fewer pips. House rules settle tied tranques.',volverMesa:'Back to the table',
  manosAbiertas:'Now we can show our hands.',sinFichas:'No tiles left.',descargarMano:'Download hand record',
- escuelitaTitulo:'La escuelita.',leccionDe:'Lesson {n} of {t}',siguiente:'Next',anterior:'Back',listoEscuelita:'You know the basics. The rest you learn by playing: practice against the bots on easy, no pressure.',aPracticar:'Practice now',volverMesa:'Back to the table',tu:'You',tuPareja:'Your partner',contrario:'Opponent',punta:'End',tuMano:'Your hand',sinApuesta:'No stakes. Give it a try.',ayudaTelefono:'This help stays on your phone.',ayudaMesa:'Open this before a deal to learn together.',
+ escuelitaTitulo:'La escuelita.',leccionDe:'Lesson {n} of {t}',turnoDerecha:'Play goes to the right',siguiente:'Next',anterior:'Back',listoEscuelita:'You know the basics. The rest you learn by playing: practice against the bots on easy, no pressure.',aPracticar:'Practice now',volverMesa:'Back to the table',tu:'You',tuPareja:'Your partner',contrario:'Opponent',punta:'End',tuMano:'Your hand',sinApuesta:'No stakes. Give it a try.',ayudaTelefono:'This help stays on your phone.',ayudaMesa:'Open this before a deal to learn together.',
  tuLugar:'Your place at the table.',miembroDesde:'MEMBER SINCE {n}',series:'SERIES',victorias:'WINS',derrotas:'LOSSES',
  guardarPerfil:'Save profile',salirCuenta:'Sign out',guardaTuSilla:'Keep your seat.',entrarCuenta:'Sign in',crearPerfil:'Create profile',
  invitadosPueden:'Guests can always play with just a name. A profile keeps your results across devices.',

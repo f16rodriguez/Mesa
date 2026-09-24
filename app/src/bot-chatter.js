@@ -79,7 +79,9 @@ export const botChatter={
   }catch(e){console.warn('Bot voice unavailable',e.message);}finally{this.busy=false;this.source=null;}
  },
  update(v,role,crowd){if(role==='player'||!v||!this.enabled||this.demoing)return;this.position(role,v,crowd);const key=v.handNo+':'+v.moves.length+':'+v.phase+':'+v.turn;if(key===this.lastKey)return;this.lastKey=key;const event=v.event||{},seat=event.seat;
-  if(['handEnd','seriesEnd'].includes(v.phase)&&Number.isInteger(seat)&&v.bots[seat]){this.play(seat,event.type==='tranque'?'block':'win',true);return;}
+  // Al cerrar la mano alguien lo canta: el bot que dio dominó (o trancó); si fue una persona, su
+  // pareja si es bot. Antes, si ganaba una persona, la mesa se quedaba callada.
+  if(['handEnd','seriesEnd'].includes(v.phase)&&Number.isInteger(seat)){const quien=v.bots[seat]?seat:v.bots[(seat+2)%4]&&event.type!=='tranque'?(seat+2)%4:null;if(quien!=null)this.play(quien,event.type==='tranque'?'block':'win',true);return;}
   if(v.phase!=='playing')return;
   if(Number.isInteger(seat)&&v.bots[seat]&&event.type==='pass'){this.play(seat,'pass');return;}
   const base=(v.handNo*17+v.moves.length*31+v.turn*19)>>>0;const mixed=Math.imul(base^(base>>>16),0x45d9f3b)>>>0;const pick=(mixed^(mixed>>>16))>>>0;

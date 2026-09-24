@@ -9,8 +9,10 @@
  *  - La nevera: el compresor que arranca y se apaga solo.
  *  - Los vecinos hablando más allá: murmullo de voces (sin palabras) que van y vienen.
  *  - Grillos: pocos todavía, empiezan con el atardecer.
- *  - La calle: motos, motoconchos (a veces pitando), carros y alguna guagua, cada 6–18 s.
+ *  - La calle: carros, alguna moto o motoconcho (a veces pitando) y alguna guagua, cada 9–24 s.
  *  - Un perro lejos cada 25–70 s; a veces le contesta otro.
+ *  - El gentío de más allá: muchas voces lejos, sin palabras, con alguna carcajada.
+ *  - Pregoneros que pasan por la calle de enfrente (aguacate, maní, mango, frío frío, empanadas).
  *
  * Aparte, `bocina`: la bachata que suena adentro del colmado, por una bocinita. Solo cuando no
  * hay canciones de verdad en public/audio/musica (esas, si las hay, suenan en su lugar).
@@ -19,8 +21,10 @@ const R=Math.random;
 function ruidoBlanco(ctx,seg=4){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=R()*2-1;return b;}
 function ruidoRosa(ctx,seg=5){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);let b0=0,b1=0,b2=0;for(let i=0;i<d.length;i++){const w=R()*2-1;b0=.99765*b0+w*.099046;b1=.963*b1+w*.2965164;b2=.57*b2+w*1.0526913;d[i]=(b0+b1+b2+w*.1848)*.2;}return b;}
 function ruidoMarron(ctx,seg=6){const b=ctx.createBuffer(1,ctx.sampleRate*seg,ctx.sampleRate),d=b.getChannelData(0);let u=0;for(let i=0;i<d.length;i++){u=(u+.02*(R()*2-1))/1.02;d[i]=u*3.5;}return b;}
+/** Los pregones que hay grabados en public/audio/calle/pregon-<nombre>.mp3. */
+const PREGONES=['aguacate','mani','mango','frio-frio','empanadas'];
 export const ambiente={
- ctx:null,master:null,nodos:[],timers:[],on:false,blanco:null,
+ ctx:null,master:null,nodos:[],timers:[],on:false,blanco:null,eco:null,pregones:new Map(),ultimoPregon:'',
  start(ctx){
   if(this.on)return;this.on=true;this.ctx=ctx;
   const m=this.master=ctx.createGain();m.gain.value=0;m.connect(ctx.destination);m.gain.setTargetAtTime(1.2,ctx.currentTime,2);
@@ -39,7 +43,10 @@ export const ambiente={
    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1300;lp.Q.value=.5;const p=ctx.createStereoPanner();p.pan.value=.1;fuente(rosa,1.07).connect(f).connect(lp).connect(g).connect(p).connect(m);}
   // Grillos: dos, bajitos; la noche todavía no ha caído del todo.
   for(let k=0;k<2;k++)this.grillo(3900+R()*1100,(k%2?1:-1)*(.4+R()*.5),.002+R()*.002);
-  this.nevera();this.vecinos();this.calle();this.perro();
+  // Eco de calle: rebota entre las casas y aleja lo que pasa por él (el gentío, los pregones).
+  {const sr=ctx.sampleRate,n=Math.floor(sr*1.7),ir=ctx.createBuffer(2,n,sr);for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<n;i++){const t=i/sr;lp+=.25*((R()*2-1)-lp);d[i]=lp*Math.exp(-t/.38)*(t<.012?0:1);}for(const [ms,a] of [[23,.5],[41,.35],[67,.25]])d[Math.floor(ms/1000*sr)+c*37]+=a;}
+   const eco=this.eco=ctx.createConvolver();eco.buffer=ir;const g=ctx.createGain();g.gain.value=.9;eco.connect(g).connect(m);}
+  this.nevera();this.vecinos();this.gentio();this.calle();this.perro();this.timers.push(setTimeout(()=>this.pregonero(),25000+R()*35000));
  },
  /* Cada grillo es un búfer propio que se repite (17–29 s, distinto para cada
     uno: juntos no se oye el bucle). Sin temporizadores: en una pestaña en
@@ -95,14 +102,15 @@ export const ambiente={
   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1500;const g=ctx.createGain();g.gain.value=.028;const p=ctx.createStereoPanner();p.pan.value=-.45;
   s.connect(lp).connect(g).connect(p).connect(this.master);s.start(ctx.currentTime+.5,R()*seg);this.nodos.push(s);
  },
- /* La calle: cada 6–18 s pasa algo (a veces dos motores seguidos). Cada pasada se hornea
+ /* La calle: cada 9–24 s pasa algo (rara vez dos motores seguidos). Cada pasada se hornea
     aparte (ver `pasada`) y suena una sola vez. */
  calle(){
   this.timers.push(setTimeout(()=>{if(!this.on)return;
-   const x=R(),tipo=x<.38?'moto':x<.68?'concho':x<.92?'carro':'guagua';
+   // Motores, los menos (Trey: sobraban); más carros y alguna guagua.
+   const x=R(),tipo=x<.24?'moto':x<.44?'concho':x<.84?'carro':'guagua';
    this.sonar(pasada(22050,tipo));
-   if(tipo!=='guagua'&&R()<.15)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(pasada(22050,R()<.6?'moto':'concho'));},2000+R()*2500));
-   this.calle();},6000+R()*12000));
+   if((tipo==='moto'||tipo==='concho')&&R()<.08)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(pasada(22050,'moto'));},2000+R()*2500));
+   this.calle();},9000+R()*15000));
  },
  /* Un perro lejos, cada 25–70 s; a veces le contesta otro del otro lado. */
  perro(){
@@ -110,6 +118,52 @@ export const ambiente={
    const pan=(R()-.5)*1.5;this.sonar(ladridos(22050,pan));
    if(R()<.3)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(ladridos(22050,-pan*.8));},1500+R()*1800));
    this.perro();},25000+R()*45000));
+ },
+ /* El gentío de más allá: diez voces sin palabras, encimadas, con alguna carcajada, pasadas por
+    un filtro de lejos y por el eco de la calle. Se hornean 60 s en estéreo y se repiten. */
+ async gentio(){
+  const ctx=this.ctx,sr=22050,seg=60;let off;try{off=new OfflineAudioContext(2,sr*seg,sr);}catch{return;}
+  const vocales=[[750,1150],[480,1750],[320,2150],[520,880],[360,780]],lp=off.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;lp.Q.value=.4;lp.connect(off.destination);
+  for(let v=0;v<10;v++){
+   const mujer=v%2===1,f0=mujer?190+R()*45:105+R()*35,o=off.createOscillator();o.type='sawtooth';
+   const f1=off.createBiquadFilter(),f2=off.createBiquadFilter();f1.type=f2.type='bandpass';f1.Q.value=4;f2.Q.value=6;
+   const g2=off.createGain();g2.gain.value=.45;const env=off.createGain();env.gain.value=0;const pan=off.createStereoPanner();pan.pan.value=(v/9-.5)*1.6;
+   o.connect(f1).connect(env);o.connect(f2).connect(g2).connect(env);env.connect(pan).connect(lp);
+   let t=R()*4;
+   while(t<seg-2){
+    if(R()<.07){   // una carcajada: "ja-ja-ja" que sube y se apaga
+     const n=4+Math.floor(R()*4),alto=.8+R()*.2;for(let k=0;k<n;k++){const x=t+k*(.15+R()*.03),a=alto*(1-k/(n+1));o.frequency.setValueAtTime(f0*(1.45-k*.04),x);f1.frequency.setValueAtTime(800,x);f2.frequency.setValueAtTime(1250,x);env.gain.setValueAtTime(0,x);env.gain.linearRampToValueAtTime(a,x+.02);env.gain.linearRampToValueAtTime(0,x+.12);}
+     t+=n*.17+1+R()*3;continue;}
+    const frase=1+R()*3.5,rate=5+R()*1.8;let u=0;
+    while(u<frase){const d=1/rate*(.75+R()*.5),[a,b]=vocales[Math.floor(R()*vocales.length)],x=t+u,alto=.45+R()*.45;
+     o.frequency.setValueAtTime(f0*(1+(R()-.5)*.2),x);f1.frequency.setValueAtTime(a*(mujer?1.15:1),x);f2.frequency.setValueAtTime(b*(mujer?1.15:1),x);
+     env.gain.setValueAtTime(0,x);env.gain.linearRampToValueAtTime(alto,x+.03);env.gain.setValueAtTime(alto,x+d*.65);env.gain.linearRampToValueAtTime(0,x+d*.95);u+=d;}
+    t+=frase+(R()<.4?.1+R()*.5:1+R()*4);}
+   o.start(0);o.stop(seg);
+  }
+  let buf;try{buf=await off.startRendering();}catch{return;}
+  if(!this.on)return;
+  let pico=0;for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<d.length;i++)pico=Math.max(pico,Math.abs(d[i]));}if(pico>0)for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<d.length;i++)d[i]/=pico;}
+  const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.playbackRate.value=.97+R()*.06;
+  const seco=ctx.createGain();seco.gain.value=.01;const mojado=ctx.createGain();mojado.gain.value=.04;
+  src.connect(seco).connect(this.master);if(this.eco)src.connect(mojado).connect(this.eco);src.start(ctx.currentTime+1,R()*seg);this.nodos.push(src);
+ },
+ /* Un pregonero que pasa por la calle de enfrente: dos o tres pregones mientras camina de un
+    lado al otro, lejos (filtrado y con el eco de las casas). Cada 70–160 s. */
+ async pregonero(){
+  if(!this.on)return;const ctx=this.ctx;
+  const todos=PREGONES.filter(p=>p!==this.ultimoPregon),nombre=todos[Math.floor(R()*todos.length)];this.ultimoPregon=nombre;
+  let buf=this.pregones.get(nombre);
+  if(!buf){try{const r=await fetch('/audio/calle/pregon-'+nombre+'.mp3');if(r.ok){buf=await ctx.decodeAudioData(await r.arrayBuffer());this.pregones.set(nombre,buf);}}catch{}}
+  if(buf&&this.on){
+   const veces=2+(R()<.5?1:0),dir=R()<.5?-1:1,paso=buf.duration+2.5+R()*2.5;
+   for(let k=0;k<veces;k++){const t=ctx.currentTime+.1+k*paso,u=veces>1?k/(veces-1):.5,cerca=Math.sin(Math.PI*(.2+.6*u));
+    const s=ctx.createBufferSource();s.buffer=buf;s.playbackRate.value=.98+R()*.04;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1700+900*cerca;
+    const g=ctx.createGain();g.gain.value=.08*(.55+.45*cerca);const p=ctx.createStereoPanner();p.pan.value=dir*(-.75+1.5*u);
+    const envio=ctx.createGain();envio.gain.value=.12*(1.2-cerca*.4);
+    s.connect(lp).connect(g).connect(p).connect(this.master);if(this.eco)lp.connect(envio).connect(this.eco);s.start(t);}
+  }
+  this.timers.push(setTimeout(()=>this.pregonero(),70000+R()*90000));
  },
  /** Suena un búfer estéreo horneado ([izquierda, derecha]) por la mezcla del ambiente. */
  sonar([L,D],sr=22050){

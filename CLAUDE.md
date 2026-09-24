@@ -57,6 +57,8 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   lista de movimientos), no de video. Elegida por el motor con un puntaje de drama.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
 - Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
+  Mesa abre en el idioma del aparato si nadie eligió otro. Las voces de los bots tienen su versión
+  en inglés (mismas cuatro voces, con su acento) en `app/public/audio/bots/<bot>/en/`.
 - **Three Thirteen Studios** (el estudio, de Trey Rodriguez) firma Mesa en tres sitios y
   nada más: el splash al abrir la portada (video de 3,5 s, se salta tocando, una vez por
   sesión, nunca al entrar por QR o enlace de mesa), el logo horizontal abajo en la
@@ -77,8 +79,11 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   tubo ya prendidos. El colmado queda en la esquina de verdad (calle de al lado), con
   fachada turquesa y crema, letrero pintado a mano, toldo, segundo piso con tinaco y
   varillas. Todo en `app/src/esquina.js` y `atmosfera.js`. El sonido (`app/src/ambiente.js`)
-  es sintetizado: calle, vecinos, nevera, perro, y la bachata de la bocina del colmado; si
-  se ponen canciones con licencia en `app/public/audio/musica/`, suenan esas en su lugar.
+  es sintetizado: calle (más carros que motores), vecinos, el gentío lejano, nevera, perro, y
+  la bachata de la bocina del colmado; si se ponen canciones con licencia en
+  `app/public/audio/musica/`, suenan esas en su lugar. Lo único grabado son los pregoneros
+  (`app/public/audio/calle/`, voces generadas y verificadas) que pasan cada 70–160 s. El bombillo
+  sobre la mesa cuelga quieto: si se mece, se pasean todas las sombras.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

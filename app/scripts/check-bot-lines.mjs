@@ -26,6 +26,10 @@ for (const [nombre, sub] of [['LINES_ES', ''], ['LINES_EN', 'en']]) {
     }
   }
 }
+// Los pregones de la calle (src/ambiente.js): cada uno con su mp3.
+const amb = readFileSync(resolve(app, 'src/ambiente.js'), 'utf8'), lista = /const PREGONES=\[([^\]]*)\]/.exec(amb);
+if (!lista) { console.error('check-bot-lines: no encontré PREGONES en ambiente.js'); process.exit(1); }
+for (const [, n] of lista[1].matchAll(/'([\w-]+)'/g)) { counted++; if (!existsSync(resolve(app, 'public/audio/calle', `pregon-${n}.mp3`))) { console.error(`  MISSING calle/pregon-${n}.mp3`); missing++; } }
 if (!counted) { console.error('check-bot-lines: parsed no lines — the LINES shape changed'); process.exit(1); }
 if (missing) { console.error(`\ncheck-bot-lines: ${missing} of ${counted} bot lines have no audio.`); process.exit(1); }
 console.log(`bot lines OK — ${counted} clips, all present`);

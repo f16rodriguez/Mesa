@@ -10,7 +10,41 @@ export function dressColmado({scene,texture,mat,box,cylinder,random,teal,wood,st
  storeSign.material=new THREE.MeshStandardMaterial({roughness:.9,emissive:'#ffffff',emissiveIntensity:.1});letrero();document.fonts?.load?.('64px Shrikhand').then(letrero).catch(()=>{});
 
  for(const [x,z]of[[-2.7,-3.5],[2.4,-3.3]]){box(x,.18,z,.51,.35,.40,'#897052');box(x+.05,.47,z-.04,.40,.23,.32,'#a68c62');}
- const board=new THREE.Mesh(new THREE.PlaneGeometry(.72,.69),new THREE.MeshStandardMaterial({roughness:1,map:texture((c,w,h)=>{c.fillStyle='#263d30';c.fillRect(0,0,w,h);c.strokeStyle='#9c8c62';c.lineWidth=16;c.strokeRect(8,8,w-16,h-16);c.fillStyle='#dcdcb8';c.textAlign='center';for(const [text,y,size]of[['HOY HAY',68,43],['CAFÉ',150,48],['HIELO · PAN',228,32],['REFRESCOS',292,31]]){c.font=`${size}px Georgia`;c.fillText(text,w/2,y);}},384,360)}));board.position.set(-3.43,1.60,-2.33);board.rotation.z=.025;scene.add(board);
+ // Pizarras en tiza. La de la pared dice lo que hay; la de pie, en la acera, lo que viene de
+ // verdad (el 1 contra 1 y Mesa en línea), donde la cámara de la mesa la ve. Ranked no se promete.
+ const pizarra=(W,H,lineas)=>{const lienzo=document.createElement('canvas');lienzo.width=W;lienzo.height=H;
+  const tex=new THREE.CanvasTexture(lienzo);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
+  const tiza=()=>{const c=lienzo.getContext('2d'),shr=document.fonts?.check?.('64px Shrikhand'),sans=document.fonts?.check?.('700 40px "DM Sans"')?'"DM Sans",':'';
+   c.fillStyle='#233a2d';c.fillRect(0,0,W,H);
+   // Lo que se borró antes: nubes de tiza vieja.
+   for(let i=0;i<70;i++){c.fillStyle=`rgba(225,225,195,${.015+random()*.03})`;c.beginPath();c.ellipse(random()*W,random()*H,W*(.04+random()*.14),H*(.015+random()*.045),random()*3,0,Math.PI*2);c.fill();}
+   c.textAlign='center';c.textBaseline='middle';c.lineCap='round';
+   for(const [texto,y,px,tipo,color] of lineas){
+    if(texto==='—'){c.strokeStyle='rgba(225,225,195,.45)';c.lineWidth=6;c.beginPath();c.moveTo(W*.17,y+3);c.quadraticCurveTo(W/2,y-5,W*.83,y+1);c.stroke();continue;}
+    c.font=tipo==='titulo'?(shr?`${px}px Shrikhand`:`bold ${px*.95}px Georgia`):`${tipo} ${px}px ${sans}sans-serif`;
+    const m=c.measureText(texto).width,ancho=W*.84;c.save();c.translate(W/2,y);if(m>ancho)c.scale(ancho/m,1);c.fillStyle=color;
+    for(let k=0;k<3;k++){c.globalAlpha=k?.4:.75;c.fillText(texto,(random()-.5)*3,(random()-.5)*3);}c.restore();}
+   // Grano de la tiza: poros del pizarrón encima de lo escrito.
+   for(let i=0;i<W*H/40;i++){c.fillStyle='rgba(35,58,45,.5)';c.fillRect(random()*W,random()*H,1+random()*2,1+random());}
+   c.strokeStyle='#9c8c62';c.lineWidth=W*.04;c.strokeRect(W*.02,W*.02,W-W*.04,H-W*.04);c.strokeStyle='rgba(60,40,20,.35)';c.lineWidth=4;c.strokeRect(W*.04,W*.04,W-W*.08,H-W*.08);
+   tex.needsUpdate=true;};
+  tiza();Promise.all([document.fonts?.load?.('64px Shrikhand'),document.fonts?.load?.('700 40px "DM Sans"')]).then(tiza).catch(()=>{});
+  return new THREE.MeshStandardMaterial({roughness:1,map:tex,emissive:'#ffffff',emissiveMap:tex,emissiveIntensity:.06});};
+ const TIZA='#ece7cc',ORO='#e9b35a',CIELO='#a9d3dd';
+ {const board=new THREE.Mesh(new THREE.PlaneGeometry(.72,.69),pizarra(768,736,[['HOY HAY',110,74,'titulo',TIZA],['CAFÉ',262,78,800,TIZA],['HIELO · PAN',388,66,800,'#dcd9b8'],['—',478],['REFRESCOS',572,60,700,CIELO]]));
+  board.position.set(-3.43,1.60,-2.33);board.rotation.z=.025;scene.add(board);
+  // Y su canalita con un pedazo de tiza.
+  box(-3.43,1.245,-2.315,.66,.018,.05,'#8a7a55');box(-3.28,1.262,-2.31,.06,.016,.016,'#efeadb');}
+ {const en=document.documentElement.lang==='en',pie=new THREE.Group(),madera=mat('#6b4a2e',.8),ANG=.2,ALTO=.8;
+  pie.position.set(-2.0,0,-2.1);pie.rotation.y=.5;scene.add(pie);
+  const cara=new THREE.Mesh(new THREE.PlaneGeometry(.56,.72),pizarra(560,720,[[en?'COMING':'YA',96,92,'titulo',ORO],[en?'SOON':'VIENE',206,92,'titulo',ORO],['—',282],[en?'1 vs 1':'1 contra 1',372,80,800,TIZA],[en?'Online':'En línea',478,80,800,TIZA],[en?'your people,':'tu gente,',576,50,600,CIELO],[en?'from anywhere':'de donde sea',636,50,600,CIELO]]));
+  // Caballete: la cara inclinada hacia atrás, con marco, y dos patas de atrás que la aguantan.
+  const frente=new THREE.Group();frente.rotation.x=-ANG;pie.add(frente);cara.position.set(0,ALTO/2+.04,.012);frente.add(cara);
+  {const tabla=new THREE.Mesh(new THREE.BoxGeometry(.56,.72,.012),madera);tabla.position.set(0,ALTO/2+.04,0);frente.add(tabla);}
+  for(const [x,y,w,h] of [[-.29,ALTO/2+.02,.035,ALTO+.08],[.29,ALTO/2+.02,.035,ALTO+.08],[0,ALTO+.05,.62,.035],[0,.03,.62,.035]]){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,.022),madera);m.position.set(x,y,0);frente.add(m);}
+  const atras=new THREE.Group();atras.position.z=-.32;atras.rotation.x=ANG;pie.add(atras);
+  for(const x of [-.27,.27]){const m=new THREE.Mesh(new THREE.BoxGeometry(.03,ALTO+.06,.02),madera);m.position.set(x,(ALTO+.06)/2,-.02);atras.add(m);}
+  pie.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});}
  const plants=[];
  // A working counter, not an empty bar: bread, jars, a drawer and a notebook.
  box(-1.12,1.59,-4.0,.42,.21,.31,'#677761');box(-1.12,1.61,-3.836,.34,.10,.016,'#414b3d');box(-.38,1.50,-3.98,.30,.018,.22,'#c5b887');

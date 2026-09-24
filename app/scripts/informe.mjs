@@ -23,7 +23,8 @@ const APARATOS = ['tv', 'phone', 'tablet', 'desktop'];
 // el informe no falle en una base nueva. Van primero y no se cuentan como resultados.
 const CREAR = [
   `CREATE TABLE IF NOT EXISTS purchases (txn_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, price_id TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT "", total TEXT NOT NULL DEFAULT "", currency TEXT NOT NULL DEFAULT "", status TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
-  `CREATE TABLE IF NOT EXISTS series_sponsors (series_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)`
+  `CREATE TABLE IF NOT EXISTS series_sponsors (series_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, lang TEXT NOT NULL, source TEXT NOT NULL, created_at INTEGER NOT NULL)`
 ];
 // Tres consultas por periodo, en este orden: totales, aparato de la tele, errores.
 const sql = [...CREAR, ...PERIODOS.flatMap(d => {
@@ -36,6 +37,8 @@ const sql = [...CREAR, ...PERIODOS.flatMap(d => {
       SUM(name='calidad_baja') AS calidad_baja, SUM(name='error') AS errores,
       ROUND(AVG(CASE WHEN name='fps' THEN json_extract(data,'$.fps') END),1) AS fps,
       SUM(name='bloqueo') AS bloqueos, SUM(name='cuenta_creada') AS cuentas, SUM(name='desbloquear') AS toques_desbloquear, SUM(name='pago') AS pagos_cliente,
+      SUM(name='lista' AND json_extract(data,'$.paso')='abierta') AS lista_abierta,
+      (SELECT COUNT(*) FROM waitlist WHERE created_at>=${desde}) AS lista_nuevos, (SELECT COUNT(*) FROM waitlist) AS lista_total,
       (SELECT COUNT(*) FROM series_sponsors WHERE kind='trial' AND created_at>=${desde}) AS series_gratis,
       (SELECT COUNT(*) FROM purchases WHERE status='completed' AND created_at>=${desde}) AS compras,
       (SELECT COUNT(*) FROM purchases WHERE status='refunded' AND updated_at>=${desde}) AS reembolsos
@@ -88,6 +91,11 @@ linea('Toques en Desbloquear', t.map(x => n(x.toques_desbloquear)));
 linea('Pagos confirmados (cliente)', t.map(x => n(x.pagos_cliente)));
 linea('Compras (Paddle)', t.map(x => n(x.compras)));
 linea('Reembolsos y contracargos', t.map(x => n(x.reembolsos)));
+
+console.log('\nLista de Mesa en línea');
+linea('Abrieron el aviso', t.map(x => n(x.lista_abierta)));
+linea('Correos nuevos', t.map(x => n(x.lista_nuevos)));
+linea('En la lista (total)', t.map(x => n(x.lista_total)));
 
 console.log('\nAparato de la tele (mesas abiertas)');
 const aparatos = PERIODOS.map((_, p) => Object.fromEntries(filas(p * 3 + 1).map(f => [f.device, n(f.n)])));

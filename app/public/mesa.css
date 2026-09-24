@@ -383,6 +383,11 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .resultado .aviso-pago{margin:1rem 0 0}
 .gratis-nota{font-size:.78rem;color:var(--suave);text-align:center;margin-top:.1rem}
 .patrocinio{font:500 .64rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--suave);padding:.45em .9em;border-radius:10px;background:var(--panel-alfa);border:1px solid var(--linea)}
+.lista-linea{margin-top:1.2rem;font-size:.88rem;line-height:1.45;color:var(--suave);text-align:center}
+.lista-linea b{color:var(--ivory)}
+.lista-linea .text-link{padding:0 0 0 .2em;vertical-align:baseline}
+.lista-linea .icon{width:1em;height:1em}
+.resultado .lista-linea{margin-top:1rem}
 .cuenta-mesa{width:min(100%,22rem);margin-top:1.4rem;padding:1rem;border-radius:16px;background:rgba(0,0,0,.2);border:1px solid var(--linea);text-align:center}
 .cuenta-mesa p{font-size:.95rem;color:var(--ivory);margin-bottom:.7rem}
 .cuenta-mesa p.listo{color:var(--sky);margin:0}

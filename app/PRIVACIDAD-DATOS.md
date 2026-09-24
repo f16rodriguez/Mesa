@@ -43,6 +43,7 @@ Los eventos y lo que llevan en `data` (todos llevan además `rol`: `host`, `play
 | `cuenta_creada`    | Alguien crea su cuenta | si fue sentado en una mesa |
 | `desbloquear`      | Alguien toca Desbloquear | si tenía sesión |
 | `pago`             | El servidor confirma un desbloqueo pagado | — |
+| `lista`            | Alguien abre el aviso de Mesa en línea o se apunta | paso (abierta o enviada), de qué pantalla |
 
 Sobre los errores: el mensaje y la pila se cortan a 300 caracteres; la pila va sin
 dominio, sin ruta y sin parámetros de la URL (así no lleva el código de la mesa);
@@ -109,5 +110,9 @@ Aparte de la telemetría. Todo en la misma D1.
   propia política de privacidad.
 - **Series cubiertas** (`series_sponsors`): qué cuenta cubrió cada serie y si fue
   gratis o pagada.
+- **Lista de espera** (`waitlist`, `/api/lista`): correo, idioma (es/en), de qué pantalla
+  vino (fin de serie o de práctica) y fecha. Sin IP ni lazo con la cuenta. Es para UN
+  correo cuando abra Mesa en línea; salir de la lista = borrar la fila a pedido. El
+  límite (`waitlist_limits`) guarda un SHA-256 de la IP por minuto, 2 minutos.
 - A Paddle se le manda, al abrir el cobro, el id de la cuenta de Mesa (`custom_data`)
   para saber a quién desbloquear. Nada más.

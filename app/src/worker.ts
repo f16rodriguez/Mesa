@@ -15,6 +15,7 @@ import { accountRoute } from './accounts';
 import {voiceRoute} from './voice';
 import {avisoPaddle,configPagos} from './pagos';
 import {telemetryRoute} from './telemetry';
+import {listaRoute} from './lista';
 
 export { Room };
 
@@ -38,6 +39,7 @@ export default {
     // Paddle llama desde sus servidores (sin Origin): va antes de la comprobación de origen de las cuentas.
     if(url.pathname==='/api/paddle'){try{return await avisoPaddle(request,env);}catch(err){console.error('aviso de Paddle falló',err);return Response.json({error:'Try again'},{status:500});}}
     if(url.pathname==='/api/pagos'&&request.method==='GET')return configPagos(request,env);
+    if(url.pathname==='/api/lista'){try{return await listaRoute(request,env);}catch(err){console.error('lista falló',err);return Response.json({error:'Try again'},{status:503});}}
     if (url.pathname.startsWith('/api/')) {
       try { return await accountRoute(request, env); }
       catch (error) { console.error('account route failed', error); return Response.json({ error: 'Profile service is temporarily unavailable.' }, { status: 503 }); }

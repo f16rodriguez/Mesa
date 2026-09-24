@@ -147,7 +147,7 @@ function home(){disconnect();page='home';view=null;practice=null;revelado=null;e
   <main class="title-screen"><div class="eyebrow">${t('subtitulo')}</div><h1><span>${t('titulo1')}</span><span>${t('titulo2')}</span></h1><p>${t('lema')}</p>
   <div class="title-actions">${esTelefono?button(t('entrarCodigo'),'join','primary','phone'):button(t('abrirMesa'),'host','primary','screen')}${sigue?button(t('seguirPractica'),'continuar','','people'):''}${button(t('practica'),'practice','','people')}${esTelefono?button(t('abrirMesa'),'host','','screen'):button(t('entrarCodigo'),'join','','phone')}</div>
   <div class="title-secondary"><button data-action="school">${t('escuelita')} ↗</button></div></main>
-  ${esTelefono?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}<footer class="game-bottom"><span class="corner-copy">${t('lema2')}</span>${legales()}</footer></div>`;telemetria.evento('portada');}
+  ${esTelefono?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}<footer class="game-bottom"><span class="corner-copy">${t('lema2')}</span><div class="pie-derecha">${legales()}<button class="credito-estudio" data-action="creditos" aria-label="${t('unJuegoDe')}"><img src="/marca/three-thirteen-horizontal-light-on-dark.svg" alt="${t('unJuegoDe')}"></button></div></footer></div>`;telemetria.evento('portada');}
 
 const legales=()=>{const l=idioma()==='en'?'?lang=en':'';return `<nav class="legales"><a href="/precios.html${l}">${t('precios')}</a><a href="/legal/terminos.html${l}">${t('terminos')}</a><a href="/legal/privacidad.html${l}">${t('privacidad')}</a></nav>`;};
 
@@ -283,13 +283,14 @@ function renderCrowd(){const root=$('#crowd-ui');if(!root||practice)return;const
 /* ── Pantallas de entrar ──────────────────────────────────────────────────── */
 function joinScreen(error=''){page='join';if(role==='player'||esTelefono)hideWorld();else ensureWorld('attract');const espectador=role==='spectator';
  app.innerHTML=`<div class="center-screen"><section class="join-screen"><div class="eyebrow">${espectador?t('laEsquinaAbierta'):t('hayUnaSilla')}</div><h1>${espectador?t('veAMirar'):t('bienvenido')}</h1><p>${t('sinCuenta')}</p><form id="join-form"><label class="field">${t('tuNombre')}<input name="name" maxlength="24" autocomplete="given-name" enterkeyhint="go" required value="${esc(profile?.name||almacen.get('mesa-name',''))}" placeholder="${t('comoTeDicen')}"></label><button class="g-button primary full" type="submit">${espectador?t('mirar'):t('sentarme')} ${icon('arrow')}</button><p class="form-error">${esc(error)}</p></form>${espectador?'':`<button class="text-link" data-action="watch">${t('soloMirar')} ↗</button>`}</section></div>`;}
-function openModal(title,body){modal.innerHTML=`<div class="modal-top"><h2>${title}</h2><button class="close" data-action="close" aria-label="Cerrar">×</button></div>${body}`;if(!modal.open)modal.showModal();}
+function openModal(title,body,clase=''){modal.className=clase;modal.innerHTML=`<div class="modal-top"><h2>${title}</h2><button class="close" data-action="close" aria-label="Cerrar">×</button></div>${body}`;if(!modal.open)modal.showModal();}
 function school(){const ls=LECCIONES[idioma()],l=ls[lesson];openModal(t('escuelitaTitulo'),`<div class="school-lessons"><div class="lesson-tabs">${ls.map((x,i)=>`<button class="lesson-tab ${i===lesson?'active':''}" data-lesson="${i}">${i+1}. ${x.tab}</button>`).join('')}</div><h3>${l.title}</h3><p>${l.body}</p><div class="notice">${l.question}</div><div class="hand-tiles">${l.choices.map((c,i)=>c.text?`<button class="g-button full" data-answer="${i}">${c.text}</button>`:`<button class="tile-button" data-answer="${i}" aria-label="${c.a}–${c.b}">${tile(c.a,c.b)}</button>`).join('')}</div><div class="exercise-result" role="status">${t('sinApuesta')}</div><div class="divider"></div><p class="tiny">${role==='player'?t('ayudaTelefono'):t('ayudaMesa')}</p></div>`);}
 function settings(){const hayRadio=radio.lista===null||radio.lista.length>0;openModal(t('ponleAmbiente'),`<label class="check"><input id="sound-setting" type="checkbox" ${sound?'checked':''}> ${t('sonidosMesa')}</label><label class="check"><input id="bot-voice-setting" type="checkbox" ${botChatter.enabled?'checked':''}> ${t('vocesBots')}</label><button class="text-link" data-action="bot-voice-demo">${t('oirVoces')} ↗</button><label class="check"><input id="ambient-setting" type="checkbox" ${ambientOn?'checked':''}> ${t('ambienteColmado')}</label>${hayRadio?`<label class="check"><input id="radio-setting" type="checkbox" ${radio.on?'checked':''}> ${t('radioColmado')}</label>`:''}<label class="check"><input id="motion-setting" type="checkbox" ${document.documentElement.classList.contains('reduced')?'checked':''}> ${t('menosMovimiento')}</label>
  <label class="field">${t('calidad')}<select id="quality-setting"><option value="high" ${!['low','min'].includes(almacen.get('mesa-calidad'))?'selected':''}>${t('calidadAlta')}</option><option value="low" ${['low','min'].includes(almacen.get('mesa-calidad'))?'selected':''}>${t('calidadBaja')}</option></select></label>
  <label class="field">${t('idioma')}<select id="idioma-setting"><option value="es" ${idioma()==='es'?'selected':''}>Español</option><option value="en" ${idioma()==='en'?'selected':''}>English</option></select></label>
- <div class="divider"></div><label class="field">${t('tuMusica')}<input id="music-file" type="file" accept="audio/*"></label><p class="account-note">${t('tuMusicaNota')}</p>${music?button(musicMuted?'▶':'■','music'):''}${muted.size?button(t('quitarMutes'),'unmute-all','full'):''}<div class="divider"></div>${button(t('reglasJuego'),'rules','full')}${button(t('miPerfil'),'profile','full')}${button(t('listo2'),'close','primary full')}`);}
+ <div class="divider"></div><label class="field">${t('tuMusica')}<input id="music-file" type="file" accept="audio/*"></label><p class="account-note">${t('tuMusicaNota')}</p>${music?button(musicMuted?'▶':'■','music'):''}${muted.size?button(t('quitarMutes'),'unmute-all','full'):''}<div class="divider"></div>${button(t('reglasJuego'),'rules','full')}${button(t('miPerfil'),'profile','full')}${button(t('creditos'),'creditos','full')}${button(t('listo2'),'close','primary full')}`);}
 function house(){const s=view.settings;openModal(t('tuMesaTusReglas'),`<p class="modal-copy">${t('acuerdenAntes')}</p><form id="house-form"><label class="field">${t('puntosGanar')}<select name="target">${[100,200,300].map(n=>`<option ${s.target===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">${t('bonoCapicua')}<select name="capicua">${[0,25,50].map(n=>`<option ${s.capicua===n?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">${t('tranqueParejo')}<select name="tie"><option value="blocker" ${s.tie==='blocker'?'selected':''}>${t('ganaQuienTranco')}</option><option value="none" ${s.tie==='none'?'selected':''}>${t('nadie')}</option></select></label><label class="check"><input name="allPips" type="checkbox" ${s.allPips?'checked':''}> ${t('contarTodas')}</label><label class="check"><input name="capicuaDistinct" type="checkbox" ${s.capicuaDistinct?'checked':''}> ${t('capicuaDistinta')}</label><button class="g-button primary full">${t('ponerReglas')}</button></form>`);}
+function creditos(){openModal('',`<div class="acerca"><img class="logo-estudio" src="/marca/three-thirteen-logo-light-on-dark.svg" alt="Three Thirteen Studios"><p class="lugar">Three Thirteen Studios · Punta Cana, ${t('rd')}</p><p class="autor">${t('creadoPor')} Trey Rodriguez</p><p class="derechos">© 2026 Three Thirteen Studios</p><p class="fuentes">${t('fuentesEstudio')}</p><div class="usa"><h3>${t('mesaUsa')}</h3><p>three.js (MIT) · ${t('personajes')}: Quaternius (CC0) · DM Sans, Fraunces, Bungee, Yellowtail (SIL OFL)</p></div>${button(t('listo2'),'close','full')}</div>`,'estudio');}
 function rulesModal(){openModal(t('asiSeJuega'),`<p class="modal-copy">${t('reglasIntro')}</p>${[['primeraMano','primeraManoTxt'],['domino','dominoTxt'],['tranque','tranqueTxt'],['capicua','capicuaTxt'],['zapato','zapatoTxt']].map(([a,b])=>`<div class="history-row"><strong>${t(a)}</strong><span>${t(b)}</span></div>`).join('')}<p class="modal-copy" style="margin-top:20px">${t('reglasCierre')}</p>${button(t('volverMesa'),'close','primary full')}`);}
 function reveal(){openModal(t('manosAbiertas'),`<div class="reveal-hands">${view.revealed.map((h,i)=>`<div class="reveal-row pareja-${i%2?'b':'a'}"><strong>${esc(nombreDe(i))} · ${view.result.pips[i]}</strong><div>${h.length?ordenar(h).map(x=>tile(x.a,x.b)).join(''):t('sinFichas')}</div></div>`).join('')}</div><div class="divider"></div>${button(t('descargarMano'),'replay','full')}${button(t('volverMesa'),'close','primary full')}`);}
 
@@ -322,6 +323,7 @@ document.addEventListener('click',async e=>{
  else if(a==='continuar'){modal.close();unlockSound();seguirPractica();}
  else if(a==='join')openModal(t('buscaTuGente'),`<p class="modal-copy">${t('escaneaOCodigo')}</p><form id="link-form"><label class="field">${t('codigoMesa')}<input name="code" class="code-input" required autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="ABCD"></label><button class="g-button primary full">${t('entrar')}</button></form>`);
  else if(a==='watch'){role='spectator';history.replaceState({},'',`?room=${room}&role=spectator`);joinScreen();}
+ else if(a==='creditos')creditos();
  else if(a==='school')school();else if(a==='settings')settings();else if(a==='house')house();else if(a==='rules')rulesModal();else if(a==='close')modal.close();
  else if(['start','next','newSeries','pass'].includes(a)){modal.close();if(a==='pass'){vibrar(VIBRA.paso);if(role==='player')sonidos.toque();}action({type:a});}
  else if(a==='copy')copyLink();else if(a==='watch-link')copyLink(true);
@@ -392,6 +394,27 @@ let quieto=null;const despierta=()=>{document.body.classList.remove('quieto');cl
 for(const ev of ['pointermove','pointerdown','keydown'])addEventListener(ev,despierta,{passive:true});
 // El botón atrás del teléfono no te saca de la mesa sin preguntar.
 window.addEventListener('popstate',()=>{if(page==='room'&&role==='player'&&view?.seat>=0&&!confirm(t('salirSeguro'))){history.pushState({},'',location.href);return;}location.reload();});
+
+/* ── Splash del estudio ───────────────────────────────────────────────────── */
+/* Three Thirteen Studios: menos de 4 s, a pantalla completa sobre carbón, y se salta
+   con cualquier tecla o toque pasado el primer medio segundo. Con sonido si el
+   navegador lo deja; si no, mudo. Si el video no arranca, no se espera por él.
+   index.html decide (en <head>) si toca, para que no haya un cuadro de otro color. */
+function splash(){
+ const caja=$('#splash'),html=document.documentElement;if(!caja||!html.classList.contains('con-splash')){caja?.remove();html.classList.remove('con-splash');return;}
+ try{sessionStorage.setItem('mesa-splash','1');}catch{}
+ const v=document.createElement('video');v.src='/marca/three-thirteen-splash.mp4';v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';caja.appendChild(v);
+ const t0=performance.now();let hecho=false;
+ const cerrar=()=>{if(hecho)return;hecho=true;removeEventListener('pointerdown',saltar,true);removeEventListener('keydown',saltar,true);
+  caja.classList.add('activo','fuera');html.classList.remove('con-splash');setTimeout(()=>{v.pause();caja.remove();},500);};
+ const saltar=e=>{if(performance.now()-t0<500)return;e.preventDefault();e.stopPropagation();cerrar();};
+ addEventListener('pointerdown',saltar,true);addEventListener('keydown',saltar,true);
+ v.addEventListener('ended',cerrar);v.addEventListener('error',cerrar);
+ setTimeout(()=>{if(!hecho&&(v.paused||v.currentTime===0))cerrar();},2000);   // no cargó: a la portada
+ setTimeout(cerrar,4300);                                                      // tope, pase lo que pase
+ v.muted=false;v.play().catch(()=>{v.muted=true;v.play().catch(cerrar);});
+}
+splash();
 
 /* ── Arranque ─────────────────────────────────────────────────────────────── */
 if(almacen.get('mesa-motion')==='off')document.documentElement.classList.add('reduced');

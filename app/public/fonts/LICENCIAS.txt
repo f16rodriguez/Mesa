@@ -1,3 +1,4 @@
 DM Sans, Fraunces, Bungee y Yellowtail: SIL Open Font License 1.1.
 Descargadas de Google Fonts (subconjunto latin) para servirlas desde la mesa, sin depender de internet.
 https://openfontlicense.org
+Archivo, Archivo Narrow e IBM Plex Mono (Three Thirteen Studios): SIL Open Font License 1.1. Subconjunto latin en woff2.

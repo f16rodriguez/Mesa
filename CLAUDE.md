@@ -52,6 +52,13 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   lista de movimientos), no de video. Elegida por el motor con un puntaje de drama.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
 - Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
+- **Three Thirteen Studios** (el estudio, de Trey Rodriguez) firma Mesa en tres sitios y
+  nada más: el splash al abrir la portada (video de 3,5 s, se salta tocando, una vez por
+  sesión, nunca al entrar por QR o enlace de mesa), el logo horizontal abajo en la
+  portada y la pantalla de Créditos. Sus colores (carbón `#1C1E1A`, marfil `#F3EEE3`,
+  ocre `#C8923A`, ladrillo `#A5432E`) y sus letras (Archivo, Archivo Narrow, IBM Plex
+  Mono) solo van ahí; el resto de Mesa conserva su propia cara. Recursos en
+  `app/public/marca/`.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

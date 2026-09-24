@@ -18,6 +18,10 @@ on:
         description: 'Saltar las pruebas (solo para una emergencia)'
         type: boolean
         default: false
+      solo_probar:
+        description: 'Solo probar: entra a Cloudflare y arma el paquete, pero no publica'
+        type: boolean
+        default: false
 
 concurrency:
   group: desplegar-produccion
@@ -70,14 +74,24 @@ jobs:
           if [ -z "$ID" ]; then echo "::error::No encontré la base D1 mesa-profiles. Pon su id en el secreto D1_DATABASE_ID (Cloudflare → Storage & Databases → D1 SQL Database → mesa-profiles)."; exit 1; fi
           sed -i "s/PUT-THE-D1-DATABASE-ID-HERE/$ID/" wrangler.cloudflare.jsonc
           echo "Base D1: $ID"
+          bunx wrangler whoami
+
+      - name: Probar sin publicar
+        if: ${{ inputs.solo_probar }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler deploy -c wrangler.cloudflare.jsonc --dry-run --outdir ../paquete
 
       - name: Desplegar
+        if: ${{ !inputs.solo_probar }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler deploy -c wrangler.cloudflare.jsonc | tee ../despliegue.log
 
       - name: La mesa responde
+        if: ${{ !inputs.solo_probar }}
         run: |
           URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' ../despliegue.log | head -1)
           if [ -z "$URL" ]; then echo "::warning::No vi la dirección en la salida de wrangler."; exit 0; fi

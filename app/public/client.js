@@ -146,10 +146,20 @@ function home(){disconnect();page='home';view=null;practice=null;revelado=null;e
  if(esTelefono)hideWorld();else{dormirMundo();precargarMundo();}
  const sigue=practicaGuardada();
  app.innerHTML=`<div class="game-shell portada"><header class="game-top"><div class="game-top-left"></div>${tools()}</header>
-  <main class="title-screen"><h1 class="logo-titulo"><img class="logo-ancho" src="/marca/mesa-logo-horizontal-transparent.svg" alt="Mesa. Phones up. Tiles down." width="1340" height="424"><img class="logo-alto" src="/marca/mesa-logo-stacked-transparent.svg" alt="" width="960" height="632"></h1>
+  <main class="title-screen"><h1 class="logo-titulo" aria-label="Mesa. Phones up. Tiles down.">${logoTitulo()}</h1>
   <div class="title-actions">${esTelefono?button(t('entrarCodigo'),'join','primary','phone'):button(t('abrirMesa'),'host','primary','screen')}${sigue?button(t('seguirPractica'),'continuar','','people'):''}${button(t('practica'),'practice','','people')}${esTelefono?button(t('abrirMesa'),'host','','screen'):button(t('entrarCodigo'),'join','','phone')}</div>
   <div class="title-secondary"><button data-action="school">${t('escuelita')}</button></div></main>
   <footer class="game-bottom">${legales()}<button class="credito-estudio" data-action="creditos" aria-label="${t('unJuegoDe')}"><img src="/marca/three-thirteen-horizontal-light-on-dark.svg" alt="${t('unJuegoDe')}"></button></footer></div>`;telemetria.evento('portada');}
+// El logo de la portada se arma solo una vez por sesión: la ficha cae, sube la palabra, sale la
+// sombra salsa y aparece el lema. Si el splash del estudio está delante, espera a que se vaya; y no
+// se precarga, porque un SVG animado en <img> arranca su reloj en cuanto se carga.
+function logoTitulo(){const html=document.documentElement;let ya=true;try{ya=!!sessionStorage.getItem('mesa-logo');}catch{}
+ const anima=!ya&&!html.classList.contains('reduced')&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
+ if(anima)try{sessionStorage.setItem('mesa-logo','1');}catch{}
+ const src=v=>`/marca/mesa-logo-${v}-${anima?'animado':'transparent'}.svg`,
+  espera=anima&&html.classList.contains('con-splash'),a=v=>espera?`data-src="${src(v)}"`:`src="${src(v)}"`;
+ return `<img class="logo-ancho" ${a('horizontal')} alt="" width="1340" height="424"><img class="logo-alto" ${a('stacked')} alt="" width="960" height="632">`;}
+function soltarLogo(){for(const i of document.querySelectorAll('.logo-titulo img[data-src]')){i.src=i.dataset.src;i.removeAttribute('data-src');}}
 // La portada ya no enseña la mesa, pero en la tele se va cargando detrás, quieta y sin sonido.
 function precargarMundo(){if(worldPromise)return;setTimeout(()=>{if(page!=='home'||worldPromise)return;ensureWorld('attract');dormirMundo();worldPromise?.then(()=>{if(page!=='room')dormirMundo();});},1200);}
 const dormirMundo=()=>{document.body.classList.add('phone-mode');world?.pause?.();};
@@ -441,7 +451,7 @@ function splash(){
  const v=document.createElement('video');v.src='/marca/three-thirteen-splash.mp4';v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';caja.appendChild(v);
  const t0=performance.now();let hecho=false;
  const cerrar=()=>{if(hecho)return;hecho=true;removeEventListener('pointerdown',saltar,true);removeEventListener('keydown',saltar,true);
-  caja.classList.add('activo','fuera');html.classList.remove('con-splash');setTimeout(()=>{v.pause();caja.remove();},500);};
+  caja.classList.add('activo','fuera');html.classList.remove('con-splash');soltarLogo();setTimeout(()=>{v.pause();caja.remove();},500);};
  const saltar=e=>{if(performance.now()-t0<500)return;e.preventDefault();e.stopPropagation();cerrar();};
  addEventListener('pointerdown',saltar,true);addEventListener('keydown',saltar,true);
  v.addEventListener('ended',cerrar);v.addEventListener('error',cerrar);

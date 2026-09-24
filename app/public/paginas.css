@@ -42,4 +42,5 @@ li{margin:.3rem 0}
 .pie{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--linea);display:flex;gap:1.2rem;flex-wrap:wrap;font:500 .75rem var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .pie a{color:var(--suave);text-decoration:none}
 .pie a:hover{color:var(--gold)}
+.pie .estudio{margin-left:auto}
 [lang="en"] .solo-es,[lang="es"] .solo-en{display:none}

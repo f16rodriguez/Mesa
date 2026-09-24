@@ -153,6 +153,7 @@ dialog.estudio .modal-top{margin-bottom:0}
 .acerca .lugar{font:700 1rem 'Archivo Narrow','DM Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase}
 .acerca .autor{font:800 1.25rem 'Archivo','DM Sans',sans-serif;margin-top:.6rem}
 .acerca .derechos,.acerca .fuentes{font:500 .78rem 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.06em;color:rgba(243,238,227,.72)}
+.acerca .derechos a{color:#C8923A;text-decoration:none}.acerca .derechos a:hover{text-decoration:underline}
 .acerca .fuentes{color:#C8923A}
 .acerca .usa{margin-top:1.4rem;padding-top:1rem;border-top:1px solid rgba(243,238,227,.14);width:100%}
 .acerca .usa h3{font:700 .8rem 'Archivo Narrow','DM Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#C8923A;margin:0 0 .4rem}

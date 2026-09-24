@@ -9,6 +9,7 @@ import {DIM,seats,chainLayout,openEnds} from './scene-layout.ts';
 import {capturePose,applySeatedMotion} from './scene-motion.js';
 import {dressColmado} from './colmado-detail.js';
 import {armarEsquina} from './esquina.js';
+import {armarBarrio} from './barrio.js';
 import {servirBebidas} from './bebidas.js';
 import {crearAtmosfera} from './atmosfera.js';
 const pips=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
@@ -135,6 +136,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // Weathered surfaces and everyday groceries reuse the existing scene assets.
  const colmado=dressColmado({scene,texture,mat,box,cylinder,random,teal,wood,storeSign});
  const esquina=armarEsquina({scene,texture,mat,box,cylinder,staticGeo,random,renderer});
+ armarBarrio({scene,random});
  // Merge static architecture by material instead of hundreds of draw calls.
  for(const {material,geos} of batches.values()){const merged=mergeGeometries(geos.some(g=>!g.index)?geos.map(g=>g.index?g.toNonIndexed():g):geos,false);/* RoundedBoxGeometry no tiene índice: si hay mezcla, todo va sin índice */if(merged){const mesh=new THREE.Mesh(merged,material);mesh.receiveShadow=true;merged.computeBoundingBox();mesh.castShadow=merged.boundingBox.distanceToPoint(v3(0,.8,0))<1.6&&merged.boundingBox.getSize(v3()).length()<8;scene.add(mesh);}geos.forEach(g=>g.dispose());}
  const tileGroup=new THREE.Group(),rackGroup=new THREE.Group();scene.add(tileGroup,rackGroup);

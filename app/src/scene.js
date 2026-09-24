@@ -26,7 +26,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // y brillo; bajita, porque es de noche y la luz la pone el bombillo.
  /* El entorno ya no es un estudio blanco (eso era lo que hacía que todo se viera de
    computadora): lo arma atmosfera.js con la noche, el bombillo y la luz fría del colmado. */
- const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=.8;controls.maxDistance=8;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
+ const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.8,-.15);controls.enableDamping=true;controls.dampingFactor=.065;controls.enablePan=false;controls.minDistance=.8;controls.maxDistance=4.6;controls.minPolarAngle=.25;controls.maxPolarAngle=Math.PI*.48;controls.update();
  // Atardecer: el cielo todavía da una luz pareja y lila, pero baja (a 1.05 lo aplastaba todo),
  // así el bombillo sigue siendo la luz que manda en la mesa.
  const CIELO=.5,cielo=new THREE.HemisphereLight('#a3a8d8','#6a4e3c',CIELO);scene.add(cielo);const resplandor=new THREE.DirectionalLight('#ffa06a',.55);resplandor.position.set(-6,2.6,-9);scene.add(resplandor);
@@ -209,6 +209,13 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  /* Corte dramático (dominó, capicúa y tranque): cámara baja, al ras de la mesa, desde la
   diagonal entre dos sillas (ahí no hay nadie sentado) y mirando la ficha que cerró la mano.
   A los 3,4 s vuelve a donde estaba. Antes podía caer dentro del cuerpo de un jugador. */
+ /* Al girar y alejar a mano, la cámara no se sale de la esquina: nunca detrás de la fachada del
+   colmado (ahí no hay nada armado), ni dentro de las casas de al lado, ni bajo el piso. Se corrige
+   la posición después de los controles, así el giro se frena contra el borde en vez de saltar. */
+ let libre=false;const _off=v3();
+ function dentroDelSet(){const p=camera.position,t=controls.target;
+  _off.subVectors(p,t);if(_off.length()>4.6)p.copy(t).addScaledVector(_off.normalize(),4.6);
+  p.z=Math.max(p.z,-2.1);p.x=THREE.MathUtils.clamp(p.x,-4.9,4.9);p.y=THREE.MathUtils.clamp(p.y,.35,5.2);}
  let sacudida=-1,vuelta=null,distanciaAntes=controls.minDistance;
  function corte(p,seat,golpe){
   if(document.documentElement.classList.contains('reduced'))return;
@@ -356,7 +363,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    return p<1;});
   const repartiendo=now<dealUntil;rackGroup.visible=!repartiendo;if(!repartiendo&&repartoGroup.children.length)clear(repartoGroup);
   moverAtriles(dt);
-  controls.update();atmos.frame(t,dt,{reduced,view:v,ends:extremos,temblor});atmos.render();
+  controls.update();if(!camTween&&!vuelta&&!libre)dentroDelSet();atmos.frame(t,dt,{reduced,view:v,ends:extremos,temblor});atmos.render();
   if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],cab=characters[i]?.head;
    /* El que está de espaldas a la cámara lleva la etiqueta en la espalda: encima de la cabeza
       caía justo sobre la cara del que está enfrente. */
@@ -366,11 +373,11 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    /* Si no cabe arriba de la cabeza, va debajo de la barbilla (antes, pegada arriba, tapaba los ojos). */
    if(!deEspaldas&&p.y>.8&&cab){cab.getWorldPosition(_lab).y-=.1;p=_lab.project(atmos.vista);abajo=true;}
    const py=Math.min(p.y,.8);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-py*.5+.5)*innerHeight}px) translate(-50%,${deEspaldas?'-50%':abajo?'0':'-100%'})`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||p.y<-1.15?'hidden':'visible';}}
-  if(frame%30===0||frame===1){window.mesaDiagnostics={fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};
+  if(frame%30===0||frame===1){window.mesaDiagnostics={cam:camera.position.toArray().map(x=>+x.toFixed(2)),fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};
    if(DEBUG){window.mesaRigDebug=characters.filter(Boolean).map(c=>({index:c.index,head:c.head?.getWorldPosition(v3()).toArray(),hip:c.hips?.getWorldPosition(v3()).toArray(),rootScale:c.root.scale.toArray()}));const el=document.querySelector('#perf');if(el)el.textContent=`${Math.round(fps)} fps · ${renderer.info.render.calls} draws`;}}
  }
  // Para capturas y pruebas.
- window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;controls.minDistance=.1;camera.position.set(...p);controls.target.set(...t);controls.update();};
+ window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;libre=true;controls.minDistance=.1;controls.maxDistance=30;camera.position.set(...p);controls.target.set(...t);controls.update();};   // solo para capturas: sin recinto
  window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
  window.mesaBeber=(i,fijo)=>{const c=characters[i];if(c&&c.bebida&&!c.jugada)c.trago={t0:clock.elapsedTime,fijo};};
  update(null);animate();

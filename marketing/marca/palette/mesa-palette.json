@@ -1,0 +1,42 @@
+{
+  "felt": {
+    "hex": "#2F4A3A",
+    "use": "Primary background: the table felt"
+  },
+  "felt_deep": {
+    "hex": "#1B2C22",
+    "use": "Panels, overlays, phone screens, dark backgrounds"
+  },
+  "felt_light": {
+    "hex": "#3C5E49",
+    "use": "Hover states, table light pool (center of radial gradient)"
+  },
+  "ivory": {
+    "hex": "#F3EEE3",
+    "use": "Tiles, primary text on felt, the wordmark"
+  },
+  "ink": {
+    "hex": "#1C1E1A",
+    "use": "Pips, text on ivory"
+  },
+  "salsa_red": {
+    "hex": "#C8402F",
+    "use": "The wordmark drop shadow, primary buttons, alerts, Team 1"
+  },
+  "gold": {
+    "hex": "#E3AE55",
+    "use": "Tagline, scores, highlights, winner moments"
+  },
+  "sky": {
+    "hex": "#6FB7C9",
+    "use": "Secondary accent, Team 2"
+  },
+  "wood": {
+    "hex": "#5A3A22",
+    "use": "Table rail highlight"
+  },
+  "wood_dark": {
+    "hex": "#3E2716",
+    "use": "Table rail, frames"
+  }
+}

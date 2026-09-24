@@ -1,4 +1,6 @@
-DM Sans, Fraunces, Bungee y Yellowtail: SIL Open Font License 1.1.
-Descargadas de Google Fonts (subconjunto latin) para servirlas desde la mesa, sin depender de internet.
-https://openfontlicense.org
-Archivo, Archivo Narrow e IBM Plex Mono (Three Thirteen Studios): SIL Open Font License 1.1. Subconjunto latin en woff2.
+Todas las fuentes de Mesa son SIL Open Font License 1.1 (https://openfontlicense.org).
+Se sirven desde la mesa en woff2, subconjunto latin, sin depender de internet.
+
+Mesa: Shrikhand, DM Sans (variable, pesos 400–800) e IBM Plex Mono Medium.
+  Licencias completas: OFL-shrikhand.txt, OFL-dmsans.txt, OFL-ibmplexmono.txt.
+Three Thirteen Studios (solo créditos): Archivo 800 y Archivo Narrow 700.

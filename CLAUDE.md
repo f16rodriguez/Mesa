@@ -62,6 +62,14 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   ocre `#C8923A`, ladrillo `#A5432E`) y sus letras (Archivo, Archivo Narrow, IBM Plex
   Mono) solo van ahí; el resto de Mesa conserva su propia cara. Recursos en
   `app/public/marca/`.
+- **La cara de Mesa** (paquete de marca del 24 sep 2026, maestros en `marketing/`): limpia
+  y sobria, nada de neón ni arcade. Paleta en `app/public/mesa.css` (`--felt`, `--felt-deep`,
+  `--ivory`, `--ink`, `--salsa`, `--gold`, `--sky`, `--wood`…): ~70 % paño, 20 % marfil,
+  10 % acentos; rojo y oro son para momentos, no para superficies (salvo el botón
+  primario). Pareja A = salsa, pareja B = cielo, también en 3D. Letras: Shrikhand solo en
+  momentos grandes (nunca < 32 px, siempre con la sombra salsa dura corrida `.043em`),
+  DM Sans para la interfaz, IBM Plex Mono para puntos, códigos y rótulos. La portada es
+  el logo sobre el paño, sin la mesa 3D detrás (la tele la carga escondida).
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

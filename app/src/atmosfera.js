@@ -141,7 +141,7 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
 // Punta izquierda ámbar, derecha turquesa: los mismos colores de los botones del teléfono,
  // así "juégala por aquí" se ve en la mesa y no es un "izquierda" abstracto.
  const puntaTex=rgb=>textura((g,w,h)=>{g.strokeStyle=`rgba(${rgb},1)`;g.lineWidth=w*.09;g.beginPath();g.arc(w/2,h/2,w*.36,0,Math.PI*2);g.stroke();const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,`rgba(${rgb},.5)`);r.addColorStop(1,`rgba(${rgb},0)`);g.fillStyle=r;g.fillRect(0,0,w,h);},128,128);
- const puntas=['255,181,71','45,225,194'].map(rgb=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(.036,.036),new THREE.MeshBasicMaterial({map:puntaTex(rgb),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));m.rotation.x=-Math.PI/2;m.position.y=DIM.surfaceY+.0015;m.renderOrder=3;scene.add(m);return m;});
+ const puntas=['227,174,85','111,183,201'].map(rgb=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(.036,.036),new THREE.MeshBasicMaterial({map:puntaTex(rgb),transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));m.rotation.x=-Math.PI/2;m.position.y=DIM.surfaceY+.0015;m.renderOrder=3;scene.add(m);return m;});
  let extremos=null;
 
  // La cámara que de verdad dibuja: sigue a la de los controles con un vaivén mínimo.

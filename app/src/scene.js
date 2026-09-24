@@ -111,7 +111,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  // bandera) en las sillas, en un filete del paño delante de cada uno y en su
  // etiqueta. Los compañeros se sientan enfrente, así que el paño queda con dos
  // lados rojos enfrentados y dos azules: se lee de un vistazo quién va con quién.
- const TEAM=['#b8412f','#2f67a6'];
+ const TEAM=['#C8402F','#6FB7C9'];  // los de la marca: salsa y cielo
  for(let i=0;i<4;i++){const [x,z,ang]=seats[i],r=DIM.feltWidth/2-.012,band=new THREE.Mesh(new THREE.PlaneGeometry(DIM.feltWidth*.72,.009),new THREE.MeshStandardMaterial({color:TEAM[i%2],roughness:.9}));band.rotation.set(-Math.PI/2,0,ang);band.position.set(x*r/DIM.seatDistance,DIM.surfaceY+.0006,z*r/DIM.seatDistance);band.receiveShadow=true;scene.add(band);}
  // Guano: el asiento tejido de palma de la silla de colmado. Cuadros alternos de
  // tres hebras, en horizontal y en vertical, con variación de tono por hebra.

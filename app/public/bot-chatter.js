@@ -7,34 +7,40 @@ const CAST=['rafa','marisol','luis','carmen'];
 const LINES_ES={
  rafa:{think:[['think','Déjame ver un chin.'],['think-2','Espera, déjame ver.'],['think-3','Un momentico.'],['think-4','Tranquilo, que ya voy.']],
        play:[['play','Ahí va.'],['play-2','Toma eso.'],['play-3','Por aquí va.']],
-       pass:[['pass','Paso.']],win:[['win','¡Dominó!']],block:[['block','Se trancó.']]},
+       pass:[['pass','Paso.']],win:[['win','¡Dominó!']],block:[['block','Se trancó.']],saludo:[['saludo','¡Buenas, buenas!']]},
  marisol:{think:[['think','Dame un segundito.'],['think-2','Ay, déjame ver.'],['think-3','Un segundito más.'],['think-4','Ya casi, ya casi.']],
        play:[['play','Vamos allá.'],['play-2','Ahí te va.'],['play-3','¡Esta!']],
-       pass:[['pass','Me toca pasar.']],win:[['win','¡Dominó, mi gente!']],block:[['block','Se cerró la mesa.']]},
+       pass:[['pass','Me toca pasar.']],win:[['win','¡Dominó, mi gente!']],block:[['block','Se cerró la mesa.']],saludo:[['saludo','¡Epa! ¡Buenas!']]},
  luis:{think:[['think','Espérate un chin.'],['think-2','Déjame ver eso.'],['think-3','Ya va, ya va.'],['think-4','Un chin más.']],
        play:[['play','Toma esa.'],['play-2','¡Esa!'],['play-3','Por aquí te va.']],
-       pass:[['pass','Paso por aquí.']],win:[['win','¡Dominó!']],block:[['block','Esto se trancó.']]},
+       pass:[['pass','Paso por aquí.']],win:[['win','¡Dominó!']],block:[['block','Esto se trancó.']],saludo:[['saludo','¡Buenas! ¿Qué lo que?']]},
  carmen:{think:[['think','Con calma, con calma.'],['think-2','Ahorita, ahorita.'],['think-3','Déjame pensar.'],['think-4','Ya mismo.']],
        play:[['play','Ahí te va.'],['play-2','Toma.'],['play-3','Por acá.']],
-       pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']]},
+       pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']],saludo:[['saludo','¡Buenas noches, mi amor!']]},
 };
 /* Las mismas cuatro voces en inglés (clonadas de las tomas en español, así conservan el
    acento), con los mismos nombres de archivo bajo public/audio/bots/<bot>/en/. */
 const LINES_EN={
  rafa:{think:[['think','Let me see a sec.'],['think-2','Hold on, let me look.'],['think-3','One moment.'],['think-4',"Easy, I'm coming."]],
        play:[['play','There it goes.'],['play-2','Take that.'],['play-3','Right here.']],
-       pass:[['pass','I pass.']],win:[['win','Domino!']],block:[['block',"It's locked."]]},
+       pass:[['pass','I pass.']],win:[['win','Domino!']],block:[['block',"It's locked."]],saludo:[['saludo','Evening, evening!']]},
  marisol:{think:[['think','Give me a second.'],['think-2','Ay, let me see.'],['think-3','One more second.'],['think-4','Almost, almost.']],
        play:[['play','Here we go.'],['play-2','There you go.'],['play-3','This one!']],
-       pass:[['pass','I gotta pass.']],win:[['win','Domino, my people!']],block:[['block',"The table's closed."]]},
+       pass:[['pass','I gotta pass.']],win:[['win','Domino, my people!']],block:[['block',"The table's closed."]],saludo:[['saludo','Hey! Evening!']]},
  luis:{think:[['think','Hold up a sec.'],['think-2','Let me check that.'],['think-3','Coming, coming.'],['think-4','One more sec.']],
        play:[['play','Take that one.'],['play-2','That one!'],['play-3','Right there for you.']],
-       pass:[['pass','I pass on this one.']],win:[['win','Domino!']],block:[['block','This is locked up.']]},
+       pass:[['pass','I pass on this one.']],win:[['win','Domino!']],block:[['block','This is locked up.']],saludo:[['saludo',"Hey! What's good?"]]},
  carmen:{think:[['think','Easy, easy.'],['think-2','In a minute, in a minute.'],['think-3','Let me think.'],['think-4','Right away.']],
        play:[['play','There you go.'],['play-2','Here, take it.'],['play-3','Over here.']],
-       pass:[['pass',"Don't have it, I pass."]],win:[['win','Domino!']],block:[['block',"Well, it's locked."]]},
+       pass:[['pass',"Don't have it, I pass."]],win:[['win','Domino!']],block:[['block',"Well, it's locked."]],saludo:[['saludo','Evening, sweetheart!']]},
 };
 const LINES={es:LINES_ES,en:LINES_EN};
+/* Lo que dice el vecino que pasa y saluda (transeuntes.js): a uno de la mesa por su nombre, o a
+   todos. Dos voces, hombre y mujer, en public/audio/calle/saludo-<m|f>-<a quién>.mp3 (y en/). */
+export const SALUDOS={
+ es:{rafa:'¡Buenas, Don Rafa!',marisol:'¡Buenas, Marisol!',luis:'¡Buenas, Luis!',carmen:'¡Buenas noches, doña Carmen!',todos:'¡Buenas noches, mi gente!'},
+ en:{rafa:'Evening, Don Rafa!',marisol:'Hey, Marisol!',luis:"What's up, Luis!",carmen:'Good evening, Doña Carmen!',todos:'Evening, everybody!'},
+};
 /** El idioma de la página (lo pone textos.js); sin página, español. */
 const lengua=()=>typeof document!=='undefined'&&document.documentElement?.lang==='en'?'en':'es';
 const POSITIONS=[[0,1.18,1.01],[1.01,1.20,0],[0,1.18,-1.01],[-1.01,1.18,0]];
@@ -78,7 +84,7 @@ export const botChatter={
    await new Promise(resolve=>{source.onended=()=>{caption.remove();document.querySelector(`[data-seatlabel="${seat}"]`)?.classList.remove('speaking');window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat,type,active:false}}));source.disconnect();panner.disconnect();gain.disconnect();resolve();};source.start(t0);});
   }catch(e){console.warn('Bot voice unavailable',e.message);}finally{this.busy=false;this.source=null;}
  },
- update(v,role,crowd){if(role==='player'||!v||!this.enabled||this.demoing)return;this.position(role,v,crowd);const key=v.handNo+':'+v.moves.length+':'+v.phase+':'+v.turn;if(key===this.lastKey)return;this.lastKey=key;const event=v.event||{},seat=event.seat;
+ update(v,role,crowd){if(v?.bots)this.bots=v.bots;if(role==='player'||!v||!this.enabled||this.demoing)return;this.position(role,v,crowd);const key=v.handNo+':'+v.moves.length+':'+v.phase+':'+v.turn;if(key===this.lastKey)return;this.lastKey=key;const event=v.event||{},seat=event.seat;
   // Al cerrar la mano alguien lo canta: el bot que dio dominó (o trancó); si fue una persona, su
   // pareja si es bot. Antes, si ganaba una persona, la mesa se quedaba callada.
   if(['handEnd','seriesEnd'].includes(v.phase)&&Number.isInteger(seat)){const quien=v.bots[seat]?seat:v.bots[(seat+2)%4]&&event.type!=='tranque'?(seat+2)%4:null;if(quien!=null)this.play(quien,event.type==='tranque'?'block':'win',true);return;}
@@ -91,6 +97,24 @@ export const botChatter={
    const turno=key,piensa=this.pensar?this.pensar(v.handNo,v.moves.length,v.turn):4000,ya=performance.now();
    // Si el servidor (o la práctica) dijo cuándo juega el bot, eso manda sobre la predicción.
    setTimeout(()=>{if(this.lastKey!==turno)return;const hasta=this.botHasta>performance.now()?this.botHasta:ya+piensa;this.play(v.turn,'think',false,hasta-1400);},900);}else if(Number.isInteger(seat)&&v.bots[seat]&&event.type==='play'&&pick%7===0)this.play(seat,'play');
+ },
+ /* Alguien que pasa saluda. Suena donde está parado; después, el bot saludado (o uno
+    cualquiera, si saludó a todos) contesta. Si ya alguien está hablando, no se dice nada. */
+ async saludar({seat=null,voz='m',pos=[1.2,1.6,-1.8]}={}){
+  if(!this.enabled||!this.context||this.context.state!=='running'||this.busy)return;
+  const lang=lengua(),quien=seat==null?'todos':CAST[seat],file=`/audio/calle/${lang==='en'?'en/':''}saludo-${voz}-${quien}.mp3`;this.busy=true;let dijo=false;
+  try{if(!this.cache.has(file)){const r=await fetch(file);if(!r.ok)throw Error('Missing greeting');this.cache.set(file,await this.context.decodeAudioData(await r.arrayBuffer()));}
+   const buffer=this.cache.get(file),source=this.context.createBufferSource(),panner=this.context.createPanner(),gain=this.context.createGain();source.buffer=buffer;
+   panner.panningModel='equalpower';panner.distanceModel='inverse';panner.refDistance=1.6;panner.maxDistance=14;panner.rolloffFactor=1.05;[panner.positionX.value,panner.positionY.value,panner.positionZ.value]=pos;
+   const t0=this.context.currentTime,dur=buffer.duration,V=.8;gain.gain.setValueAtTime(0,t0);gain.gain.linearRampToValueAtTime(V,t0+.025);gain.gain.setValueAtTime(V,Math.max(t0+.025,t0+dur-Math.min(.12,dur*.25)));gain.gain.linearRampToValueAtTime(0,t0+dur);
+   source.connect(panner).connect(gain).connect(this.context.destination);this.lastSpoke=performance.now();
+   const caption=document.createElement('div');caption.className='bot-caption';caption.textContent=(lang==='en'?'Neighbor':voz==='f'?'Vecina':'Vecino')+': '+SALUDOS[lang][quien];document.body.appendChild(caption);
+   window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat:-1,type:'saludo',active:true}}));
+   await new Promise(ok=>{source.onended=()=>{caption.remove();window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat:-1,type:'saludo',active:false}}));source.disconnect();panner.disconnect();gain.disconnect();ok();};source.start(t0);});dijo=true;
+  }catch(e){console.warn('Greeting unavailable',e.message);}finally{this.busy=false;}
+  if(!dijo)return;
+  const bots=[0,1,2,3].filter(s=>this.bots?.[s]),contesta=seat!=null?(this.bots?.[seat]?seat:null):bots.length?bots[Math.floor(Math.random()*bots.length)]:null;
+  if(contesta!=null){await new Promise(ok=>setTimeout(ok,280));this.play(contesta,'saludo',true);}
  },
  async preview(){this.setEnabled(true);await this.unlock();this.demoing=true;this.position('host',null,null);try{for(let i=0;i<4;i++){if(!this.enabled)break;await this.play(i,'think',true);await new Promise(r=>setTimeout(r,600));}}finally{this.demoing=false;}},
 };

@@ -58,6 +58,8 @@ const radio={lista:null,audio:null,i:0,base:.16,on:almacen.get('mesa-radio')!=='
  stop(){clearTimeout(this.timer);this.audio?.pause();bocina.apagar();},
  set(v){this.on=v;almacen.set('mesa-radio',v?'on':'off');if(v)this.start();else this.stop();}};
 addEventListener('mesa:botvoice',e=>radio.duck(!!e.detail?.active));
+// Un vecino que pasa saluda a la mesa (transeuntes.js): lo dice la tele, no los mandos.
+addEventListener('mesa:saludo',e=>{if(role!=='player'&&page==='room')botChatter.saludar(e.detail);});
 const ambience={play(){const c=sonidos.abrir();if(!c)return Promise.resolve();return c.resume().then(()=>ambiente.start(c));},pause(){ambiente.stop();}};
 /* `entrando`: el toque que abre la práctica o la mesa todavía cae en la portada. En el teléfono la
    portada no suena (ahí es un mando), pero la práctica que se abre sí. */

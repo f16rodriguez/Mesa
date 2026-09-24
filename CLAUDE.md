@@ -84,6 +84,15 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   `app/public/audio/musica/`, suenan esas en su lugar. Lo único grabado son los pregoneros
   (`app/public/audio/calle/`, voces generadas y verificadas) que pasan cada 70–160 s. El bombillo
   sobre la mesa cuelga quieto: si se mece, se pasean todas las sombras.
+- **La gente que pasa** (`app/src/transeuntes.js`, 24 sep 2026): vecinos por la acera de enfrente y la
+  calle de al lado, y cada minuto o dos alguien cruza el patio o entra a comprar al colmado. Son los
+  cuerpos de Marisol, Luis y Carmen (Don Rafa no: su pantalón se confunde con la piel) con otra ropa y
+  otra piel teñidas en el shader (máscara por cuerpo; ojo, estos modelos se alumbran solos con su
+  textura, así que se tiñe también lo emisivo) y a veces gorra. No hay animación de caminar: la marcha
+  se arma apuntando huesos desde la pose de reposo, que es de pie. Muy de vez en cuando (≥7 min) el
+  cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo` en `bot-chatter.js`;
+  audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la cámara mira hacia abajo y
+  al que está de pie se le ve de la cintura para abajo; en el lobby se ve entero.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

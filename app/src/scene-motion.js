@@ -279,6 +279,8 @@ function objetivoMirada(actor,time,ctx,out){
  if(actor.trago&&actor.bebida){const e=actor.trago.fijo??time-actor.trago.t0;if(e<TRAMOS[0]+.1||(e>TRAMOS[2]+.5&&e<TRAMOS[3]+.1))return out.copy(actor.bebida.home);
   // Bebiendo se mira al frente, no a otro: la cabeza que gira se aleja del vaso.
   if(e<=3.4){actor.head.getWorldPosition(out);return out.addScaledVector(_ejeZ,1).addScaledVector(Y,-.15);}}
+ // Alguien que pasa saluda: el saludado lo mira; los demás, un momentico (a todos: todos).
+ {const sa=ctx.saludo;if(sa&&(sa.seat===i||sa.e<(sa.seat==null?3:1.6)))return out.copy(sa.p);}
  if(ctx.foco&&time-ctx.foco.t<1.4)return out.copy(ctx.foco.p);
  for(const s of ctx.habla)if(s!==i&&ctx.cabezas[s])return out.copy(ctx.cabezas[s]);
  if(ctx.jugando&&ctx.turno===i){

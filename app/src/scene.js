@@ -12,6 +12,7 @@ import {armarEsquina} from './esquina.js';
 import {armarBarrio} from './barrio.js';
 import {servirBebidas} from './bebidas.js';
 import {crearAtmosfera} from './atmosfera.js';
+import {crearTranseuntes} from './transeuntes.js';
 const pips=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 export async function createWorld(container,{onProgress=()=>{}}={}){
  const scene=new THREE.Scene();scene.background=new THREE.Color('#2a2d4a');scene.fog=new THREE.FogExp2('#5a5670',.017);
@@ -190,6 +191,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   for(const [p,o] of [[P[0],a],[P[1],b]]){p.m.visible=true;p.m.quaternion.setFromRotationMatrix(_pm);p.m.position.copy(o).addScaledVector(_pu,.0052).addScaledVector(_pf,.0024);p.m.scale.set(1,s,1);}
  }
  async function loadPerson(index,name){try{onProgress(`Seating ${['Don Rafa','Marisol','Luis','Carmen'][index]}…`,loaded/total);const gltf=await loader.loadAsync(`/models/${name}.glb`);templates[index]=gltf;
+  // La pose de reposo del modelo es de pie: la guarda para la gente que pasa (transeuntes.js).
+  gltf.reposo=new Map(capturePose(gltf.scene).map(b=>[b.bone.name,b]));
   const root=gltf.scene,holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(gltf.animations[0])mixer.clipAction(gltf.animations.find(a=>a.name==='Seated')||gltf.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material.roughness=.83;}});
   // Keep the models' anatomical scale; anchor the pelvis over the chair and
   // ground the feet at a measured neutral pose, not an arbitrary loop frame.
@@ -197,6 +200,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips:root.getObjectByName('Hips'),lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
  }catch(e){failed.push(name);console.error('Character load failed',name,e);onProgress(`Could not load ${name}. Reload to retry.`,loaded/total);}}
  const ready=Promise.all(['rafa-upright','marisol','luis-upright','carmen'].map((name,i)=>loadPerson(i,name)));
+ // La gente que pasa: con los cuerpos de Marisol, Luis y Carmen, otra ropa y otra piel. En una tele sin GPU, solo el patio.
+ let gente=null;ready.then(()=>{if(!disposed)gente=crearTranseuntes({scene,camera,renderer,pocos:software,cuerpos:[['luis-upright',2],['marisol',1],['carmen',3]].filter(([,i])=>templates[i]).map(([nombre,i])=>({nombre,gltf:templates[i]}))});});
  let foco=null,fin=null,finKey='',extremos=null;
  const atmos=crearAtmosfera({scene,renderer,camera,controls,software,bulbLight});atmos.calidad('high');const habla=new Set(),hablaTipo=new Map(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active){habla.add(d.seat);hablaTipo.set(d.seat,d.type);}else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
  let currentView=null,currentCrowd=0,boardKey='',lastHand=0,mode='attract',camTween=null,animations=[],lastMove=0,dealUntil=0;
@@ -358,6 +363,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);esquina.update(t);}
   const v=currentView;
   const ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
+  if(gente){gente.update(dt,{view:v,habla,cabezas:ctx.cabezas});ctx.saludo=gente.saludo;}
   for(const c of characters){if(!c)continue;applySeatedMotion(c,t,reduced,ctx);moverParpados(c);}
   // El público se mueve a la mitad del ritmo, cada uno en su cuadro: nadie lo nota y la tele respira.
   for(let i=0;i<crowd.length;i++)if((frame+i)%2===0)applySeatedMotion(crowd[i],t,reduced,ctx);
@@ -385,7 +391,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
    /* Si no cabe arriba de la cabeza, va debajo de la barbilla (antes, pegada arriba, tapaba los ojos). */
    if(!deEspaldas&&p.y>.8&&cab){cab.getWorldPosition(_lab).y-=.1;p=_lab.project(atmos.vista);abajo=true;}
    const py=Math.min(p.y,.8);el.style.transform=`translate(${(p.x*.5+.5)*innerWidth}px,${(-py*.5+.5)*innerHeight}px) translate(-50%,${deEspaldas?'-50%':abajo?'0':'-100%'})`;el.style.visibility=p.z>1||Math.abs(p.x)>1.1||p.y<-1.15?'hidden':'visible';}}
-  if(frame%30===0||frame===1){window.mesaDiagnostics={cam:camera.position.toArray().map(x=>+x.toFixed(2)),fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};
+  if(frame%30===0||frame===1){window.mesaDiagnostics={cam:camera.position.toArray().map(x=>+x.toFixed(2)),fps:Math.round(fps),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,characters:loaded,crowd:currentCrowd,gente:gente?+gente.ms.toFixed(2):null,visibleCrowd:crowd.length,boardTiles:currentView?.chain.length||0,quality,modelErrors:failed};
    if(DEBUG){window.mesaRigDebug=characters.filter(Boolean).map(c=>({index:c.index,head:c.head?.getWorldPosition(v3()).toArray(),hip:c.hips?.getWorldPosition(v3()).toArray(),rootScale:c.root.scale.toArray()}));const el=document.querySelector('#perf');if(el)el.textContent=`${Math.round(fps)} fps · ${renderer.info.render.calls} draws`;}}
  }
  // Para capturas y pruebas.
@@ -415,6 +421,6 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   // En el teléfono, cuando es solo mando, la mesa 3D no se dibuja: batería y calor.
   pause(){pausado=true;},
   resume(){if(!pausado)return;pausado=false;clock.getDelta();if(!frameId)animate();},
-  dispose(){disposed=true;atmos.dispose();window.removeEventListener('mesa:botvoice',alHablar);if(frameId)cancelAnimationFrame(frameId);window.removeEventListener('resize',resize);controls.dispose();renderer.dispose();container.replaceChildren();}};
+  dispose(){disposed=true;gente?.dispose();atmos.dispose();window.removeEventListener('mesa:botvoice',alHablar);if(frameId)cancelAnimationFrame(frameId);window.removeEventListener('resize',resize);controls.dispose();renderer.dispose();container.replaceChildren();}};
  return api;
 }

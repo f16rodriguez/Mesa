@@ -9,8 +9,8 @@
  *  - La nevera: el compresor que arranca y se apaga solo.
  *  - Los vecinos hablando más allá: murmullo de voces (sin palabras) que van y vienen.
  *  - Grillos: pocos todavía, empiezan con el atardecer.
- *  - La calle: motores, motoconchos (a veces pitando) y algún carro, cada 12–35 s.
- *  - Un perro lejos, de vez en cuando.
+ *  - La calle: motos, motoconchos (a veces pitando), carros y alguna guagua, cada 6–18 s.
+ *  - Un perro lejos cada 25–70 s; a veces le contesta otro.
  *
  * Aparte, `bocina`: la bachata que suena adentro del colmado, por una bocinita. Solo cuando no
  * hay canciones de verdad en public/audio/musica (esas, si las hay, suenan en su lugar).
@@ -92,40 +92,30 @@ export const ambiente={
   if(!this.on)return;
   const d=buf.getChannelData(0);let pico=0;for(let i=0;i<d.length;i++)pico=Math.max(pico,Math.abs(d[i]));if(pico>0)for(let i=0;i<d.length;i++)d[i]/=pico;
   const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;s.playbackRate.value=.97+R()*.06;
-  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1500;const g=ctx.createGain();g.gain.value=.012;const p=ctx.createStereoPanner();p.pan.value=-.45;
+  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1500;const g=ctx.createGain();g.gain.value=.028;const p=ctx.createStereoPanner();p.pan.value=-.45;
   s.connect(lp).connect(g).connect(p).connect(this.master);s.start(ctx.currentTime+.5,R()*seg);this.nodos.push(s);
  },
- /* La calle: cada 12–35 s pasa algo. Motor de cuatro tiempos, motoconcho de dos tiempos (a veces
-    pitando para avisar que va) o un carro, con doppler y de un lado al otro. */
+ /* La calle: cada 6–18 s pasa algo (a veces dos motores seguidos). Cada pasada se hornea
+    aparte (ver `pasada`) y suena una sola vez. */
  calle(){
-  const ctx=this.ctx;
   this.timers.push(setTimeout(()=>{if(!this.on)return;
-   const t0=ctx.currentTime,x=R(),tipo=x<.5?'moto':x<.82?'concho':'carro',D=tipo==='carro'?5+R()*2:6+R()*3,dir=R()<.5?-1:1;
-   const base=tipo==='moto'?55+R()*25:tipo==='concho'?105+R()*40:38+R()*12,vol=tipo==='carro'?.02:tipo==='concho'?.016:.022;
-   const o=ctx.createOscillator(),o2=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain(),p=ctx.createStereoPanner();
-   o.type=tipo==='carro'?'triangle':'sawtooth';o2.type=tipo==='carro'?'sine':'square';f.type='lowpass';f.frequency.value=tipo==='concho'?1400:tipo==='carro'?320:520;f.Q.value=tipo==='concho'?1:2;
-   for(const [osc,mul] of [[o,1],[o2,2.02]]){osc.frequency.setValueAtTime(base*mul*1.06,t0);osc.frequency.linearRampToValueAtTime(base*mul*1.1,t0+D*.45);osc.frequency.exponentialRampToValueAtTime(base*mul*.86,t0+D*.6);osc.frequency.linearRampToValueAtTime(base*mul*.84,t0+D);}
-   g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+D*.5);g.gain.linearRampToValueAtTime(0,t0+D);
-   p.pan.setValueAtTime(-.9*dir,t0);p.pan.linearRampToValueAtTime(.9*dir,t0+D);
-   const m2=ctx.createGain();m2.gain.value=.5;o2.connect(m2).connect(f);o.connect(f).connect(g).connect(p).connect(this.master);
-   // Las gomas del carro sobre el asfalto.
-   if(tipo==='carro'&&this.blanco){const n=ctx.createBufferSource(),nf=ctx.createBiquadFilter(),ng=ctx.createGain();n.buffer=this.blanco;nf.type='lowpass';nf.frequency.value=700;nf.Q.value=.6;ng.gain.setValueAtTime(0,t0);ng.gain.linearRampToValueAtTime(.012,t0+D*.5);ng.gain.linearRampToValueAtTime(0,t0+D);n.connect(nf).connect(ng).connect(p);n.start(t0,R()*2);n.stop(t0+D+.1);}
-   // El motoconcho pita dos veces al pasar.
-   if(tipo==='concho'&&R()<.35)for(const k of [0,.2]){const b=ctx.createOscillator(),bf=ctx.createBiquadFilter(),bg=ctx.createGain(),tb=t0+D*.42+k;b.type='square';b.frequency.value=415;bf.type='bandpass';bf.frequency.value=900;bf.Q.value=1.2;bg.gain.setValueAtTime(0,tb);bg.gain.linearRampToValueAtTime(.009,tb+.01);bg.gain.setValueAtTime(.009,tb+.11);bg.gain.linearRampToValueAtTime(0,tb+.13);b.connect(bf).connect(bg).connect(p);b.start(tb);b.stop(tb+.15);}
-   o.start(t0);o2.start(t0);o.stop(t0+D+.1);o2.stop(t0+D+.1);
-   this.calle();},12000+R()*23000));
+   const x=R(),tipo=x<.38?'moto':x<.68?'concho':x<.92?'carro':'guagua';
+   this.sonar(pasada(22050,tipo));
+   if(tipo!=='guagua'&&R()<.15)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(pasada(22050,R()<.6?'moto':'concho'));},2000+R()*2500));
+   this.calle();},6000+R()*12000));
  },
- /* Un perro lejos: dos o tres ladridos cortos, cada 50–140 s. */
+ /* Un perro lejos, cada 25–70 s; a veces le contesta otro del otro lado. */
  perro(){
-  const ctx=this.ctx;
   this.timers.push(setTimeout(()=>{if(!this.on)return;
-   const n=2+Math.floor(R()*2),pan=(R()-.5)*1.4,f0=420+R()*160,p=ctx.createStereoPanner();p.pan.value=pan;
-   const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1700;lp.connect(p).connect(this.master);
-   for(let k=0;k<n;k++){const t=ctx.currentTime+.05+k*(.32+R()*.12),o=ctx.createOscillator(),bp=ctx.createBiquadFilter(),g=ctx.createGain();
-    o.type='sawtooth';o.frequency.setValueAtTime(f0*1.25,t);o.frequency.exponentialRampToValueAtTime(f0*.8,t+.1);bp.type='bandpass';bp.frequency.value=950;bp.Q.value=1.6;
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.014,t+.008);g.gain.exponentialRampToValueAtTime(.0004,t+.13);
-    o.connect(bp).connect(g).connect(lp);o.start(t);o.stop(t+.16);}
-   this.perro();},50000+R()*90000));
+   const pan=(R()-.5)*1.5;this.sonar(ladridos(22050,pan));
+   if(R()<.3)this.timers.push(setTimeout(()=>{if(this.on)this.sonar(ladridos(22050,-pan*.8));},1500+R()*1800));
+   this.perro();},25000+R()*45000));
+ },
+ /** Suena un búfer estéreo horneado ([izquierda, derecha]) por la mezcla del ambiente. */
+ sonar([L,D],sr=22050){
+  const ctx=this.ctx;if(!ctx||!L.length)return;
+  const b=ctx.createBuffer(2,L.length,sr);b.getChannelData(0).set(L);b.getChannelData(1).set(D);
+  const s=ctx.createBufferSource();s.buffer=b;s.connect(this.master);s.start(ctx.currentTime+.05);
  },
  stop(){
   if(!this.on)return;this.on=false;for(const t of this.timers)clearTimeout(t);this.timers=[];
@@ -134,6 +124,84 @@ export const ambiente={
   setTimeout(()=>{for(const n of nodos){try{n.stop();}catch{}}m.disconnect();},1500);
  },
 };
+
+/* ── Lo que pasa por la calle, horneado en JS ───────────────────────────────
+   Un motor es un tren de explosiones que golpea las resonancias del tubo de escape: así tiene
+   cuerpo en los medios (300 Hz–3 kHz) y se oye hasta en la bocina de un teléfono o de una tele,
+   que no dan graves. La pasada se calcula con la calle de verdad: el vehículo va de un lado al
+   otro a su velocidad, con doppler, 1/distancia, el aire que se come los agudos de lejos, el
+   paneo por dónde va y dos rebotes en las casas de enfrente. */
+const VEHICULOS={
+ //        velocidad m/s, rpm,        tiempos, cilindros, formantes [Hz, Q, peso],                      ruido, gomas, pico, distancia m
+ moto:   {v:[9,14], rpm:[3600,5600],t:4,cil:1,f:[[190,5,.75],[560,5,1],[1500,4,.7],[3000,3,.25]],ruido:.15,goma:0,  pico:.13,d:[5,12]},
+ concho: {v:[7,10], rpm:[4600,7000],t:2,cil:1,f:[[260,5,.55],[900,4,1],[2300,3,.7],[4200,2.5,.25]],ruido:.25,goma:0, pico:.12,d:[4,9]},
+ carro:  {v:[9,14], rpm:[1500,2500],t:4,cil:4,f:[[110,4,.4],[340,4,.8],[850,3,1],[1900,3,.35]],ruido:.08,goma:.1,pico:.12,d:[6,14]},
+ guagua: {v:[6,9],  rpm:[1100,1700],t:4,cil:6,f:[[80,3,.5],[240,4,.8],[700,3,1],[1600,3,.4]],ruido:.12,goma:.12,pico:.14,d:[6,12]},
+};
+const entre=([a,b],r)=>a+(b-a)*r;
+/** Resonador de dos polos con ganancia 1 en su pico: sigue un formante sin clics al moverlo. */
+function resonador(sr){let y1=0,y2=0,a1=0,a2=0,g=0;return {fijar(f,q){const r=Math.exp(-Math.PI*f/q/sr),w=2*Math.PI*f/sr;a1=2*r*Math.cos(w);a2=r*r;g=(1-r)*Math.sqrt(1-2*r*Math.cos(2*w)+r*r);},paso(x){const y=g*x+a1*y1-a2*y2;y2=y1;y1=y;return y;}};}
+/** Los rebotes en las casas de enfrente, y la bajada de agudos al final (en el sitio). */
+function espacio(L,D,sr,taps){const n=L.length,oL=L.slice(),oD=D.slice();for(const [ms,a] of taps){const k=Math.floor(ms/1000*sr);for(let i=k;i<n;i++){oL[i]+=a*D[i-k];oD[i]+=a*L[i-k];}}L.set(oL);D.set(oD);}
+export function pasada(sr,tipo,rnd=Math.random){
+ const V=VEHICULOS[tipo]||VEHICULOS.moto,v=entre(V.v,rnd()),d=entre(V.d,rnd()),dir=rnd()<.5?-1:1,Lm=46,dur=2*Lm/v,n=Math.floor(dur*sr);
+ const res=V.f.map(()=>resonador(sr)),rpm0=entre(V.rpm,rnd()*.5),rpm1=entre(V.rpm,.5+rnd()*.5),acelera=tipo!=='guagua'&&rnd()<.55;
+ const cambios=acelera?[.25+rnd()*.1,.52+rnd()*.12]:[],moto=tipo==='concho'||tipo==='moto',pito=moto?rnd()<.35:rnd()<.08,tPito=dur*(.38+rnd()*.08);
+ const bocinaF=moto?[420+rnd()*80]:[350,440];
+ // Primera pasada, en el sitio del vehículo: motor, gomas y bocina por separado (con doppler).
+ const motor=new Float32Array(n),goma=new Float32Array(n),bocina=new Float32Array(n),geo=new Float32Array(n*2);
+ let fase=0,pulso=0,envR=0,g1=0,g2=0,g3=0;const pf=[0,0];
+ for(let i=0;i<n;i++){
+  const t=i/sr,u=t/dur,x=dir*(-Lm+v*t),r=Math.hypot(x,d),vr=v*x*dir/r,dop=343/(343+vr);geo[2*i]=x;geo[2*i+1]=r;
+  // Coeficientes cada 32 muestras: el doppler mueve también los formantes.
+  if(i%32===0)V.f.forEach(([f,q],k)=>res[k].fijar(Math.min(f*dop,sr*.45),q));
+  // Revoluciones: crucero con su vaivén, o acelerando con dos cambios de marcha.
+  let rpm;if(acelera){const c=cambios.findIndex(c=>u<c),i0=c<0?cambios.length:c,a=i0?cambios[i0-1]:0,b=c<0?1:cambios[c],fr=(u-a)/(b-a);rpm=rpm0+(rpm1-rpm0)*Math.min(1,fr*1.3)-(i0?120:0);}
+  else rpm=(rpm0+rpm1)/2*(1+.04*Math.sin(2*Math.PI*.35*t)+.02*Math.sin(2*Math.PI*1.7*t));
+  fase+=rpm/60*V.cil/(V.t/2)*dop/sr;
+  if(fase>=1){fase-=1;pulso=.8+rnd()*.4;envR=1;}
+  const ex=pulso+(rnd()*2-1)*V.ruido*(.18+envR);pulso*=.35;envR*=.985;
+  let y=0;for(let k=0;k<res.length;k++)y+=res[k].paso(ex)*V.f[k][2];motor[i]=y;
+  // Gomas en el asfalto: un rugido sordo (200–700 Hz), no un soplido.
+  if(V.goma){const w=rnd()*2-1;g1+=.18*(w-g1);g2+=.18*(g1-g2);g3+=.05*(g2-g3);goma[i]=g2-g3;}
+  // La bocina, cuando toca: pulsos cuadrados de 0,12 s (dos veces el motor, una el carro).
+  if(pito){const tp=t-tPito;for(const t0 of moto?[0,.2]:[0])if(tp>=t0&&tp<t0+.12)bocinaF.forEach((f,j)=>{pf[j]=(pf[j]+f*dop/sr)%1;bocina[i]+=pf[j]<.5?1:-1;});}
+ }
+ // Cada fuente a su nivel, medido por su energía (el motor es de pulsos, las gomas de ruido).
+ const rms=a=>{let e=0;for(let i=0;i<n;i++)e+=a[i]*a[i];return Math.sqrt(e/n)||1;},km=1/rms(motor),kg=V.goma/rms(goma);
+ // Segunda pasada, en la oreja: aire, 1/distancia, entrada y salida suaves, paneo y dos rebotes.
+ const L=new Float32Array(n),D=new Float32Array(n);let lp=0,lpB=0,gS=0;
+ for(let i=0;i<n;i++){
+  const x=geo[2*i],r=geo[2*i+1],u=i/n,y=motor[i]*km+goma[i]*kg,fc=1800+14000*Math.exp(-r/22),a=1-Math.exp(-2*Math.PI*fc/sr);
+  lp+=a*(y-lp);lpB+=.35*(bocina[i]-lpB);
+  const g=(6/Math.max(r,3))*Math.min(1,u*8,(1-u)*8);gS+=.002*(g-gS);
+  const pan=Math.max(-1,Math.min(1,x/Math.max(r,1))),ang=(pan+1)*Math.PI/4,s=(lp+lpB*2.2)*gS;
+  L[i]=s*Math.cos(ang);D[i]=s*Math.sin(ang);
+ }
+ let pico=0;for(let i=0;i<n;i++)pico=Math.max(pico,Math.abs(L[i]),Math.abs(D[i]));
+ const k=pico>0?V.pico*(6/Math.max(d,3))/pico:0;for(let i=0;i<n;i++){L[i]*=k;D[i]*=k;}
+ espacio(L,D,sr,[[38+rnd()*20,.22],[95+rnd()*40,.12]]);
+ return [L,D];
+}
+/** Un perro lejos: dos a cuatro ladridos. Cada uno, una voz que sube y cae con sus formantes. */
+export function ladridos(sr,pan=0,rnd=Math.random){
+ const cuantos=2+Math.floor(rnd()*3),grande=rnd()<.5,f0=grande?250+rnd()*80:420+rnd()*160,dist=14+rnd()*26;
+ const gol=[];let t=.05;for(let k=0;k<cuantos;k++){gol.push([t,.13+rnd()*.09]);t+=(k===1&&rnd()<.4?.6:.26)+rnd()*.16;}
+ const n=Math.floor((t+.6)*sr),M=new Float32Array(n),FORM=grande?[[520,1],[1100,.7],[2300,.25]]:[[750,1],[1500,.8],[2900,.3]];
+ const peso=f=>FORM.reduce((s,[c,w])=>s+w*Math.exp(-(((f-c)/260)**2)),0)+.05;
+ for(const [t0,du] of gol){
+  const a=Math.floor(t0*sr),m=Math.floor(du*sr),f1=f0*(.92+rnd()*.16);let ph=0,ruido=0;
+  for(let j=0;j<m&&a+j<n;j++){const u=j/m,f=f1*(u<.2?1+u*1.2:1.24-.5*(u-.2)),env=Math.min(1,j/(.007*sr))*Math.exp(-Math.max(0,u-.25)*5.5);
+   ph+=2*Math.PI*f/sr;let y=0;for(let h=1;h<=14&&h*f<sr*.45;h++)y+=Math.sin(h*ph)*peso(h*f)/Math.sqrt(h);
+   ruido+=.3*((rnd()*2-1)-ruido);M[a+j]+=(y+ruido*.9)*env;}}
+ // Lejos: pierde agudos y rebota en las paredes.
+ const fc=2600+4000*Math.exp(-dist/20),al=1-Math.exp(-2*Math.PI*fc/sr);let lp=0,pico=0;
+ for(let i=0;i<n;i++){lp+=al*(M[i]-lp);M[i]=lp;pico=Math.max(pico,Math.abs(lp));}
+ const g=pico>0?.14*(14/dist)/pico:0,ang=(Math.max(-1,Math.min(1,pan))+1)*Math.PI/4,L=new Float32Array(n),D=new Float32Array(n);
+ for(let i=0;i<n;i++){L[i]=M[i]*g*Math.cos(ang);D[i]=M[i]*g*Math.sin(ang);}
+ espacio(L,D,sr,[[55+rnd()*30,.3],[140+rnd()*50,.16]]);
+ return [L,D];
+}
 
 /* ── La bocina del colmado ──────────────────────────────────────────────────
    Una bachata que suena adentro: requinto con sus arpegios (a veces en terceras), segunda

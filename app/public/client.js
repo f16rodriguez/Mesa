@@ -50,7 +50,7 @@ sonidos.activo=sound;
    bajito, y se agacha cuando habla alguien. Solo en la tele. */
 const radio={lista:null,audio:null,i:0,base:.16,on:almacen.get('mesa-radio')!=='off',timer:null,cargando:false,
  async cargar(){if(this.lista||this.cargando)return this.lista;this.cargando=true;this.lista=await fetch('/audio/musica/lista.json').then(r=>r.ok?r.json():[]).catch(()=>[]);this.cargando=false;for(let k=this.lista.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[this.lista[k],this.lista[j]]=[this.lista[j],this.lista[k]];}return this.lista;},
- async start(){if(!this.on||role==='player'||music||(this.audio&&!this.audio.paused))return;if(esTelefono&&page==='home')return;await this.cargar();
+ async start(entrando=false){if(!this.on||role==='player'||music||(this.audio&&!this.audio.paused))return;if(esTelefono&&page==='home'&&!entrando)return;await this.cargar();
   // Sin canciones de verdad en public/audio/musica, suena la bachata sintetizada de la bocina del colmado.
   if(!this.lista?.length){const c=sonidos.abrir();if(c)c.resume().then(()=>{if(this.on&&!music&&role!=='player')bocina.encender(c);}).catch(()=>{});return;}if(this.audio&&this.audio.paused&&this.audio.currentTime>0&&!this.audio.ended){this.audio.play().catch(()=>{});return;}this.siguiente();},
  siguiente(){clearTimeout(this.timer);const f=this.lista[this.i++%this.lista.length],a=new Audio('/audio/musica/'+encodeURIComponent(f));this.audio?.pause();this.audio=a;a.volume=this.base;a.play().catch(()=>{});a.onended=()=>{this.timer=setTimeout(()=>{if(this.on&&this.audio===a)this.siguiente();},3000+Math.random()*9000);};},
@@ -59,7 +59,10 @@ const radio={lista:null,audio:null,i:0,base:.16,on:almacen.get('mesa-radio')!=='
  set(v){this.on=v;almacen.set('mesa-radio',v?'on':'off');if(v)this.start();else this.stop();}};
 addEventListener('mesa:botvoice',e=>radio.duck(!!e.detail?.active));
 const ambience={play(){const c=sonidos.abrir();if(!c)return Promise.resolve();return c.resume().then(()=>ambiente.start(c));},pause(){ambiente.stop();}};
-function unlockSound(){const c=sonidos.abrir();if(c&&!botChatter.context)botChatter.context=c;botChatter.unlock();if(ambientOn&&role!=='player'&&page!=='home'||ambientOn&&role!=='player'&&!esTelefono)ambience.play().catch(()=>{});radio.start();chipSonido();}
+/* `entrando`: el toque que abre la práctica o la mesa todavía cae en la portada. En el teléfono la
+   portada no suena (ahí es un mando), pero la práctica que se abre sí. */
+function unlockSound(entrando=false){const c=sonidos.abrir();if(c&&!botChatter.context)botChatter.context=c;botChatter.unlock();if(ambientOn&&role!=='player'&&(entrando||page!=='home'||!esTelefono))ambience.play().catch(()=>{});radio.start(entrando);chipSonido();}
+window.mesaAudio=()=>({ctx:sonidos.ctx?.state??'sin abrir',ambiente:ambiente.on,bocina:bocina.on});
 // La primera tecla o toque en cualquier parte desbloquea el audio (una tele recargada directo a su mesa no tiene otro gesto).
 addEventListener('pointerdown',()=>{if(sonidos.suspendido)unlockSound();},{capture:true});
 addEventListener('keydown',()=>{if(sonidos.suspendido)unlockSound();},{capture:true});
@@ -368,9 +371,9 @@ document.addEventListener('click',async e=>{
  else if(a==='lobby'){modal.close();wire({type:'lobby'});}
  else if(a==='pedir-silla'){wire({type:'silla',to:view.bots.findIndex(b=>b)});}
  else if(a==='reintentar'){conexion.intentos=0;connect();}
- else if(a==='host'){role='host';unlockSound();createRoom();}
- else if(a==='practice'){modal.close();role='practice';unlockSound();startPractice();}
- else if(a==='continuar'){modal.close();unlockSound();seguirPractica();}
+ else if(a==='host'){role='host';unlockSound(true);createRoom();}
+ else if(a==='practice'){modal.close();role='practice';unlockSound(true);startPractice();}
+ else if(a==='continuar'){modal.close();role='practice';unlockSound(true);seguirPractica();}
  else if(a==='join')openModal(t('buscaTuGente'),`<p class="modal-copy">${t('escaneaOCodigo')}</p><form id="link-form"><label class="field">${t('codigoMesa')}<input name="code" class="code-input" required autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="ABCD"></label><button class="g-button primary full">${t('entrar')}</button></form>`);
  else if(a==='watch'){role='spectator';history.replaceState({},'',`?room=${room}&role=spectator`);joinScreen();}
  else if(a==='creditos')creditos();

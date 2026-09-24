@@ -41,6 +41,8 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   repeticiones, coaching) — después del lanzamiento. Precio regional ~50 % en
   RD/LatAm desde el día uno. Sin anuncios, sin cosméticos, sin cobro por mesa.
 - Kreyòl: fuera por ahora (decidido el 23 sep 2026). Español e inglés.
+- **Steam no va primero** (dicho por Trey el 24 sep 2026): sale primero la versión web
+  (navegador en la tele, teléfonos como mandos). El arte de Steam queda en `marketing/steam/`.
 - **Marca inclusiva** (decidido el 24 sep 2026): la interfaz, las páginas y la tarjeta
   para compartir no dicen "dominicano". Mesa es **dominó**, para todo el que lo juega
   (Caribe, Latinoamérica, la diáspora). Tampoco "en parejas": viene el 1 contra 1.

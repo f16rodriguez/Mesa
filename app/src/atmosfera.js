@@ -171,7 +171,7 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
   const rt=new THREE.WebGLRenderTarget(size.x,size.y,{type:THREE.HalfFloatType,samples:4});
   composer=new EffectComposer(renderer,rt);
   composer.addPass(new RenderPass(scene,vista));
-  bloom=new UnrealBloomPass(new THREE.Vector2(size.x/2,size.y/2),.4,.5,2);composer.addPass(bloom);
+  bloom=new UnrealBloomPass(new THREE.Vector2(size.x/2,size.y/2),.4,.5,3.2);   // solo lo que es luz; las fichas bajo el bombillo ya no se esfumancomposer.addPass(bloom);
   grado=new ShaderPass({uniforms:{tDiffuse:{value:null},uTiempo:{value:0},uVineta:{value:.34},uGrano:{value:.018}},
    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
    fragmentShader:`uniform sampler2D tDiffuse;uniform float uTiempo,uVineta,uGrano;varying vec2 vUv;
@@ -207,7 +207,7 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
    if(turnoEstado.i!==view.turn){turnoEstado.i=view.turn;turnoEstado.destino=new THREE.Vector3(sx*r/DIM.seatDistance,0,sz*r/DIM.seatDistance);turnoEstado.angDestino=ang;}
    turnoEstado.pos.lerp(turnoEstado.destino,1-Math.exp(-dt*6));
    let da=turnoEstado.angDestino-turnoEstado.ang;da=Math.atan2(Math.sin(da),Math.cos(da));turnoEstado.ang+=da*(1-Math.exp(-dt*6));
-   turnoEstado.objetivo=.8+(reduced?0:.12*Math.sin(t*2.2));
+   turnoEstado.objetivo=.55+(reduced?0:.08*Math.sin(t*2.2));
   }else turnoEstado.objetivo=0;
   turnoEstado.alfa+=(turnoEstado.objetivo-turnoEstado.alfa)*(1-Math.exp(-dt*4));
   turno.material.opacity=turnoEstado.alfa;turno.visible=turnoEstado.alfa>.01;
@@ -216,7 +216,7 @@ export function crearAtmosfera({scene,renderer,camera,controls,software,bulbLigh
   for(let k=0;k<2;k++){const m=puntas[k],e=jugando&&ends?ends[k]:null;
    if(!e){m.material.opacity=Math.max(0,m.material.opacity-dt*3);m.visible=m.material.opacity>.01;continue;}
    m.visible=true;m.position.set(e.x,DIM.surfaceY+.0015,e.z);const late=reduced?1:1+.12*Math.sin(t*3.4+k*1.3);m.scale.setScalar(late);
-   m.material.opacity=Math.min(.9,m.material.opacity+dt*3);}
+   m.material.opacity=Math.min(.7,m.material.opacity+dt*3);}
   if(grado)grado.uniforms.uTiempo.value=t%100;
  }
  function render(){if(usar&&composer)composer.render();else renderer.render(scene,vista);}

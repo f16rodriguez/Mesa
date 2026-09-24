@@ -7,7 +7,7 @@ export const DIM = {
  feltWidth:.78, feltCenterY:.776, surfaceY:.782,
  chairSeatY:.51, chairSeatWidth:.56, seatDistance:.77,
  tileLength:.054, tileWidth:.027, tileThickness:.011, tileGap:.0016,
- pipRadius:.0029, pipColumnSpacing:.0064, pipRowSpacing:.0074,
+ pipRadius:.0033, pipColumnSpacing:.0072, pipRowSpacing:.0076,   // puntos gordos, como los de verdad: se leen desde el mueble
  rackRadius:.418, rackSpacing:.0305, neutralPoseTime:10.25,
  // Hasta dónde llega la cadena antes de doblar. Las manos en reposo quedan a
  // ~28 cm del centro o más (medido en los vértices de las manos); la cadena

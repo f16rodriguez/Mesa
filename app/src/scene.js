@@ -124,7 +124,10 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#5e9fb2':'#b53f2e',.62);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
  function sign(text,width,height,bg,fg,size=60){const t=texture((c,w,h)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.font=`bold ${size}px Georgia`;c.fillText(text,w/2,h/2);},1024,256);return new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:t}));}
  const storeSign=sign('COLMADO  LA ESQUINA',4.8,.38,'#a05d42','#f8e8b9',64);storeSign.position.set(0,2.94,-2.33);scene.add(storeSign);
- const tableLogo=sign('MESA',.11,.029,'#284e3e','#81906b',77);tableLogo.material=new THREE.MeshStandardMaterial({map:tableLogo.material.map,roughness:1});tableLogo.rotation.x=-Math.PI/2;tableLogo.position.set(0,DIM.surfaceY+.001,.30);scene.add(tableLogo);
+ const tableLogo=sign('MESA',.11,.029,'#284e3e','#81906b',77);{const c=document.createElement('canvas');c.width=512;c.height=136;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  // Impreso en el paño, no una calcomanía: letra de la marca en un verde apenas más claro, sin fondo.
+  const pintar=()=>{const g=c.getContext('2d');g.clearRect(0,0,512,136);g.font=`96px ${document.fonts?.check?.('96px Shrikhand')?'Shrikhand':'Georgia'}`;g.textAlign='center';g.textBaseline='middle';g.fillStyle='rgba(170,205,170,.42)';g.fillText('Mesa',256,72);t.needsUpdate=true;};
+  pintar();document.fonts?.load?.('96px Shrikhand').then(pintar).catch(()=>{});tableLogo.material=new THREE.MeshStandardMaterial({map:t,transparent:true,depthWrite:false,roughness:1});}tableLogo.rotation.x=-Math.PI/2;tableLogo.position.set(0,DIM.surfaceY+.001,.30);scene.add(tableLogo);
  // Shop fan, rotating in actual scene coordinates.
  const fan=new THREE.Group();fan.position.set(-.9,2.62,-3.45);fan.rotation.x=-Math.PI/2;scene.add(fan);cylinder(-.9,2.90,-3.45,.015,.015,.56,'#777a68',8);cylinder(-.9,3.16,-3.45,.075,.075,.025,'#767763',12);const hub=new THREE.Mesh(new THREE.SphereGeometry(.075,12,8),mat('#41493d'));fan.add(hub);for(let i=0;i<5;i++){const blade=new THREE.Mesh(new THREE.BoxGeometry(.13,.50,.025),mat('#85856e',.88,.05));blade.position.set(Math.sin(i*TAU/5)*.285,Math.cos(i*TAU/5)*.285,0);blade.rotation.z=-i*TAU/5;fan.add(blade);}
  // A quiet moto crossing the street. It is a visible passing prop, not traffic AI.
@@ -137,7 +140,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  const tileGroup=new THREE.Group(),rackGroup=new THREE.Group();scene.add(tileGroup,rackGroup);
  /* Fichas de hueso pulido: base marfil con laca (clearcoat), el lomo un poco más oscuro, los
    puntos negros hundidos y el clavito de bronce en el centro, como las de verdad. */
- const tileGeo=new RoundedBoxGeometry(DIM.tileLength,DIM.tileThickness,DIM.tileWidth,3,.0024),ivory=new THREE.MeshPhysicalMaterial({color:'#f4eee0',roughness:.36,clearcoat:.85,clearcoatRoughness:.22}),dark=new THREE.MeshPhysicalMaterial({color:'#e2dac6',roughness:.42,clearcoat:.7,clearcoatRoughness:.3});
+ const tileGeo=new RoundedBoxGeometry(DIM.tileLength,DIM.tileThickness,DIM.tileWidth,3,.0024),ivory=new THREE.MeshPhysicalMaterial({color:'#ede5d2',roughness:.5,clearcoat:.3,clearcoatRoughness:.4}),dark=new THREE.MeshPhysicalMaterial({color:'#e2dac6',roughness:.42,clearcoat:.7,clearcoatRoughness:.3});
  const clavo=new THREE.MeshStandardMaterial({color:'#b98b3e',roughness:.28,metalness:1}),clavoGeo=new THREE.CylinderGeometry(.0019,.0019,.0009,12);
  const ink=new THREE.MeshStandardMaterial({color:'#0b0a09',roughness:.55}),seamMat=new THREE.MeshStandardMaterial({color:'#2a2622',roughness:.6});
  const pipGeo=new THREE.CylinderGeometry(DIM.pipRadius,DIM.pipRadius,.0007,14),seamGeo=new THREE.BoxGeometry(.0014,.0005,DIM.tileWidth*.8);
@@ -229,7 +232,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   else if(which==='overhead'){pos=v3(.001,1.86,.34);target=v3(0,DIM.surfaceY,.02);}
   else if(which==='seat'){pos=v3(0,1.36,.74);target=v3(0,.82,-.12);}
   else if(which==='close'){pos=v3(.62,1.30,1.0);target=v3(-.03,.85,-.08);}
-  else{pos=v3(.85,1.66,1.5);target=v3(0,.85,-.14);}
+  else{pos=v3(.8,1.89,1.24);target=v3(0,.9,-.2);}   // ~31° hacia abajo (antes 24°): las fichas se ven menos aplastadas y se leen desde el mueble
   if(which!=='attract'&&which!=='seat'&&camera.aspect<1.3){const k=Math.min(2.4,Math.pow(1.6/camera.aspect,.8));pos=target.clone().add(pos.clone().sub(target).multiplyScalar(k));}
   if(characters[0])characters[0].root.visible=which!=='seat';
   vuelta=null;controls.minDistance=Math.min(controls.minDistance,distanciaAntes);

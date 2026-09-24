@@ -6,7 +6,8 @@ import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
  *
  * - Enfrente y por la calle de al lado pasa gente cada rato (se ve al girar la cámara).
  * - Por el patio, detrás de la mesa, cruza alguien o entra un cliente al colmado, compra
- *   y se va. De vez en cuando ese cliente se para, saluda a uno de la mesa por su nombre
+ *   y se va. El colmadero (el cuerpo de Don Rafa, con otra ropa y gorra) vive en la punta del
+ *   mostrador: vigila la mesa y la calle, y atiende al que llega. De vez en cuando ese cliente se para, saluda a uno de la mesa por su nombre
  *   y el bot le contesta (el sonido lo pone client.js al oír `mesa:saludo`).
  *
  * Los cuerpos son los mismos cuatro modelos de la mesa (sin Don Rafa: su pantalón se
@@ -35,6 +36,8 @@ const REGLAS={
  'luis-upright':{voz:'m',camisa:[[188,256],[.28,1.1],[.08,1.1]],pantalon:[[-400,400],[-.1,.28],[.44,1.1]],piel:[[-16,32],[.3,.82],[.14,1.1]]},
  marisol:{voz:'f',camisa:[[-20,24],[.62,1.1],[.2,1.1]],pantalon:[[188,256],[.16,1.1],[.03,.86]],piel:[[-6,40],[.16,.64],[.2,1.1]]},
  carmen:{voz:'f',camisa:[[30,60],[.46,1.1],[.36,1.1]],pantalon:[[58,150],[.08,1.1],[.03,.62]],piel:[[-10,30],[.2,.66],[.16,1.1]]},
+ // Don Rafa solo hace de colmadero: camisa blanca, pantalón marrón oscuro (más oscuro que la piel).
+ 'rafa-upright':{voz:'m',camisa:[[-400,400],[-.1,.35],[.52,1.1]],pantalon:[[-14,34],[.25,.85],[.02,.35]],piel:[[-16,32],[.3,.85],[.37,1.1]]},
 };
 const CAMISAS=['#e9e6de','#a1302a','#3e6a47','#c99a3a','#6f9fc8','#232326','#7c7f82','#d88c9b','#24345a','#d8694f','#2f7f7a','#9b88ba','#e3c7a0','#5b3a5e'];
 const PANTALONES=['#27324d','#1d1d20','#b6a37d','#5c5f63','#5b7596','#55573a','#4f3b2c','#8a2f2a'];
@@ -165,7 +168,7 @@ function posar(g){
  }
  // Brazos: van al revés de la pierna de su lado; el codo, algo doblado.
  for(const [lado,S,fase] of [[1,'Left',f],[-1,'Right',f+.5]]){
-  if(lado<0&&g.saluda>0)continue;
+  if(lado<0&&(g.saluda>0||g.alcanza>0))continue;
   const s=(m*-.72*(CADERA(fase)-5)+(1-m)*-2+(g.brazos||0))*GRADO,fl=(16+(1-m)*-4+10*Math.max(0,s/(12*GRADO)))*GRADO,ab=(9+(1-m)*-2)*GRADO;
   apuntar(H[S+'Arm'],H[S+'ForeArm'],enMundo(lado*Math.sin(ab)*Math.cos(s),-Math.cos(ab)*Math.cos(s),Math.sin(s)));
   apuntar(H[S+'ForeArm'],H[S+'Hand'],enMundo(lado*Math.sin(ab)*Math.cos(s+fl),-Math.cos(ab)*Math.cos(s+fl),Math.sin(s+fl)));
@@ -174,6 +177,10 @@ function posar(g){
  if(g.saluda>0){const k=g.saluda,osc=Math.sin(g.t*TAU*1.8)*.38*k;
   apuntar(H.RightArm,H.RightForeArm,enMundo(-.75*k-(1-k)*.15,.25*k-(1-k)*.98,.3*k+.05));
   apuntar(H.RightForeArm,H.RightHand,enMundo(-Math.sin(osc)-.15,Math.cos(osc)*k-(1-k)*.9,.18));}
+ // Alcanzar con la derecha: arriba a un anaquel (alto 1) o al frente, a dar o recibir algo (alto 0).
+ if(g.alcanza>0&&!(g.saluda>0)){const k=suave(g.alcanza),a=g.alcanzaAlto||0;
+  apuntar(H.RightArm,H.RightForeArm,enMundo(-.16*k-.14*(1-k),-.98*(1-k)+(-.3+.85*a)*k,.9*k));
+  apuntar(H.RightForeArm,H.RightHand,enMundo(-.06*k-.12*(1-k),-.9*(1-k)+(-.05+.75*a)*k,.2+.8*k));}
  // La cabeza mira adonde va, o a quien saluda.
  if(H.Head&&H.headfront){
   const obj=g.mirar;
@@ -194,9 +201,12 @@ const P=(...ps)=>ps.map(([x,z])=>v3(x,0,z));
 const PATIO_DER=P([10,-.25],[6.5,-.3],[4.6,-.4],[3.3,-.62],[2.25,-1.1],[1.2,-1.8]);
 const PATIO_MEDIO=P([1.2,-1.8],[.35,-2.15],[-.6,-2.05],[-1.35,-1.65]);
 const PATIO_IZQ=P([-1.35,-1.65],[-2.35,-1.0],[-2.65,.2],[-4.5,.95],[-9,1.15],[-17,1.2]);
-const AL_MOSTRADOR=P([1.2,-1.8],[.75,-2.45],[.5,-3.0],[.45,-3.42]);
-const DEL_MOSTRADOR_IZQ=P([.45,-3.42],[.1,-3.0],[-.6,-2.25],[-1.35,-1.65]);
-const NEVERA=v3(2.95,1.2,-4.1);
+/* Al mostrador se compra por la punta izquierda, donde está el colmadero: detrás del mostrador
+   no cabe nadie (0,4 m hasta la pared y el primer anaquel a la altura de la cabeza). */
+const AL_MOSTRADOR=P([1.2,-1.8],[.45,-2.45],[-.45,-3.05],[-1.3,-3.42]);
+const DEL_MOSTRADOR_IZQ=P([-1.3,-3.42],[-1.2,-2.75],[-1.28,-2.1],[-1.35,-1.65]);
+const COLMADERO=v3(-2.4,0,-3.95),ANAQUEL=v3(-2.85,0,-4.12),MOSTRADOR=v3(-1.3,0,-3.42);
+const hacia=(a,b)=>Math.atan2(b.x-a.x,b.z-a.z);
 const unir=(...tramos)=>tramos.reduce((a,t)=>a.concat(a.length?t.slice(1):t),[]);
 const vuelta=ps=>ps.slice().reverse();
 const CALLE={
@@ -207,7 +217,7 @@ const CALLE={
 // ── Los vecinos ──────────────────────────────────────────────────────────────────────
 export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
  const listos=[],rigs=[],gente=[],frustum=new THREE.Frustum(),_m=new THREE.Matrix4(),_esfera=new THREE.Sphere(v3(),1.25);
- let ms=0,reloj=0,proxCalle=azar(6,14),proxPatio=azar(20,35),ultimoSaludo=-1e9,saludo=null,apagado=false,forzar=false;
+ let colmadero=null,ms=0,reloj=0,proxCalle=azar(6,14),proxPatio=azar(20,35),ultimoSaludo=-1e9,saludo=null,apagado=false,forzar=false;
 
  /* Prepara cada cuerpo en segundo plano: su máscara, su pose de pie y cuánto avanza por paso. */
  (async()=>{for(const c of cuerpos){if(apagado)return;const reglas=REGLAS[c.nombre];if(!reglas||!c.gltf)continue;
@@ -215,8 +225,9 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   try{const {tex,lums}=await mascara(img,reglas,malla,malla.material.map),cuerpo={...c,reglas,voz:reglas.voz,material:malla.material,mascara:tex,lums,zCiclo:null};
    /* Un vecino ya armado por cuerpo, y el shader compilado, desde ahora: si no, el primero que
       pasa en plena partida trae un tirón (clonar, calibrar el paso, compilar). */
-   await ceder();const g=armar(cuerpo);if(g){rigs.push(g);if(rigs.length===1)await renderer?.compileAsync?.(g.holder,camera,scene).catch(()=>{});}
-   listos.push(cuerpo);}catch(e){console.warn('Transeúnte sin ropa',c.nombre,e);}
+   await ceder();const g=armar(cuerpo);
+   if(c.nombre==='rafa-upright'){if(g)ponerColmadero(g);}
+   else{if(g){rigs.push(g);if(rigs.length===1)await renderer?.compileAsync?.(g.holder,camera,scene).catch(()=>{});}listos.push(cuerpo);}}catch(e){console.warn('Transeúnte sin ropa',c.nombre,e);}
   await ceder();}})();
 
  function armar(cuerpo){
@@ -237,7 +248,7 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   const pieReposo=[h.LeftFoot,h.RightFoot].map(b=>b.getWorldQuaternion(new THREE.Quaternion()));
   // La gorra, colgada de la cabeza: se ubica con la cabeza en reposo.
   let gorra=null;if(cuerpo.voz==='m'&&h.Head){gorra=hacerGorra(malla,h.Head);}
-  const g={cuerpo,root,holder,h,rest,malla,u,base,apoyos,pieReposo,gorra,marcha:0,fase:0,t:0,saluda:0,brazos:0,mirar:v3(),yaw:0,libre:true};
+  const g={cuerpo,root,holder,h,rest,malla,u,base,apoyos,pieReposo,gorra,marcha:0,fase:0,t:0,saluda:0,alcanza:0,alcanzaAlto:0,brazos:0,mirar:v3(),yaw:0,libre:true};
   if(cuerpo.zCiclo==null)cuerpo.zCiclo=calibrar(g);
   return g;
  }
@@ -275,7 +286,7 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   const opciones=listos.filter(c=>!nombre||c.nombre===nombre);if(!opciones.length)return null;
   const cuerpo=uno(opciones);let g=rigs.find(r=>r.libre&&r.cuerpo===cuerpo);
   if(!g){if(rigs.length>=5)return null;g=armar(cuerpo);if(!g)return null;rigs.push(g);}
-  g.libre=false;vestirDeNuevo(g);g.marcha=0;g.fase=Math.random();g.saluda=0;g.t=0;scene.add(g.holder);return g;
+  g.libre=false;vestirDeNuevo(g);g.marcha=0;g.fase=Math.random();g.saluda=0;g.alcanza=0;g.t=0;scene.add(g.holder);return g;
  }
  function soltar(g){g.libre=true;scene.remove(g.holder);const i=gente.indexOf(g);if(i>=0)gente.splice(i,1);}
 
@@ -289,7 +300,7 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
  }
  const giroHacia=(g,yaw,dt,vel=3.2)=>{let d=yaw-g.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));g.yaw+=Math.max(-vel*dt,Math.min(vel*dt,d));g.holder.rotation.y=g.yaw;return Math.abs(d);};
  function andar(g,dt,estado){
-  const tramo=g.guion[g.i];if(!tramo){soltar(g);return;}
+  let tramo=g.guion[g.i];if(!tramo){if(!g.fijo){soltar(g);return;}g.guion=[vigilar()];g.i=0;tramo=g.guion[0];tramo.t0=g.t;}
   g.t+=dt;
   if(tramo.tipo==='ruta'){
    const sigue=g.guion[g.i+1],para=sigue&&sigue.tipo!=='ruta',falta=tramo.largo-tramo.d;
@@ -302,10 +313,15 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
   }else if(tramo.tipo==='quieto'){
    g.marcha=Math.max(0,g.marcha-dt*4);const e=g.t-(tramo.t0??g.t);
    if(tramo.yaw!=null)giroHacia(g,tramo.yaw,dt,2.2);
-   // En el mostrador mira los anaqueles y, cada tanto, la nevera.
-   if(tramo.mira)g.mirar.lerp(tramo.mirarLejos&&Math.floor(e/7)%3===1?NEVERA:tramo.mira,1-Math.exp(-dt*3));
+   if(tramo.miraA?.h?.Head)tramo.mira=tramo.miraA.h.Head.getWorldPosition(tramo.mira||v3());
+   else if(tramo.vigila)tramo.mira=vigilando(tramo,estado);
+   if(tramo.mira)g.mirar.lerp(tramo.mira,1-Math.exp(-dt*3));
+   if(tramo.atender&&!tramo.pedido){tramo.pedido=true;if(colmadero)servir(colmadero,g);}
+   // Alcanzar (un anaquel, o dar y recibir): sube y baja suave dentro del tramo.
+   if(tramo.brazo){const k=Math.min(1,e/.6,(tramo.dur-e)/.6);g.alcanza=Math.max(0,k);g.alcanzaAlto=tramo.brazo.alto;
+    const o=tramo.brazo.entrega;if(o&&!o.libre){o.alcanza=g.alcanza;o.alcanzaAlto=.1;}}
    if(tramo.saludo)saludar(g,tramo,e,estado);
-   if(e>=tramo.dur){g.i++;if(g.guion[g.i])g.guion[g.i].t0=g.t;g.saluda=0;}
+   if(e>=tramo.dur){g.i++;if(g.guion[g.i])g.guion[g.i].t0=g.t;g.saluda=0;if(tramo.brazo){g.alcanza=0;if(tramo.brazo.entrega)tramo.brazo.entrega.alcanza=0;}}
   }
  }
 
@@ -326,14 +342,41 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
    dispatchEvent(new CustomEvent('mesa:saludo',{detail:{seat:tramo.seat,voz:g.cuerpo.voz,pos:cab.toArray()}}));}
  }
 
+ /* El colmadero: siempre en la punta del mostrador. Vigila la mesa y la calle; cuando llega
+    alguien, lo mira, va al anaquel, estira el brazo, vuelve y se lo da (y el otro lo recibe). */
+ function ponerColmadero(g){
+  g.libre=false;g.fijo=true;g.zona='colmado';colmadero=g;g.velocidad=.8;
+  g.u.colCamisa.value.set('#3e6a47');g.u.colPantalon.value.set('#23262d');g.u.tonoPiel.value.setRGB(.74,.68,.64);
+  if(g.gorra){g.gorra.visible=true;g.gorra.children.forEach(c=>c.material.color.set('#a1302a'));}
+  g.holder.scale.set(1.04,1.03,1.04);g.malla.castShadow=true;
+  g.holder.position.copy(COLMADERO);g.yaw=.5;g.holder.rotation.y=g.yaw;g.mirar.set(0,.8,0);
+  g.guion=[vigilar()];g.i=0;g.guion[0].t0=0;scene.add(g.holder);
+ }
+ function vigilar(){return {tipo:'quieto',dur:1e9,yaw:.5,vigila:true};}
+ function vigilando(tramo,estado){
+  if(tramo.cambio&&reloj<tramo.cambio)return tramo.mira;
+  tramo.cambio=reloj+azar(3,6.5);const v=estado?.view,r=Math.random(),cab=estado?.cabezas,alguien=gente.find(g=>g.zona==='patio');
+  if(alguien&&r<.25)return alguien.h.Head.getWorldPosition(v3());
+  if(v?.phase==='playing'&&r<.55&&cab?.[v.turn])return cab[v.turn].clone();
+  if(r<.8)return v3(azar(-.3,.3),.8,azar(-.3,.3));
+  return v3(azar(-4,4),1.5,6);
+ }
+ function servir(c,cliente){
+  const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),ida=hacia(COLMADERO,ANAQUEL),vuelta_=hacia(ANAQUEL,COLMADERO),alCliente=hacia(COLMADERO,MOSTRADOR);
+  c.guion=[quieto(1.4,{yaw:alCliente,miraA:cliente}),quieto(.7,{yaw:ida}),ruta(P([COLMADERO.x,COLMADERO.z],[ANAQUEL.x,ANAQUEL.z]),.8),
+   quieto(2.2,{yaw:-Math.PI/2,mira:v3(-3.4,1.75,-4.12),brazo:{alto:1}}),quieto(.7,{yaw:vuelta_}),ruta(P([ANAQUEL.x,ANAQUEL.z],[COLMADERO.x,COLMADERO.z]),.8),
+   quieto(2.4,{yaw:alCliente,miraA:cliente,brazo:{alto:.15,entrega:cliente}}),quieto(4,{yaw:alCliente,miraA:cliente})];
+  for(const t of c.guion)if(t.tipo==='ruta')t.v=c.velocidad;
+  c.i=0;c.guion[0].t0=c.t;
+ }
  function cliente(g){
   const derecha=Math.random()<.6,saluda=Math.random()<.5,guion=[];
   // Entra por la derecha (la calle de al lado) o por la izquierda (la acera de los vecinos).
-  if(derecha)guion.push(ruta(unir(PATIO_DER,AL_MOSTRADOR.slice(0,1)),1));
-  else guion.push(ruta(unir(vuelta(PATIO_IZQ),vuelta(PATIO_MEDIO)),1));
+  guion.push(ruta(derecha?PATIO_DER:vuelta(PATIO_IZQ),1));
   if(saluda)guion.push({tipo:'quieto',dur:3.2,saludo:true});
-  guion.push(ruta(AL_MOSTRADOR,1));
-  guion.push({tipo:'quieto',dur:azar(16,32),yaw:Math.PI,mira:v3(.45,1.35,-4.4),mirarLejos:true});
+  guion.push(ruta(derecha?AL_MOSTRADOR:vuelta(DEL_MOSTRADOR_IZQ),1));
+  // En el mostrador, de cara al colmadero, que lo atiende.
+  guion.push(colmadero?{tipo:'quieto',dur:azar(14,24),yaw:hacia(MOSTRADOR,COLMADERO),miraA:colmadero,atender:true}:{tipo:'quieto',dur:azar(14,24),yaw:Math.PI,mira:v3(-.6,1.35,-4.4)});
   if(Math.random()<.6)guion.push(ruta(unir(DEL_MOSTRADOR_IZQ,PATIO_IZQ),1));
   else guion.push(ruta(unir(vuelta(AL_MOSTRADOR),vuelta(PATIO_DER)),1));
   return guion;
@@ -350,7 +393,7 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
    const g=sacar();if(g)poner(g,Math.random()<.65?cliente(g):deCamino(),'patio');}
   camera.updateMatrixWorld();frustum.setFromProjectionMatrix(_m.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
   const t0=performance.now();
-  for(const g of gente.slice()){andar(g,dt,estado);if(g.libre)continue;
+  for(const g of colmadero?[colmadero,...gente]:gente.slice()){andar(g,dt,estado);if(g.libre)continue;
    _esfera.center.copy(g.holder.position).y+=.9;
    if(frustum.intersectsSphere(_esfera))posar(g);}
   ms+=(performance.now()-t0-ms)*.05;
@@ -359,5 +402,5 @@ export function crearTranseuntes({scene,camera,renderer,cuerpos,pocos=false}){
  window.mesaTranseunte=(tipo='cliente',nombre,donde)=>{if(tipo==='posa'){const g=sacar(nombre);if(!g)return false;const [x,z,yaw=0]=donde;poner(g,[ruta(P([x-Math.sin(yaw)*.3,z-Math.cos(yaw)*.3],[x,z]),1),{tipo:'quieto',dur:1e4}],'patio');return true;}
   const g=sacar(nombre);if(!g)return false;poner(g,tipo==='cliente'?cliente(g):tipo==='saluda'?(()=>{const s=cliente(g);if(!s.some(t=>t.saludo))s.splice(1,0,{tipo:'quieto',dur:3.2,saludo:true});forzar=true;return s;})():tipo==='calle'?[ruta(CALLE.enfrente(),1)]:deCamino(),tipo==='calle'?'calle':'patio');return true;};
  window.mesaGente=()=>gente.map(g=>({cuerpo:g.cuerpo.nombre,pos:g.holder.position.toArray().map(x=>+x.toFixed(2)),marcha:+g.marcha.toFixed(2),tramo:g.i}));
- return {update,get saludo(){return saludo;},get ms(){return ms;},get listos(){return listos.length;},dispose(){apagado=true;for(const g of rigs)scene.remove(g.holder);}};
+ return {update,get saludo(){return saludo;},get ms(){return ms;},get listos(){return listos.length;},dispose(){apagado=true;for(const g of rigs)scene.remove(g.holder);if(colmadero)scene.remove(colmadero.holder);}};
 }

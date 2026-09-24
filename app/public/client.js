@@ -166,7 +166,7 @@ function soltarLogo(){for(const i of document.querySelectorAll('.logo-titulo img
 function precargarMundo(){if(worldPromise)return;setTimeout(()=>{if(page!=='home'||worldPromise)return;ensureWorld('attract');dormirMundo();worldPromise?.then(()=>{if(page!=='room')dormirMundo();});},1200);}
 const dormirMundo=()=>{document.body.classList.add('phone-mode');world?.pause?.();};
 
-const legales=()=>{const l=idioma()==='en'?'?lang=en':'';return `<nav class="legales"><a href="/precios.html${l}">${t('precios')}</a><a href="/legal/terminos.html${l}">${t('terminos')}</a><a href="/legal/privacidad.html${l}">${t('privacidad')}</a></nav>`;};
+const legales=()=>{const l=idioma()==='en'?'?lang=en':'';return `<nav class="legales"><a href="/preguntas.html${l}">${t('preguntas')}</a><a href="/precios.html${l}">${t('precios')}</a><a href="/legal/terminos.html${l}">${t('terminos')}</a><a href="/legal/privacidad.html${l}">${t('privacidad')}</a></nav>`;};
 
 /* ── Recibir estado ───────────────────────────────────────────────────────── */
 function receive(v,presence=[]){

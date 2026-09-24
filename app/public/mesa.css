@@ -540,3 +540,5 @@ body.te-toca .control .hand-tiles{animation:sacudir .45s .3s both}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .reduced *,.reduced *::before,.reduced *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 @media (max-width:900px){.practica .game-hand-dock{bottom:calc(var(--margen) * .7 + var(--seguro-abajo) + 3.2rem)}}
+/* Portada en el teléfono: el crédito del estudio arriba y los enlaces abajo (en una fila no caben los cuatro). */
+@media (max-width:520px){.portada .game-bottom{flex-direction:column-reverse;align-items:center;gap:.7rem}}

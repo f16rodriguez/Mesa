@@ -1,10 +1,10 @@
 {
  "Caminar": {
-  "duracion": 4.2333,
-  "paso": 2.8453,
+  "duracion": 1.3667,
+  "paso": 0.9576,
   "cadera": 0.9064,
-  "avance": 0.0108,
-  "cuadros": 127
+  "avance": 0.0,
+  "cuadros": 41
  },
  "Esperar": {
   "duracion": 4.0333,

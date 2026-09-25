@@ -1,8 +1,8 @@
 {
  "carmen": {
   "Caminar": {
-   "duracion": 1,
-   "paso": 1.2666,
+   "duracion": 1.3667,
+   "paso": 0.995,
    "cadera": 0.9398
   },
   "Esperar": {
@@ -23,8 +23,8 @@
  },
  "chela": {
   "Caminar": {
-   "duracion": 1,
-   "paso": 1.2173,
+   "duracion": 1.3667,
+   "paso": 0.9454,
    "cadera": 0.8981
   },
   "Esperar": {
@@ -45,8 +45,8 @@
  },
  "colmadero": {
   "Caminar": {
-   "duracion": 4.2333,
-   "paso": 2.9774,
+   "duracion": 1.3667,
+   "paso": 1.0021,
    "cadera": 0.9489
   },
   "Esperar": {
@@ -68,12 +68,17 @@
    "duracion": 6.5,
    "paso": 0.0321,
    "cadera": 0.9489
+  },
+  "Dar": {
+   "duracion": 2.0333,
+   "paso": 0.0057,
+   "cadera": 0.9489
   }
  },
  "luis-upright": {
   "Caminar": {
-   "duracion": 4.2333,
-   "paso": 2.8453,
+   "duracion": 1.3667,
+   "paso": 0.9576,
    "cadera": 0.9064
   },
   "Esperar": {
@@ -94,8 +99,8 @@
  },
  "marisol": {
   "Caminar": {
-   "duracion": 1,
-   "paso": 1.2382,
+   "duracion": 1.3667,
+   "paso": 0.9726,
    "cadera": 0.9197
   },
   "Esperar": {
@@ -143,8 +148,8 @@
  },
  "papo": {
   "Caminar": {
-   "duracion": 4.2333,
-   "paso": 3.1291,
+   "duracion": 1.3667,
+   "paso": 1.0477,
    "cadera": 0.97
   },
   "Esperar": {
@@ -192,8 +197,8 @@
  },
  "tata": {
   "Caminar": {
-   "duracion": 1,
-   "paso": 1.0356,
+   "duracion": 1.3667,
+   "paso": 0.8709,
    "cadera": 0.7855
   },
   "Esperar": {
@@ -214,8 +219,8 @@
  },
  "yari": {
   "Caminar": {
-   "duracion": 1,
-   "paso": 1.2866,
+   "duracion": 1.3667,
+   "paso": 1.0157,
    "cadera": 0.9658
   },
   "Esperar": {
@@ -236,8 +241,8 @@
  },
  "yuni": {
   "Caminar": {
-   "duracion": 4.2333,
-   "paso": 2.6498,
+   "duracion": 1.3667,
+   "paso": 0.9767,
    "cadera": 0.9424
   },
   "Esperar": {

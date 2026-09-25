@@ -10,10 +10,25 @@
 #
 #   blender -b --python scripts/manos/animar.py -- personaje.glb salida.glb Nombre=clip.glb[:sitio] ...
 #
+# Los clips de la Universal Animation Library de Quaternius (CC0; esqueleto tipo Unreal: pelvis,
+# spine_01…, upperarm_l…) se reconocen solos por sus huesos: se buscan por el mapa de abajo y,
+# como su reposo es una T perfecta y el de Meshy tiene los brazos caídos y doblados y los pies
+# abiertos, a brazos y piernas se les corrige además la DIRECCIÓN: cada hueso apunta a donde
+# apunta el suyo en el clip (el giro sobre su eje sigue saliendo de la rotación relativa).
+#
 # ":sitio" quita el avance de la cadera (el juego mueve a la persona por su camino). Para los clips
 # de caminar se mide además el PASO: cuánto retrocede el pie apoyado en un ciclo, que es lo que la
 # persona tiene que avanzar para que los pies no patinen. Todo va a salida.json.
 import bpy, sys, json, mathutils
+UAL = {'Hips': 'pelvis', 'Spine02': 'spine_01', 'Spine01': 'spine_02', 'Spine': 'spine_03', 'neck': 'neck_01', 'Head': 'Head'}
+for L, l in (('Left', 'l'), ('Right', 'r')):
+    UAL.update({L + 'Shoulder': 'clavicle_' + l, L + 'Arm': 'upperarm_' + l, L + 'ForeArm': 'lowerarm_' + l, L + 'Hand': 'hand_' + l,
+                L + 'UpLeg': 'thigh_' + l, L + 'Leg': 'calf_' + l, L + 'Foot': 'foot_' + l, L + 'ToeBase': 'ball_' + l})
+# Los que se corrigen por dirección, y hacia qué hueso apuntan (sin hijo: su propia cola).
+APUNTA = {}
+for L in ('Left', 'Right'):
+    APUNTA.update({L + 'Arm': L + 'ForeArm', L + 'ForeArm': L + 'Hand', L + 'Hand': None,
+                   L + 'UpLeg': L + 'Leg', L + 'Leg': L + 'Foot', L + 'Foot': L + 'ToeBase', L + 'ToeBase': None})
 args = sys.argv[sys.argv.index('--') + 1:]
 tgt, out, pedidos = args[0], args[1], args[2:]
 
@@ -61,16 +76,19 @@ for pedido in pedidos:
     if accion:
         S.animation_data.action = next(a for a in bpy.data.actions if a not in antes_acc and a.name.startswith(accion))
     clip = S.animation_data.action
+    # ¿Esqueleto de la librería (pelvis) o de Meshy (Hips)?
+    MAPA = UAL if 'pelvis' in S.pose.bones and 'Hips' not in S.pose.bones else None
+    fuente = (lambda n: MAPA.get(n, '')) if MAPA else (lambda n: n)
     f0, f1 = int(round(clip.frame_range[0])), int(round(clip.frame_range[1]))
     if instante is not None: f0 = int(round(instante * sc.render.fps)); f1 = f0 + 1
-    nombres = [n for n in orden if n in S.pose.bones]
+    nombres = [n for n in orden if fuente(n) in S.pose.bones]
     Sw = S.matrix_world.copy()
-    restS = {n: Sw @ S.data.bones[n].matrix_local for n in nombres}
+    restS = {n: Sw @ S.data.bones[fuente(n)].matrix_local for n in nombres}
     k = restT['Hips'].translation.z / restS['Hips'].translation.z
     cad = []
     for f in range(f0, f1 + 1):
         sc.frame_set(f)
-        cad.append(((Sw @ S.pose.bones['Hips'].matrix).translation - restS['Hips'].translation) * k)
+        cad.append(((Sw @ S.pose.bones[fuente('Hips')].matrix).translation - restS['Hips'].translation) * k)
     n = len(cad); avance = cad[-1] - cad[0]
 
     T.animation_data.action = nueva = bpy.data.actions.new(nombre); nueva.use_fake_user = True
@@ -79,9 +97,17 @@ for pedido in pedidos:
     for j, f in enumerate(range(f0, f1 + 1)):
         sc.frame_set(f)
         for nb in nombres:
-            pS = Sw @ S.pose.bones[nb].matrix
+            pS = Sw @ S.pose.bones[fuente(nb)].matrix
             q = (pS.to_quaternion() @ restS[nb].to_quaternion().inverted()) @ restT[nb].to_quaternion()
             pb = T.pose.bones[nb]
+            if MAPA and nb in APUNTA:
+                # Hacia dónde apunta el hueso en el clip, y hacia dónde quedaría con la rotación relativa.
+                sb = S.pose.bones[fuente(nb)]; hijo = APUNTA[nb]
+                a0 = Sw @ sb.head; a1 = Sw @ (S.pose.bones[fuente(hijo)].head if hijo else sb.tail)
+                tb = T.data.bones[nb]; r0 = tb.head_local; r1 = T.data.bones[hijo].head_local if hijo else tb.tail_local
+                eje = (Tw.to_3x3() @ (r1 - r0)); eje = restT[nb].to_quaternion().inverted() @ eje   # el hueso en su propio marco de reposo
+                ahora = (q @ eje).normalized(); quiero = (a1 - a0).normalized()
+                q = ahora.rotation_difference(quiero) @ q
             # Se arma la matriz en el espacio de la armadura, con escala 1: la armadura trae
             # escala 0,01 (huesos en cm) y armarla en el mundo le metía 100× a cada hueso.
             if nb == 'Hips':

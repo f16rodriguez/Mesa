@@ -91,9 +91,12 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   **Ninguna cara sale dos veces**: los que pasan por la calle, entran al colmado o miran desde atrás
   salen de los seis que no están sentados. Cada uno es un GLB de Meshy (`public/models/<modelo>.glb`)
   y otro de solo animación (`public/models/anim/<modelo>.glb`: Caminar, Esperar, Saludar, Conversar;
-  Sentado para los que se sientan con la pose de Luis; Atender para Kiko), clips de captura de
+  Sentado para los que se sientan con la pose de Luis; Atender y Dar para Kiko), clips de captura de
   movimiento pasados a cada esqueleto en Blender con `scripts/manos/animar.py` (rotación en el mundo
-  relativa al reposo; el paso medido evita que los pies patinen). Se alumbran solos con su textura:
+  relativa al reposo; el paso medido evita que los pies patinen). Caminar y Dar salen de la Universal
+  Animation Library de Quaternius (CC0; `animar.py` reconoce su esqueleto y corrige la dirección de
+  brazos y piernas, porque su reposo es una T y el de Meshy no); Don Rafa y Nando conservan el
+  caminar de Meshy para que no todos anden igual. El resto de los clips son de Meshy. Se alumbran solos con su textura:
   la emisiva va a `LUZ_PROPIA` (.4) para que la ropa tome luz y sombra de la escena. Nada de teñir
   ropa ni poner gorras en el shader: se quitó porque se veía mal. Voces: cada bot tiene las suyas
   en español y en inglés (el inglés clonado de su toma en español, con su acento).

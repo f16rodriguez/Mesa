@@ -55,6 +55,8 @@ function cabeza(g,peso){
   _d.subVectors(g.mirar,_a).normalize();const ang=_u.angleTo(_d);if(ang<1e-3)continue;
   giraEnMundo(hueso,_q2.identity().slerp(_q.setFromUnitVectors(_u,_d),peso*parte*Math.min(ang,1.1)/ang));}
 }
+/** En el clip Dar (Interact), cuándo está el brazo estirado del todo, en segundos. */
+const DAR_PICO=1;
 /** El brazo derecho que alcanza: arriba a un anaquel (alto 1) o al frente, a dar o recibir (0). */
 function alcanzar(g){
  const k=suave(g.alcanza),a=g.alcanzaAlto||0,H=g.h;if(k<=0||!H.RightArm)return;
@@ -107,11 +109,11 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   const d=t.datos.Caminar,vClip=d?d.paso/d.duracion:1.1;
   return {t,p:t.p,root,holder,h,malla,mixer,acc,actual:null,vClip,marcha:0,t:0,alcanza:0,alcanzaAlto:0,mirar:v3(0,1.4,5),mira:0,yaw:0};
  }
- /** Cambia de clip con un cruce suave. Saludar va una sola vez y se queda en su último cuadro. */
+ /** Cambia de clip con un cruce suave. Saludar y Dar van una sola vez y se quedan en su último cuadro. */
  function jugar(g,nombre,cruce=.4){
   if(g.actual===nombre)return;const a=g.acc[nombre]||g.acc.Esperar;if(!a)return;
   a.reset();a.setEffectiveTimeScale(1);a.setEffectiveWeight(1);
-  if(nombre==='Saludar'){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true;}
+  if(nombre==='Saludar'||nombre==='Dar'){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true;}
   a.fadeIn(cruce).play();
   const antes=g.actual&&g.acc[g.actual];if(antes&&antes!==a)antes.fadeOut(cruce);
   g.actual=nombre;
@@ -167,7 +169,9 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
    // Alcanzar (un anaquel, o dar y recibir): sube y baja suave dentro del tramo.
    if(tramo.brazo){const k=Math.min(1,e/.6,(tramo.dur-e)/.6);g.alcanza=Math.max(0,k);g.alcanzaAlto=tramo.brazo.alto;
     const o=tramo.brazo.entrega;if(o&&gente.includes(o)){o.alcanza=g.alcanza;o.alcanzaAlto=.1;}}
-   if(e>=tramo.dur){g.i++;if(g.guion[g.i])g.guion[g.i].t0=g.t;if(tramo.brazo){g.alcanza=0;if(tramo.brazo.entrega)tramo.brazo.entrega.alcanza=0;}}
+   // Kiko da con su clip (Dar): el brazo llega al frente a ~1 s, y ahí el cliente estira el suyo a tomarlo.
+   const r=tramo.recibe;if(r&&gente.includes(r)){r.alcanza=Math.max(0,1-Math.abs(e-DAR_PICO)/.55);r.alcanzaAlto=.1;}
+   if(e>=tramo.dur){g.i++;if(g.guion[g.i])g.guion[g.i].t0=g.t;if(tramo.brazo){g.alcanza=0;if(tramo.brazo.entrega)tramo.brazo.entrega.alcanza=0;}if(r)r.alcanza=0;}
   }
  }
 
@@ -208,9 +212,11 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
  }
  function servir(c,cliente){
   const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),anaquel=v3(COLMADERO.x+azar(-.5,.5),1.72,-4.8);
-  // Lo mira, se vira al anaquel de atrás, estira el brazo, se vira y se lo da por encima del mostrador.
+  // Lo mira, se vira al anaquel de atrás, estira el brazo, se vira y se lo da por encima del mostrador
+  // (con el clip 'Dar', de la librería de Quaternius; si no lo tiene, con el brazo armado a mano).
+  const dar=c.acc.Dar?quieto(2.1,{yaw:0,miraA:cliente,clip:'Dar',recibe:cliente}):quieto(2.4,{yaw:0,miraA:cliente,brazo:{alto:.15,entrega:cliente}});
   c.guion=[quieto(1.4,{yaw:0,miraA:cliente}),quieto(.9,{yaw:Math.PI,mira:anaquel}),quieto(2.2,{yaw:Math.PI,mira:anaquel,brazo:{alto:1}}),
-   quieto(.9,{yaw:0,miraA:cliente}),quieto(2.4,{yaw:0,miraA:cliente,brazo:{alto:.15,entrega:cliente}}),quieto(4,{yaw:0,miraA:cliente,clip:'Conversar'})];
+   quieto(.9,{yaw:0,miraA:cliente}),dar,quieto(4,{yaw:0,miraA:cliente,clip:'Conversar'})];
   c.i=0;c.guion[0].t0=c.t;
  }
  function cliente(){
@@ -255,6 +261,8 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   const s=tipo==='calle'?[ruta(CALLE.enfrente())]:tipo==='cruza'?deCamino():cliente();
   if(tipo==='saluda'){if(!s.some(t=>t.saludo))s.splice(1,0,{tipo:'quieto',dur:3.6,saludo:true});forzar=true;}
   poner(g,s,tipo==='calle'?'calle':'patio');return true;};
+ window.mesaServir=()=>{const g=gente[gente.length-1];if(!colmadero||!g)return false;servir(colmadero,g);return true;};
+ window.mesaKiko=()=>colmadero&&{clip:colmadero.actual,tramo:colmadero.i};
  window.mesaGente=()=>gente.map(g=>({quien:g.p.id,pos:g.holder.position.toArray().map(x=>+x.toFixed(2)),clip:g.actual,marcha:+g.marcha.toFixed(2),tramo:g.i}));
  return {update,get saludo(){return saludo;},get ms(){return ms;},andando:()=>gente.map(g=>g.p.id),dispose(){apagado=true;for(const g of gente.slice())soltar(g);if(colmadero)scene.remove(colmadero.holder);}};
 }

@@ -31,6 +31,13 @@ gana la pareja con menos pips, suma los del contrario; empate → gana quien tra
 (configurable). Capicúa +25 (configurable). Serie a 200. Zapato = 200 a 0.
 Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
 
+**1 contra 1** (25 sep 2026; así por defecto hasta que Trey diga otra cosa): se escoge en el lobby
+o en la práctica. 7 fichas cada uno y 14 al pozo. Quien no lleva roba de a una hasta que le pegue;
+solo pasa con el pozo vacío. La primera mano la sale el doble más alto que haya en mano (sin dobles,
+la ficha más pesada); después, quien ganó. Tranque por puntos, como a cuatro; si la mesa se tranca
+con fichas en el pozo, el siguiente se las lleva (las habría robado todas antes de pasar). Regla de
+casa: sin pozo (las 14 duermen y nadie roba). El pozo nunca sale en una vista, solo cuántas quedan.
+
 ## Decisiones de producto ya tomadas
 
 - Nombre: **Mesa**. Pendiente verificar disponibilidad en tiendas/marca.
@@ -99,16 +106,24 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   caminar de Meshy para que no todos anden igual. El resto de los clips son de Meshy. Se alumbran solos con su textura:
   la emisiva va a `LUZ_PROPIA` (.3) para que la ropa tome luz y sombra de la escena, y las normales
   vienen suavizadas (`scripts/manos/suavizar.py`: Meshy las parte en cada arista y la cara salía facetada). Nada de teñir
-  ropa ni poner gorras en el shader: se quitó porque se veía mal. Voces: cada bot tiene las suyas
+  ropa ni poner gorras en el shader: se quitó porque se veía mal. **Dedos**: dos huesos por mano
+  (`Dedos1`, `Dedos2`, `scripts/manos/dedos.py`) que giran sobre el eje de los nudillos; en reposo la
+  mano queda como viene (curvada), `dedos.js` la abre o la cierra. No hay un hueso por dedo: vienen
+  pegados, con ~500 vértices la mano, y se romperían. La pose de cada cuadro (`capturePose`) no los toca. Voces: cada bot tiene las suyas
   en español y en inglés (el inglés clonado de su toma en español, con su acento).
 - **La gente que pasa** (`app/src/transeuntes.js`): vecinos por la acera de enfrente y la calle de
   al lado, y cada minuto o dos alguien cruza el patio o entra a comprar al colmado. Muy de vez en
   cuando (el primero pasado el minuto, luego cada ≥4 min) el cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo`
-  en `bot-chatter.js`; audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la
+  en `bot-chatter.js`; audios en `audio/calle/` y `audio/bots/<bot>/`). El saludo es la barbilla arriba
+  y un cabeceo (`saludo.js`), con la mano que sube abierta hasta el hombro (la subida del clip Saludar,
+  parado y al revés: nada de menear la mano); el bot que contesta hace la barbilla y el cabeceo sentado. En la vista de juego la
   cámara mira hacia abajo y al que está de pie se le ve de la cintura para abajo; en el lobby se ve
   entero. Kiko atiende detrás del mostrador: lo mira, se vira al anaquel, estira el brazo y se lo da
   por encima. El mostrador (`MOSTRADOR` en `scene-layout.ts`) tiene el tope a 1,06 m y está corrido
   hacia la calle para que él quepa; lo que va encima y su frente de vitrinas se calculan de ahí.
+- **En línea y la Liga, en la portada como Próximamente** (25 sep 2026), cada una con su lista de
+  espera (`/api/lista`, tablas `waitlist` y `waitlist_liga`). La tarjeta de la Liga no promete ranked
+  ni pone precio todavía.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

@@ -21,8 +21,11 @@ export const meta: {
   maxPlayers: number;
 };
 
-/** Build the initial state for these seated players (in join order). */
-export function setup(players: string[]): unknown;
+/** Build the initial state for these seated players (in join order): 4 seats, or 2 for uno contra uno. */
+export function setup(players: string[], n?: 2 | 4): unknown;
+
+/** The same lobby with `n` seats, people first and in order; null if they do not fit or it is not the lobby. */
+export function seatsFor(state: unknown, n: number): unknown | null;
 
 /**
  * May `playerId` play `action` against `state`? Called BEFORE any mutation, and

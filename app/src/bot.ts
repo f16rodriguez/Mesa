@@ -21,7 +21,7 @@
  */
 export type Tile = { id: string; a: number; b: number };
 export type Option = { tile: string; side: 'left' | 'right' };
-export type Move = { type: 'play'; seat: number; tile: string; side: 'left' | 'right' } | { type: 'pass' | 'draw'; seat: number };
+export type Move = { type: 'play'; seat: number; tile: string; side: 'left' | 'right' } | { type: 'pass'; seat: number } | { type: 'draw'; seat: number };
 export type View = {
   hand: Tile[]; legal: Option[]; left: number | null; right: number | null;
   counts: number[]; moves: Move[]; seat: number; chain: { a: number; b: number }[];

@@ -128,16 +128,16 @@ describe('uno contra uno',()=>{
  });
  it('draws one tile per tap only with nothing that fits, and passes only once the pozo is empty',()=>{
   let s=two();s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.hands=[[t(0,1),t(2,3)],[t(4,5)]];s.pozo=[t(1,1),t(5,6),t(0,0)];
-  expect(L.validateAction(s,'a',{type:'pass'}).error).toBe('Draw from the boneyard first.');
+  expect((L.validateAction(s,'a',{type:'pass'}) as any).error).toBe('Draw from the boneyard first.');
   expect((L.viewFor(s,'a') as any).canDraw).toBe(true);expect((L.viewFor(s,'a') as any).canPass).toBe(false);
   s=play(s,'a',{type:'draw'});expect(s.turn).toBe(0);expect(s.hands[0].length).toBe(3);expect(s.moves.at(-1)).toEqual({type:'draw',seat:0});
-  s=play(s,'a',{type:'draw'});expect(L.validateAction(s,'a',{type:'draw'}).error).toBe('You have a legal tile. Play it instead of drawing.');
+  s=play(s,'a',{type:'draw'});expect((L.validateAction(s,'a',{type:'draw'}) as any).error).toBe('You have a legal tile. Play it instead of drawing.');
   s=play(s,'a',{type:'play',tile:'5-6',side:'right'});expect(s.turn).toBe(1);expect(s.pozo.length).toBe(1);
-  expect(L.validateAction(s,'bot-1',{type:'draw'}).error).toBe('You have a legal tile. Play it instead of drawing.');
+  expect((L.validateAction(s,'bot-1',{type:'draw'}) as any).error).toBe('You have a legal tile. Play it instead of drawing.');
  });
  it('without the pozo, the fourteen sleep: nobody draws and a pass is a pass',()=>{
   let s=two(false);s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.hands=[[t(0,1)],[t(4,6)]];
-  expect(L.validateAction(s,'a',{type:'draw'}).error).toBe('This table plays without drawing.');
+  expect((L.validateAction(s,'a',{type:'draw'}) as any).error).toBe('This table plays without drawing.');
   s=play(s,'a',{type:'pass'});expect(s.turn).toBe(1);expect(s.pozo.length).toBe(14);
  });
  it('scores a dominó from the one opponent and a tranque by pips, winner leading next',()=>{

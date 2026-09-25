@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {DIM,seats} from './scene-layout.ts';
 /**
  * Lo que se toma en la mesa, a tamaño real y en la esquina de la mesa que
@@ -7,7 +8,9 @@ import {DIM,seats} from './scene-layout.ts';
  *
  * - Presidente: la jumbo verde de 650 ml, sudada. Etiqueta genérica blanca
  *   con franja roja — se parece, no la copia.
- * - Morir soñando: jugo de naranja con leche en vaso alto, con hielo.
+ * - Morir soñando: jugo de naranja con leche en vaso alto, con hielo, espuma, su rueda
+ *   de naranja en el borde (lo que lo distingue de un café con leche desde la tele) y
+ *   servilleta. Se bebe por el sorbete.
  * - Cafecito: taza con plato (un poco más grande que una tacita: desde la tele se tiene que ver).
  *
  * Cada bebida dice dónde se agarra (alto), qué tan ancha es (radio), cuánto se
@@ -37,14 +40,45 @@ function presidente(){
  const hondo=new THREE.Mesh(new THREE.CircleGeometry(.0112,16),new THREE.MeshBasicMaterial({color:'#0d160c'}));hondo.rotation.x=-Math.PI/2;hondo.position.y=.245;g.add(hondo);   // la oscuridad de adentro, se ve por la boca
  return {g,alto:.11,radio:.037,inclina:1.25,boca:.18};
 }
+/** La rueda de naranja del borde: cáscara, su blanco y los gajos, pintados en un canvas. */
+function rodaja(){
+ const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),m=64;
+ g.fillStyle='#e07a16';g.beginPath();g.arc(m,m,64,0,Math.PI*2);g.fill();
+ g.fillStyle='#f6e7c6';g.beginPath();g.arc(m,m,56,0,Math.PI*2);g.fill();
+ for(let k=0;k<10;k++){const a=k*Math.PI/5;g.fillStyle=k%2?'#f39a2c':'#f7a93f';g.beginPath();g.moveTo(m+Math.cos(a+.05)*6,m+Math.sin(a+.05)*6);g.arc(m,m,51,a+.05,a+Math.PI/5-.05);g.closePath();g.fill();}
+ g.fillStyle='#fbe3b4';g.beginPath();g.arc(m,m,5,0,Math.PI*2);g.fill();
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+/** La servilleta de papel del colmado, doblada en cuatro: se queda en la mesa como el plato del café. */
+function servilleta(){
+ const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+ g.fillStyle='#f3efe6';g.fillRect(0,0,64,64);g.fillStyle='rgba(120,110,90,.16)';g.fillRect(31,0,2,64);g.fillRect(0,31,64,2);
+ g.strokeStyle='rgba(120,110,90,.1)';g.lineWidth=1;g.strokeRect(3,3,58,58);
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+ const m=new THREE.Mesh(new THREE.PlaneGeometry(.1,.1),new THREE.MeshStandardMaterial({map:t,roughness:.95}));m.rotation.set(-Math.PI/2,0,.35);
+ const g2=new THREE.Group();g2.add(m);return g2;
+}
 function morir(){
- const g=new THREE.Group();
- const vaso=new THREE.Mesh(new THREE.CylinderGeometry(.034,.029,.14,24,1,true),new THREE.MeshStandardMaterial({color:'#dfe9ec',roughness:.08,transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide}));vaso.position.y=.07;vaso.renderOrder=2;g.add(vaso);
- const fondo=new THREE.Mesh(new THREE.CylinderGeometry(.029,.029,.008,24),new THREE.MeshStandardMaterial({color:'#dfe9ec',roughness:.1,transparent:true,opacity:.5}));fondo.position.y=.004;g.add(fondo);
- const jugo=new THREE.Mesh(new THREE.CylinderGeometry(.0318,.0285,.112,24),new THREE.MeshStandardMaterial({color:'#f2bf86',roughness:.45}));jugo.position.y=.064;g.add(jugo);
- for(const [x,z,r] of [[.01,.006,.4],[-.009,-.008,1.1],[.002,-.012,2]]){const hielo=new THREE.Mesh(new THREE.BoxGeometry(.016,.013,.016),new THREE.MeshStandardMaterial({color:'#f6f3ec',roughness:.15,transparent:true,opacity:.8}));hielo.position.set(x,.121,z);hielo.rotation.set(r,r*.7,0);g.add(hielo);}
- const pajita=new THREE.Mesh(new THREE.CylinderGeometry(.0028,.0028,.19,8),new THREE.MeshStandardMaterial({color:'#c8392e',roughness:.5}));pajita.position.set(.012,.11,.004);pajita.rotation.z=-.16;g.add(pajita);
- return {g,alto:.06,radio:.034,inclina:.85,boca:.09};
+ // Vaso alto de vidrio grueso: pared y fondo con grosor, y el borde más claro, que es lo que dice "vidrio" desde la tele.
+ const g=new THREE.Group(),P=(r,y)=>new THREE.Vector2(r,y),H=.14;
+ const vidrio=new THREE.MeshStandardMaterial({color:'#e4eef1',roughness:.05,transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide,envMapIntensity:1.6});
+ const vaso=new THREE.Mesh(new THREE.LatheGeometry([P(0,.001),P(.028,0),P(.0295,.004),P(.034,H),P(.0316,H),P(.0272,.012),P(0,.012)],28),vidrio);vaso.renderOrder=2;g.add(vaso);
+ const borde=new THREE.Mesh(new THREE.TorusGeometry(.0328,.0014,6,32),new THREE.MeshStandardMaterial({color:'#f4fbfd',roughness:.05,transparent:true,opacity:.6,depthWrite:false}));borde.rotation.x=Math.PI/2;borde.position.y=H;borde.renderOrder=3;g.add(borde);
+ // El batido: naranja abajo, crema arriba, y una capa de espuma. Colores por vértice, sin textura.
+ const L=.118,perfil=[P(0,.012),P(.0268,.012),P(.0312,L),P(0,L)],jugo=new THREE.LatheGeometry(perfil,28),col=[],a=new THREE.Color('#e5822f'),b=new THREE.Color('#f1b066'),x=new THREE.Color();
+ const pos=jugo.attributes.position;for(let k=0;k<pos.count;k++){const t=Math.min(1,Math.max(0,(pos.getY(k)-.012)/(L-.012)));x.copy(a).lerp(b,t);col.push(x.r,x.g,x.b);}
+ jugo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+ g.add(new THREE.Mesh(jugo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55})));
+ const espuma=new THREE.Mesh(new THREE.CylinderGeometry(.0312,.0312,.006,28),new THREE.MeshStandardMaterial({color:'#f6d6a2',roughness:.8}));espuma.position.y=L+.001;g.add(espuma);
+ // Hielo medio hundido en la espuma, redondeado como el de verdad.
+ const hielo=new THREE.MeshStandardMaterial({color:'#eef6f9',roughness:.12,transparent:true,opacity:.82});
+ for(const [hx,hz,r] of [[.011,.007,.4],[-.008,-.01,1.1],[.003,.013,2.2]]){const h=new THREE.Mesh(new RoundedBoxGeometry(.017,.015,.017,2,.004),hielo);h.position.set(hx,L+.003,hz);h.rotation.set(r*.3,r,r*.2);g.add(h);}
+ // La rueda de naranja montada en el borde, del lado de afuera, y el sorbete del otro lado.
+ const cascara=new THREE.MeshStandardMaterial({color:'#e07a16',roughness:.6}),cara=new THREE.MeshStandardMaterial({map:rodaja(),roughness:.55});
+ const rueda=new THREE.Mesh(new THREE.CylinderGeometry(.023,.023,.005,24),[cascara,cara,cara]);rueda.rotation.set(Math.PI/2,0,.2);rueda.position.set(.036,H-.004,0);g.add(rueda);
+ const sorbete=new THREE.Mesh(new THREE.CylinderGeometry(.0032,.0032,.19,8),new THREE.MeshStandardMaterial({color:'#c8392e',roughness:.45}));sorbete.position.set(-.012,.108,.002);sorbete.rotation.z=.07;g.add(sorbete);
+ // Se bebe por el sorbete: poca inclinación, y lo que llega a la boca es la punta (a ~.2 del fondo), no el borde.
+ return {g,alto:.06,radio:.034,inclina:.3,boca:.14,plato:servilleta(),sobrePlato:.0012};
 }
 function cafe(){
  const g=new THREE.Group(),loza=new THREE.MeshStandardMaterial({color:'#efe9da',roughness:.22});
@@ -56,7 +90,7 @@ function cafe(){
  const asa=new THREE.Mesh(new THREE.TorusGeometry(.014,.004,6,12,Math.PI*1.3),loza);asa.position.set(.036,.038,0);asa.rotation.z=-Math.PI*.65;g.add(asa);
  // El plato se queda en la mesa: se levanta solo la taza.
  g.remove(plato);
- return {g,alto:.034,radio:.034,inclina:.9,boca:.034,plato};
+ return {g,alto:.034,radio:.034,inclina:.9,boca:.034,plato,sobrePlato:.008};
 }
 export function servirBebidas(scene){
  const out=[];
@@ -66,9 +100,9 @@ export function servirBebidas(scene){
   // Esquina a la derecha de quien se sienta (-X del asiento), del lado de la mesa.
   const home=new THREE.Vector3(-esq,0,DIM.seatDistance-esq).applyAxisAngle(new THREE.Vector3(0,1,0),ang).add(new THREE.Vector3(sx,0,sz));home.y=tope;
   b.g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-  if(b.plato)home.y+=.008;
+  if(b.plato)home.y+=b.sobrePlato;
   b.g.position.copy(home);scene.add(b.g);
-  if(b.plato){b.plato.position.copy(home);b.plato.position.y=tope+.004;b.plato.traverse(o=>{if(o.isMesh)o.receiveShadow=true;});scene.add(b.plato);}
+  if(b.plato){b.plato.position.copy(home);b.plato.position.y=tope+b.sobrePlato/2;b.plato.traverse(o=>{if(o.isMesh)o.receiveShadow=true;});scene.add(b.plato);}
   out.push({group:b.g,home,index:i,tipo,alto:b.alto,radio:b.radio,inclina:b.inclina,boca:b.boca});
  }
  return out;

@@ -1,4 +1,6 @@
-const CAST=['rafa','marisol','luis','carmen'];
+/* Quién está en cada silla: la sala lo manda en view.cast (cuatro de los diez); las mesas de
+   antes no lo traen y son siempre estos cuatro. */
+const CLASICA=['rafa','marisol','luis','carmen'];
 /* Each entry is [file, caption]. The first of every list is the original pack;
    the rest are variants added later. File and caption travel together so what
    is shown always matches what is heard — the old code indexed a flat caption
@@ -17,6 +19,24 @@ const LINES_ES={
  carmen:{think:[['think','Con calma, con calma.'],['think-2','Ahorita, ahorita.'],['think-3','Déjame pensar.'],['think-4','Ya mismo.']],
        play:[['play','Ahí te va.'],['play-2','Toma.'],['play-3','Por acá.']],
        pass:[['pass','No tengo, paso.']],win:[['win','¡Dominó!']],block:[['block','Bueno, se trancó.']],saludo:[['saludo','¡Buenas noches, mi amor!']]},
+ yuni:{think:[['think','Aguanta, aguanta.'],['think-2','Déjame pensarla.'],['think-3','Tranquilo, que esto es mío.'],['think-4','Un chin, loco.']],
+       play:[['play','Ahí te dejo esa.'],['play-2',"¡Pa' que sepas!"],['play-3','Dale, que va.']],
+       pass:[['pass','Paso, loco.']],win:[['win','¡Dominó! ¡Se acabó!']],block:[['block','Trancao. Vamos a contar.']],saludo:[['saludo','¡Epa, mi pana! ¿Todo bien?']]},
+ tata:{think:[['think','Ay, espérate, muchacho.'],['think-2','No me apures, que yo sé.'],['think-3','Déjame ver con calma.'],['think-4','A mi edad se piensa despacio.']],
+       play:[['play','Toma, mi hijo.'],['play-2','Ahí está.'],['play-3',"Esa va pa' ti."]],
+       pass:[['pass','Ay, no tengo. Paso.']],win:[['win','¡Dominó! Aprendan.']],block:[['block','Trancada. Cuenten.']],saludo:[['saludo','¡Buenas, mi amor! Dios te bendiga.']]},
+ papo:{think:[['think','Mmm, déjame ver.'],['think-2','Espérate, que esto está bueno.'],['think-3','Aguántate ahí.'],['think-4','Ahora mismo te digo.']],
+       play:[['play','¡Pum! ¡Ahí está!'],['play-2','¡Toma!'],['play-3','¡Esa es la mía!']],
+       pass:[['pass','Me pasaron. Paso.']],win:[['win','¡Dominó, compai! ¡Fuera!']],block:[['block','¡Trancao! A contar.']],saludo:[['saludo','¡Buenas! ¿Cómo está la cosa?']]},
+ yari:{think:[['think','Déjame ver, déjame ver.'],['think-2','Espérate un chin.'],['think-3','Ya va, mi amor.'],['think-4','Pensando, pensando.']],
+       play:[['play','¡Mírala ahí!'],['play-2','Ahí te va, papi.'],['play-3','Esta es.']],
+       pass:[['pass','Ay no, paso.']],win:[['win','¡Dominó! ¿Viste?']],block:[['block','Se trancó, ay.']],saludo:[['saludo','¡Hola, hola! ¿Qué hay?']]},
+ nando:{think:[['think','Vamos a ver.'],['think-2','Aquí hay que pensar.'],['think-3','Con paciencia.'],['think-4','Un momento, un momento.']],
+       play:[['play','Juego esta.'],['play-2','Aquí va.'],['play-3','Esa misma.']],
+       pass:[['pass','Paso.']],win:[['win','¡Dominó! Buena mano.']],block:[['block','Tranque. Contemos.']],saludo:[['saludo','¡Buenas noches! ¿Cómo andan?']]},
+ chela:{think:[['think','Dame un chin, que vengo del turno.'],['think-2','Déjame ver aquí.'],['think-3','Un momentito.'],['think-4','Ya voy, ya voy.']],
+       play:[['play','Ahí está.'],['play-2','Toma esta.'],['play-3','Por aquí.']],
+       pass:[['pass','No llevo. Paso.']],win:[['win','¡Dominó, gente!']],block:[['block','Se trancó la mesa.']],saludo:[['saludo','¡Buenas! ¿Qué hay de nuevo?']]},
 };
 /* Las mismas cuatro voces en inglés (clonadas de las tomas en español, así conservan el
    acento), con los mismos nombres de archivo bajo public/audio/bots/<bot>/en/. */
@@ -33,26 +53,44 @@ const LINES_EN={
  carmen:{think:[['think','Easy, easy.'],['think-2','In a minute, in a minute.'],['think-3','Let me think.'],['think-4','Right away.']],
        play:[['play','There you go.'],['play-2','Here, take it.'],['play-3','Over here.']],
        pass:[['pass',"Don't have it, I pass."]],win:[['win','Domino!']],block:[['block',"Well, it's locked."]],saludo:[['saludo','Evening, sweetheart!']]},
+ yuni:{think:[['think','Hold on, hold on.'],['think-2','Let me think this one.'],['think-3','Relax, I got this.'],['think-4','One sec, man.']],
+       play:[['play',"There, I'll leave you that."],['play-2','So you know!'],['play-3','Here it goes.']],
+       pass:[['pass','Pass, man.']],win:[['win',"Domino! It's over!"]],block:[['block',"Locked. Let's count."]],saludo:[['saludo','Hey, my man! All good?']]},
+ tata:{think:[['think','Ay, wait, child.'],['think-2',"Don't rush me, I know."],['think-3','Let me look, calmly.'],['think-4','At my age you think slow.']],
+       play:[['play','Here, my son.'],['play-2','There it is.'],['play-3',"That one's for you."]],
+       pass:[['pass',"Ay, I don't have it. Pass."]],win:[['win','Domino! Learn something.']],block:[['block',"Locked. Count 'em."]],saludo:[['saludo','Evening, sweetheart! God bless.']]},
+ papo:{think:[['think','Mmm, let me see.'],['think-2','Hold on, this is good.'],['think-3','Hang on right there.'],['think-4',"I'll tell you right now."]],
+       play:[['play','Boom! There it is!'],['play-2','Take it!'],['play-3',"That one's mine!"]],
+       pass:[['pass','They got me. Pass.']],win:[['win','Domino, compai! Out!']],block:[['block',"Locked! Let's count."]],saludo:[['saludo',"Evening! How's it going?"]]},
+ yari:{think:[['think','Let me see, let me see.'],['think-2','Wait a sec.'],['think-3','Hold on, babe.'],['think-4','Thinking, thinking.']],
+       play:[['play','Look at it!'],['play-2','There you go, papi.'],['play-3','This one.']],
+       pass:[['pass','Ay no, pass.']],win:[['win','Domino! See that?']],block:[['block',"It's locked, ay."]],saludo:[['saludo',"Hey, hey! What's up?"]]},
+ nando:{think:[['think',"Let's see."],['think-2','This takes some thinking.'],['think-3','Patience.'],['think-4','One moment, one moment.']],
+       play:[['play',"I'll play this one."],['play-2','Here it goes.'],['play-3','That very one.']],
+       pass:[['pass','Pass.']],win:[['win','Domino! Good hand.']],block:[['block',"Locked. Let's count."]],saludo:[['saludo','Good evening! How are you all?']]},
+ chela:{think:[['think','Give me a sec, I just got off my shift.'],['think-2','Let me look here.'],['think-3','Just a moment.'],['think-4','Coming, coming.']],
+       play:[['play','There it is.'],['play-2','Take this one.'],['play-3','Right here.']],
+       pass:[['pass',"Don't have it. Pass."]],win:[['win','Domino, people!']],block:[['block',"The table's locked."]],saludo:[['saludo',"Evening! What's new?"]]},
 };
 const LINES={es:LINES_ES,en:LINES_EN};
 /* Lo que dice el vecino que pasa y saluda (transeuntes.js): a uno de la mesa por su nombre, o a
    todos. Dos voces, hombre y mujer, en public/audio/calle/saludo-<m|f>-<a quién>.mp3 (y en/). */
 export const SALUDOS={
- es:{rafa:'¡Buenas, Don Rafa!',marisol:'¡Buenas, Marisol!',luis:'¡Buenas, Luis!',carmen:'¡Buenas noches, doña Carmen!',todos:'¡Buenas noches, mi gente!'},
- en:{rafa:'Evening, Don Rafa!',marisol:'Hey, Marisol!',luis:"What's up, Luis!",carmen:'Good evening, Doña Carmen!',todos:'Evening, everybody!'},
+ es:{rafa:'¡Buenas, Don Rafa!',marisol:'¡Buenas, Marisol!',luis:'¡Buenas, Luis!',carmen:'¡Buenas noches, doña Carmen!',yuni:'¡Buenas, Yuni!',tata:'¡Bendición, doña Tata!',papo:'¡Epa, Papo!',yari:'¡Buenas, Yari!',nando:'¡Buenas noches, don Nando!',chela:'¡Buenas, Chela!',todos:'¡Buenas noches, mi gente!'},
+ en:{rafa:'Evening, Don Rafa!',marisol:'Hey, Marisol!',luis:"What's up, Luis!",carmen:'Good evening, Doña Carmen!',yuni:'Hey, Yuni!',tata:'Evening, Doña Tata!',papo:"What's up, Papo!",yari:'Hey, Yari!',nando:'Good evening, Don Nando!',chela:'Evening, Chela!',todos:'Evening, everybody!'},
 };
 /** El idioma de la página (lo pone textos.js); sin página, español. */
 const lengua=()=>typeof document!=='undefined'&&document.documentElement?.lang==='en'?'en':'es';
 const POSITIONS=[[0,1.18,1.01],[1.01,1.20,0],[0,1.18,-1.01],[-1.01,1.18,0]];
 export const botChatter={
- enabled:(()=>{try{return localStorage.getItem('mesa-bot-voices')!=='off';}catch{return true;}})(),context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},
+ enabled:(()=>{try{return localStorage.getItem('mesa-bot-voices')!=='off';}catch{return true;}})(),context:null,cache:new Map(),lastKey:'',lastSpoke:-Infinity,busy:false,demoing:false,bags:{},lastPick:{},cast:CLASICA,
  /* Pull the next line for a bot, shuffled-bag style: every variant is heard
     once before any is heard twice. Plain random repeats far more often than
     people expect — with four clips it replays the same one a quarter of the
     time — and a table you sit at for an hour notices. The bag also refuses to
     open on whatever it just closed on, so a repeat cannot straddle a reshuffle. */
  next(seat,type){
-  const lang=lengua(),name=CAST[seat],pool=LINES[lang][name]?.[type];
+  const lang=lengua(),name=this.cast[seat],pool=LINES[lang][name]?.[type];
   if(!pool||!pool.length)return null;
   if(pool.length===1)return pool[0];
   const key=lang+'/'+name+'/'+type;
@@ -68,7 +106,7 @@ export const botChatter={
  setEnabled(value){this.enabled=value;try{localStorage.setItem('mesa-bot-voices',value?'on':'off');}catch{}if(!value&&this.source){try{this.source.stop();}catch{}}},
  unlock(){if(!this.enabled)return;this.context??=new (window.AudioContext||window.webkitAudioContext)();return this.context.resume();},
  position(role,view,crowd){if(!this.context)return;let pos=[0,1.30,1.85],forward=[0,0,-1];if(role==='practice'){pos=POSITIONS[0];}else if(role==='spectator'){const i=Math.max(0,(crowd?.viewers||[]).findIndex(v=>v.id===crowd.you));pos=[-2.5+(i%4)*1.66,1.3,-2.5-Math.floor(i/4)*.65];const length=Math.hypot(pos[0],pos[2]);forward=[-pos[0]/length,0,-pos[2]/length];}const l=this.context.listener;if(l.positionX){l.positionX.value=pos[0];l.positionY.value=pos[1];l.positionZ.value=pos[2];l.forwardX.value=forward[0];l.forwardY.value=0;l.forwardZ.value=forward[2];l.upX.value=0;l.upY.value=1;l.upZ.value=0;}else{l.setPosition(...pos);l.setOrientation(...forward,0,1,0);}},
- async buffer(seat,file){const key=CAST[seat]+'/'+(lengua()==='en'?'en/':'')+file;if(!this.cache.has(key)){const r=await fetch('/audio/bots/'+key+'.mp3');if(!r.ok)throw Error('Missing bot voice');this.cache.set(key,await this.context.decodeAudioData(await r.arrayBuffer()));}return this.cache.get(key);},
+ async buffer(seat,file){const key=this.cast[seat]+'/'+(lengua()==='en'?'en/':'')+file;if(!this.cache.has(key)){const r=await fetch('/audio/bots/'+key+'.mp3');if(!r.ok)throw Error('Missing bot voice');this.cache.set(key,await this.context.decodeAudioData(await r.arrayBuffer()));}return this.cache.get(key);},
  async play(seat,type,force=false,antesDe=0){if(!this.enabled||!this.context||this.context.state!=='running'||this.busy||(!force&&performance.now()-this.lastSpoke<9500))return;
   const line=this.next(seat,type);if(!line)return;const [fileName,text]=line;this.busy=true;
   try{const buffer=await this.buffer(seat,fileName);
@@ -80,11 +118,11 @@ export const botChatter={
      apaga. 25 ms para entrar; para salir hasta 120 ms, sin comerse el clip. */
    const t0=this.context.currentTime,dur=buffer.duration,V=.72,ENTRA=.025,SALE=Math.min(.12,dur*.25);
    gain.gain.setValueAtTime(0,t0);gain.gain.linearRampToValueAtTime(V,t0+ENTRA);
-   gain.gain.setValueAtTime(V,Math.max(t0+ENTRA,t0+dur-SALE));gain.gain.linearRampToValueAtTime(0,t0+dur);source.connect(panner).connect(gain).connect(this.context.destination);this.source=source;this.lastSpoke=performance.now();const caption=document.createElement('div');caption.className='bot-caption';caption.textContent=CAST[seat][0].toUpperCase()+CAST[seat].slice(1)+': '+text;document.body.appendChild(caption);document.querySelector(`[data-seatlabel="${seat}"]`)?.classList.add('speaking');window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat,type,active:true}}));
+   gain.gain.setValueAtTime(V,Math.max(t0+ENTRA,t0+dur-SALE));gain.gain.linearRampToValueAtTime(0,t0+dur);source.connect(panner).connect(gain).connect(this.context.destination);this.source=source;this.lastSpoke=performance.now();const caption=document.createElement('div');caption.className='bot-caption';caption.textContent=this.cast[seat][0].toUpperCase()+this.cast[seat].slice(1)+': '+text;document.body.appendChild(caption);document.querySelector(`[data-seatlabel="${seat}"]`)?.classList.add('speaking');window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat,type,active:true}}));
    await new Promise(resolve=>{source.onended=()=>{caption.remove();document.querySelector(`[data-seatlabel="${seat}"]`)?.classList.remove('speaking');window.dispatchEvent(new CustomEvent('mesa:botvoice',{detail:{seat,type,active:false}}));source.disconnect();panner.disconnect();gain.disconnect();resolve();};source.start(t0);});
   }catch(e){console.warn('Bot voice unavailable',e.message);}finally{this.busy=false;this.source=null;}
  },
- update(v,role,crowd){if(v?.bots)this.bots=v.bots;if(role==='player'||!v||!this.enabled||this.demoing)return;this.position(role,v,crowd);const key=v.handNo+':'+v.moves.length+':'+v.phase+':'+v.turn;if(key===this.lastKey)return;this.lastKey=key;const event=v.event||{},seat=event.seat;
+ update(v,role,crowd){if(v?.bots)this.bots=v.bots;if(v)this.cast=Array.isArray(v.cast)&&v.cast.length===4?v.cast:CLASICA;if(role==='player'||!v||!this.enabled||this.demoing)return;this.position(role,v,crowd);const key=v.handNo+':'+v.moves.length+':'+v.phase+':'+v.turn;if(key===this.lastKey)return;this.lastKey=key;const event=v.event||{},seat=event.seat;
   // Al cerrar la mano alguien lo canta: el bot que dio dominó (o trancó); si fue una persona, su
   // pareja si es bot. Antes, si ganaba una persona, la mesa se quedaba callada.
   if(['handEnd','seriesEnd'].includes(v.phase)&&Number.isInteger(seat)){const quien=v.bots[seat]?seat:v.bots[(seat+2)%4]&&event.type!=='tranque'?(seat+2)%4:null;if(quien!=null)this.play(quien,event.type==='tranque'?'block':'win',true);return;}
@@ -102,7 +140,7 @@ export const botChatter={
     cualquiera, si saludó a todos) contesta. Si ya alguien está hablando, no se dice nada. */
  async saludar({seat=null,voz='m',pos=[1.2,1.6,-1.8]}={}){
   if(!this.enabled||!this.context||this.context.state!=='running'||this.busy)return;
-  const lang=lengua(),quien=seat==null?'todos':CAST[seat],file=`/audio/calle/${lang==='en'?'en/':''}saludo-${voz}-${quien}.mp3`;this.busy=true;let dijo=false;
+  const lang=lengua(),quien=seat==null?'todos':this.cast[seat],file=`/audio/calle/${lang==='en'?'en/':''}saludo-${voz}-${quien}.mp3`;this.busy=true;let dijo=false;
   try{if(!this.cache.has(file)){const r=await fetch(file);if(!r.ok)throw Error('Missing greeting');this.cache.set(file,await this.context.decodeAudioData(await r.arrayBuffer()));}
    const buffer=this.cache.get(file),source=this.context.createBufferSource(),panner=this.context.createPanner(),gain=this.context.createGain();source.buffer=buffer;
    panner.panningModel='equalpower';panner.distanceModel='inverse';panner.refDistance=1.6;panner.maxDistance=14;panner.rolloffFactor=1.05;[panner.positionX.value,panner.positionY.value,panner.positionZ.value]=pos;

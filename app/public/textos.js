@@ -160,11 +160,11 @@ const EN={
  aceptasTerminos:'By creating an account you accept the <a href="/legal/terminos.html{l}" target="_blank">terms</a> and the <a href="/legal/privacidad.html{l}" target="_blank">privacy policy</a>.'
 };
 let lengua='es';
-/* El idioma: ?lang= manda en esa visita; si no, el que eligió en la mesa; si nunca eligió, el del
-   aparato (español si es el primero de su lista, si no inglés). Antes era español siempre, y a quien
-   tiene el teléfono en inglés el navegador le traducía la mesa a su manera ("COUPLE A"). */
-try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma'),a=((navigator.languages&&navigator.languages[0])||navigator.language||'').toLowerCase();
- lengua=q==='en'||q==='es'?q:g==='en'||g==='es'?g:a.startsWith('es')?'es':'en';}catch{}
+/* El idioma: ?lang= manda en esa visita; si no, el que eligió (botón ES · EN o Ajustes); si nunca
+   eligió, español (Trey, 25 sep 2026). Antes seguía al aparato, y una tele en inglés ponía a los bots
+   a hablar en inglés aunque los teléfonos estuvieran en español. */
+try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma');
+ lengua=q==='en'||q==='es'?q:g==='en'||g==='es'?g:'es';}catch{}
 export const idioma=()=>lengua;
 export function ponerIdioma(l){lengua=l==='en'?'en':'es';try{localStorage.setItem('mesa-idioma',lengua);}catch{}document.documentElement.lang=lengua;}
 /* Lo que contesta el servidor viene en inglés (así lo leen los logs y las pruebas); aquí

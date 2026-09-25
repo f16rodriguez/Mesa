@@ -153,7 +153,10 @@ function hideWorld(){document.body.classList.add('phone-mode');world?.pause?.();
 
 /* ── Portada ──────────────────────────────────────────────────────────────── */
 const brand=()=>`<button class="game-brand" data-action="home" aria-label="Mesa"><img src="/marca/mesa-logo-horizontal-notag-transparent.svg" alt="Mesa" width="1330" height="346"></button>`;
-function tools(){return `<div class="game-tools">${button('<span class="tool-label">'+(profile?esc(profile.name):t('miPerfil'))+'</span>','profile','','user')}${button('<span class="tool-label">'+t('ajustes')+'</span>','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div>`;}
+/* El idioma a mano, en pantalla (también sigue en Ajustes): ES · EN, con el que está puesto en negrita. */
+const botonIdioma=()=>`<button class="g-button idioma-rapido" data-action="idioma" aria-label="${t('idioma')}" title="${t('idioma')}"><span class="${idioma()==='es'?'puesto':''}">ES</span><span class="sep">·</span><span class="${idioma()==='en'?'puesto':''}">EN</span></button>`;
+function cambiarIdioma(l){ponerIdioma(l);const u=new URL(location.href);u.searchParams.delete('lang');location.replace(u);}   // un ?lang= en la dirección mandaba sobre lo elegido y el cambio no pegaba
+function tools(){return `<div class="game-tools">${botonIdioma()}${button('<span class="tool-label">'+(profile?esc(profile.name):t('miPerfil'))+'</span>','profile','','user')}${button('<span class="tool-label">'+t('ajustes')+'</span>','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div>`;}
 function home(){disconnect();page='home';view=null;practice=null;revelado=null;etiquetas();
  if(esTelefono)hideWorld();else{dormirMundo();precargarMundo();}
  const sigue=practicaGuardada();
@@ -412,7 +415,7 @@ document.addEventListener('click',async e=>{
  else if(a==='leccion-sigue'){lesson++;school();$('#modal')?.scrollTo?.(0,0);}
  else if(a==='leccion-atras'){lesson=Math.max(0,lesson-1);school();}
  else if(a==='escuelita-practica'){modal.close();role='practice';nivel='facil';almacen.set('mesa-nivel',nivel);unlockSound(true);startPractice();}
- else if(a==='school')school();else if(a==='settings')settings();else if(a==='house')house();else if(a==='rules')rulesModal();else if(a==='close')modal.close();
+ else if(a==='school')school();else if(a==='settings')settings();else if(a==='idioma')cambiarIdioma(idioma()==='es'?'en':'es');else if(a==='house')house();else if(a==='rules')rulesModal();else if(a==='close')modal.close();
  else if(['start','next','newSeries','pass'].includes(a)){modal.close();if(a==='pass'){vibrar(VIBRA.paso);if(role==='player')sonidos.toque();}action({type:a});}
  else if(a==='copy')copyLink();else if(a==='watch-link')copyLink(true);
  else if(a==='chat'){chatOpen=!chatOpen;renderCrowd();}
@@ -466,7 +469,7 @@ document.addEventListener('change',e=>{
  if(e.target.id==='ambient-setting'){ambientOn=e.target.checked;almacen.set('mesa-ambience',ambientOn?'on':'off');if(ambientOn)unlockSound();else ambience.pause();}
  if(e.target.id==='motion-setting'){document.documentElement.classList.toggle('reduced',e.target.checked);almacen.set('mesa-motion',e.target.checked?'off':'on');}
  if(e.target.id==='quality-setting'){almacen.set('mesa-calidad',e.target.value);world?.quality(e.target.value);}
- if(e.target.id==='idioma-setting'){ponerIdioma(e.target.value);location.reload();}
+ if(e.target.id==='idioma-setting')cambiarIdioma(e.target.value);
  if(e.target.id==='music-file'&&e.target.files[0]){radio.stop();if(music){music.pause();URL.revokeObjectURL(music.src);}music=new Audio(URL.createObjectURL(e.target.files[0]));music.volume=.18;music.loop=true;musicMuted=false;music.play().catch(()=>{});settings();}
 });
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});

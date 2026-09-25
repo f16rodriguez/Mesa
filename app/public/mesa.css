@@ -99,6 +99,8 @@ html.con-splash .title-screen,html.con-splash .title-actions .g-button{animation
 .game-top{position:absolute;top:calc(var(--margen) * .8 + var(--seguro-arriba));left:calc(var(--margen) + var(--seguro-izq));right:calc(var(--margen) + var(--seguro-der));display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;z-index:10}
 .game-top-left,.game-tools{display:flex;align-items:center;gap:.6rem}
 .game-tools{flex:none}
+.idioma-rapido{font-family:var(--mono);font-size:.82rem;letter-spacing:.06em;gap:.3rem}
+.idioma-rapido span{opacity:.55}.idioma-rapido .puesto{opacity:1;font-weight:700}.idioma-rapido .sep{opacity:.35}
 .hand-mark{font:500 .7rem/1.5 var(--mono);letter-spacing:.15em;color:var(--suave);margin-left:.9rem;border-left:1px solid var(--linea);padding-left:.9rem}
 .connection{display:flex;align-items:center;gap:.45em;font:500 .64rem var(--mono);letter-spacing:.14em;color:var(--sky);text-transform:uppercase}
 .connection::before{content:'';width:.45em;height:.45em;border-radius:50%;background:currentColor}

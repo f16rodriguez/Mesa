@@ -21,12 +21,17 @@
  */
 export type Tile = { id: string; a: number; b: number };
 export type Option = { tile: string; side: 'left' | 'right' };
-export type Move = { type: 'play'; seat: number; tile: string; side: 'left' | 'right' } | { type: 'pass'; seat: number };
+export type Move = { type: 'play'; seat: number; tile: string; side: 'left' | 'right' } | { type: 'pass' | 'draw'; seat: number };
 export type View = {
   hand: Tile[]; legal: Option[]; left: number | null; right: number | null;
   counts: number[]; moves: Move[]; seat: number; chain: { a: number; b: number }[];
+  /** Uno contra uno: tiles left in the pozo, and whether this seat must draw now. */
+  pozo?: number; canDraw?: boolean;
 };
 
+/** At two without a pozo most hands end trancadas and the pips left decide them: dumping weight
+ *  matters far more than at four (measured: 48 % against a heaviest-first player at 0.4, 65 % at 4–8). */
+const PESO2 = 5;
 const pips = (t: string) => t.split('-').map(Number) as [number, number];
 
 /**
@@ -37,11 +42,13 @@ const pips = (t: string) => t.split('-').map(Number) as [number, number];
  * The end-orientation here has to match `applyAction` in logic.js exactly, or
  * every read built on it is wrong in a way nothing would catch.
  */
-export function readVoids(moves: Move[]): Set<number>[] {
-  const voids = [new Set<number>(), new Set<number>(), new Set<number>(), new Set<number>()];
+export function readVoids(moves: Move[], seats = 4): Set<number>[] {
+  const voids = Array.from({ length: seats }, () => new Set<number>());
   let L: number | null = null, R: number | null = null;
   for (const m of moves) {
     if (m.type === 'pass') { if (L !== null) { voids[m.seat]!.add(L); voids[m.seat]!.add(R!); } continue; }
+    // A draw is a new, unseen tile in that hand: what it had declared no longer holds.
+    if (m.type === 'draw') { voids[m.seat]!.clear(); continue; }
     const [a, b] = pips(m.tile);
     if (L === null) { L = a; R = b; continue; }
     if (m.side === 'left') L = b === L ? a : b; else R = a === R ? b : a;
@@ -76,9 +83,10 @@ export function scoreOption(v: View, o: Option): number {
   const [a, b] = pips(o.tile);
   const rest = v.hand.filter(t => t.id !== o.tile);
   const [L, R] = endsAfter(v, o);
-  const voids = readVoids(v.moves);
+  const n = v.counts.length, voids = readVoids(v.moves, n);
   const seen = seenCounts(v.hand, v.chain);
-  const partner = (v.seat + 2) % 4, opponents = [(v.seat + 1) % 4, (v.seat + 3) % 4];
+  // Uno contra uno has no partner: -1, and every read about one is skipped.
+  const partner = n === 4 ? (v.seat + 2) % 4 : -1, opponents = n === 4 ? [(v.seat + 1) % 4, (v.seat + 3) % 4] : [1 - v.seat];
   const shut = (s: number) => voids[s]!.has(L) && voids[s]!.has(R);
   let score = 0;
 
@@ -91,9 +99,12 @@ export function scoreOption(v: View, o: Option): number {
   // seat still holds. A tie counts as ours: by default it goes to whoever trancó.
   if (blocks(L, R, new Set([...v.chain.map(t => idOf(t.a, t.b)), o.tile]))) {
     const mine = weight(rest), unseen = 168 - weight(v.chain) - (a + b) - mine;
-    const others = v.counts.reduce((n, c, s) => s === v.seat ? n : n + c, 0);
-    const partnerShare = others ? unseen * v.counts[partner]! / others : 0;
-    score += mine + partnerShare <= unseen - partnerShare ? 200 : -200;
+    // Unseen pips split by where the unseen tiles are. At two, the pozo goes to the
+    // opponent (he draws it all before passing); tiles sleeping without a pozo count for nobody.
+    const tiles = 28 - v.chain.length - 1 - rest.length, pozo = v.pozo ?? 0;
+    const share = (seats: number[]) => tiles ? unseen * seats.reduce((k, s) => k + v.counts[s]!, 0) / tiles : 0;
+    const partnerShare = partner >= 0 ? share([partner]) : 0, theirs = share(opponents) + (tiles ? unseen * pozo / tiles : 0);
+    score += mine + partnerShare <= theirs ? 200 : -200;
   }
 
   // Staying able to move. A bot that plays itself into passing hands the hand
@@ -102,20 +113,20 @@ export function scoreOption(v: View, o: Option): number {
 
   // Closing both ends against an opponent, worth more the fewer tiles they hold
   // — shutting out someone down to their last tile is often the whole hand.
-  for (const s of opponents) if (shut(s)) score += 30 + (7 - v.counts[s]!) * 6;
+  for (const s of opponents) if (shut(s)) score += 30 + Math.max(0, 7 - v.counts[s]!) * 6;
 
   // Never do that to your own partner. Cutting your partner out of the hand is
   // the cardinal sin of partnership dominoes.
-  if (shut(partner)) score -= 60;
+  if (partner >= 0 && shut(partner)) score -= 60;
 
   // Softer versions of the same two reads, per end.
   for (const end of [L, R]) {
-    if (voids[partner]!.has(end)) score -= 9;
+    if (partner >= 0 && voids[partner]!.has(end)) score -= 9;
     for (const s of opponents) if (voids[s]!.has(end)) score += 7;
   }
 
   // Weight is a liability: a tranque is scored on the pips left in your hand.
-  score += (a + b) * 0.4;
+  score += (a + b) * (n === 2 && !v.pozo ? PESO2 : 0.4);
 
   // Doubles are the hardest tiles to place, and a double whose number is dying
   // is how you get stuck holding it. The more of that number is already seen,
@@ -126,8 +137,8 @@ export function scoreOption(v: View, o: Option): number {
 }
 
 /** Deterministic: ties break on tile id, then side, so replays are stable. */
-export function chooseMove(v: View): { type: 'pass' } | { type: 'play'; tile: string; side: 'left' | 'right' } {
-  if (!v.legal.length) return { type: 'pass' };
+export function chooseMove(v: View): { type: 'pass' | 'draw' } | { type: 'play'; tile: string; side: 'left' | 'right' } {
+  if (!v.legal.length) return { type: v.canDraw ? 'draw' : 'pass' };
   let best = v.legal[0]!, bestScore = -Infinity;
   for (const o of [...v.legal].sort((x, y) => x.tile === y.tile ? x.side.localeCompare(y.side) : x.tile.localeCompare(y.tile))) {
     const s = scoreOption(v, o);

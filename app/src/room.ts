@@ -122,7 +122,7 @@ export function coverMove(s:any,id:string,choose:(v:any)=>any=chooseMove):any{
  const view:any=logic.viewFor(s,id),pick=choose(view);
  if(logic.validateAction(s,id,pick).ok)return pick;
  console.error('bot move rejected, falling back to the first legal one',JSON.stringify(pick));
- const o=view.legal[0],fallback=o?{type:'play',tile:o.tile,side:o.side}:{type:'pass'};
+ const o=view.legal[0],fallback=o?{type:'play',tile:o.tile,side:o.side}:{type:view.canDraw?'draw':'pass'};
  return logic.validateAction(s,id,fallback).ok?fallback:null;
 }
 /** 32 bytes from the platform CSPRNG, as hex: the key logic.js deals from.
@@ -266,7 +266,7 @@ export class Room extends DurableObject<Env>{
     const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
     let wait=false;
     if(role==='player'){
-     const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All four seats are taken. You can still watch.');
+     const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All seats are taken. You can still watch.');
      if(!msg.name&&!att?.profileName)return this.error(ws,'Tell us your name to take a seat.');
      if(att?.profileId&&Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId))return this.error(ws,'Your profile already has a seat. Use your original phone.');
      // With a hand in play, a newcomer watches and sits down when it closes.
@@ -310,7 +310,7 @@ export class Room extends DurableObject<Env>{
    const s=g.state,to=msg.to,from=s.players.indexOf(id);
    if(member.role==='host')return this.error(ws,'Choose a seat.');
    if(s.phase!=='lobby'){if(from>=0)return this.error(ws,'Seats change between series.');member.espera=true;await this.commit(g);return;}
-   if(!Number.isInteger(to)||to<0||to>3)return this.error(ws,'Choose a seat.');
+   if(!Number.isInteger(to)||to<0||to>=s.players.length)return this.error(ws,'Choose a seat.');
    if(!s.bots[to])return this.error(ws,'That seat is taken.');
    s.players[to]=id;s.bots[to]=false;s.names[to]=from>=0?s.names[from]:member.name;
    if(from>=0){s.players[from]='bot-'+from;s.bots[from]=true;s.names[from]='Seat '+(from+1);}else{member.role='player';delete member.espera;}
@@ -320,7 +320,7 @@ export class Room extends DurableObject<Env>{
    const s=g.state,a=msg.a,b=msg.b;
    if(!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
    if(s.phase!=='lobby')return this.error(ws,'Seats change between series.');
-   if(![a,b].every(x=>Number.isInteger(x)&&x>=0&&x<4)||a===b)return this.error(ws,'Choose a seat.');
+   if(![a,b].every(x=>Number.isInteger(x)&&x>=0&&x<s.players.length)||a===b)return this.error(ws,'Choose a seat.');
    for(const k of ['players','names','bots'])[s[k][a],s[k][b]]=[s[k][b],s[k][a]];
    for(const i of [a,b])if(s.bots[i]){s.players[i]='bot-'+i;s.names[i]='Seat '+(i+1);}   // a bot id always matches its seat
    await this.commit(g);return;
@@ -329,11 +329,19 @@ export class Room extends DurableObject<Env>{
    // Leave your seat, or (the TV / the table's phone) free someone else's. Mid-series a
    // bot takes the seat and plays its tiles; in the lobby the chair is simply free.
    const s=g.state,seat=msg.seat;
-   if(!Number.isInteger(seat)||seat<0||seat>3||s.bots[seat])return this.error(ws,'Choose a seat.');
+   if(!Number.isInteger(seat)||seat<0||seat>=s.players.length||s.bots[seat])return this.error(ws,'Choose a seat.');
    const who=s.players[seat];if(who!==id&&!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
    s.players[seat]='bot-'+seat;s.bots[seat]=true;if(s.phase==='lobby')s.names[seat]='Seat '+(seat+1);
    const m=g.members[who];if(m){m.role='spectator';delete m.espera;}
    await this.commit(g);return;
+  }
+  if(msg.type==='modo'){
+   // Dos contra dos or uno contra uno, in the lobby. The people keep their chairs in order.
+   if(!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
+   if(g.state.phase!=='lobby')return this.error(ws,'Seats change between series.');
+   if(![2,4].includes(msg.n))return this.error(ws,'Choose a seat.');
+   const next=logic.seatsFor(g.state,msg.n);if(!next)return this.error(ws,'Only two fit at one against one. Someone has to get up first.');
+   g.state=next;await this.commit(g);return;
   }
   if(msg.type==='lobby'){
    // After a series: back to the lobby to change partners, instead of the one-tap rematch.

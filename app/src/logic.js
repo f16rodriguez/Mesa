@@ -1,18 +1,42 @@
 export const meta = { game: 'Mesa', minPlayers: 1, maxPlayers: 4 };
 const sum = hand => hand.reduce((n,t)=>n+t.a+t.b,0);
 const fail = error => ({ok:false,error});
+/** Seats at the table: 4 (dos contra dos, parejas cruzadas) or 2 (uno contra uno). */
+const seatsOf = s => s.players.length;
+/** Uno contra uno deals 7 each and leaves 14 in the pozo. By default whoever has no
+ *  tile draws from it until one fits; the house can play without drawing, and then
+ *  those 14 just sleep. Dos contra dos deals all 28: there is no pozo. */
+const drawing = s => seatsOf(s)===2 && s.settings.pozo!==false;
+const fits = (t,l,r) => t.a===l||t.b===l||t.a===r||t.b===r;
 function options(s, seat) {
   if(s.phase!=='playing'||seat!==s.turn) return [];
+  // The first hand of a series opens with a set tile (the 6-6 at four; the best double at two).
+  const salida=s.handNo===1?(s.salida??'6-6'):null;
   return s.hands[seat].flatMap(t=>{
-    if(!s.chain.length) return (s.handNo===1 && (t.a!==6||t.b!==6)) ? [] : [{tile:t.id,side:'right'}];
+    if(!s.chain.length) return (salida && t.id!==salida) ? [] : [{tile:t.id,side:'right'}];
     const out=[];
     if(t.a===s.left||t.b===s.left) out.push({tile:t.id,side:'left'});
     if(t.a===s.right||t.b===s.right) out.push({tile:t.id,side:'right'});
     return out;
   });
 }
-export function setup(players) {
-  return {version:1,phase:'lobby',hostId:'host',players:Array.from({length:4},(_,i)=>players[i]||'bot-'+i),names:['Seat 1','Seat 2','Seat 3','Seat 4'],bots:[0,1,2,3].map(i=>!players[i]),seed:617263,settings:{target:200,capicua:25,tie:'blocker',allPips:false,capicuaDistinct:false},scores:[0,0],hands:[[],[],[],[]],chain:[],left:null,right:null,turn:0,opener:0,handNo:0,passes:0,lastPlay:0,event:null,history:[],moves:[],deal:[],result:null};
+/** May `seat` draw now: its turn, a pozo to draw from, and nothing in hand that fits. */
+const canDraw = (s,seat) => s.phase==='playing'&&seat===s.turn&&drawing(s)&&(s.pozo?.length??0)>0&&!options(s,seat).length;
+/** `n` seats: 4 for dos contra dos (the default), 2 for uno contra uno. */
+export function setup(players, n=4) {
+  return {version:1,phase:'lobby',hostId:'host',players:Array.from({length:n},(_,i)=>players[i]||'bot-'+i),names:Array.from({length:n},(_,i)=>'Seat '+(i+1)),bots:Array.from({length:n},(_,i)=>!players[i]),seed:617263,settings:{target:200,capicua:25,tie:'blocker',allPips:false,capicuaDistinct:false,pozo:true},scores:[0,0],hands:Array.from({length:n},()=>[]),pozo:[],salida:null,chain:[],left:null,right:null,turn:0,opener:0,handNo:0,passes:0,lastPlay:0,event:null,history:[],moves:[],deal:[],result:null};
+}
+/**
+ * The same lobby with `n` seats: the people keep their order and their names, bots fill
+ * the rest. Null when more people are sitting than there are chairs — someone has to
+ * get up first; nobody is quietly moved to the crowd.
+ */
+export function seatsFor(s, n) {
+  if(![2,4].includes(n)||s.phase!=='lobby') return null;
+  const people=s.players.flatMap((p,i)=>s.bots[i]?[]:[{p,name:s.names[i]}]);
+  if(people.length>n) return null;
+  const players=Array.from({length:n},(_,i)=>people[i]?.p||'bot-'+i);
+  return {...s,players,names:players.map((_,i)=>people[i]?.name||'Seat '+(i+1)),bots:players.map((_,i)=>!people[i]),hands:players.map(()=>[])};
 }
 /*
  * The shuffle. A table is only fair if nobody can predict or reconstruct the
@@ -61,9 +85,17 @@ function deal(s) {
   // The next seed comes from further down the same stream: a practice game (no
   // server to hand it fresh bytes) still deals a new, unpredictable hand.
   const seed=Array.from({length:8},()=>next().toString(16).padStart(8,'0')).join('');
-  const hands=Array.from({length:4},(_,i)=>byPips(deck.slice(i*7,i*7+7)));
-  const opener=s.handNo===0?hands.findIndex(h=>h.some(t=>t.id==='6-6')):s.opener;
-  return {...s,seed,phase:'playing',hands,deal:hands.map(h=>h.map(t=>({...t}))),chain:[],left:null,right:null,turn:opener,opener,handNo:s.handNo+1,passes:0,lastPlay:opener,moves:[],result:null,event:{type:'deal',seat:opener}};
+  const n=seatsOf(s),hands=Array.from({length:n},(_,i)=>byPips(deck.slice(i*7,i*7+7))),pozo=deck.slice(n*7);
+  // The first hand of a series: at four the 6-6 opens (all 28 are dealt, someone has it). At two
+  // it may be sleeping in the pozo, so the best double in hand opens — or, with no double
+  // at all, the heaviest tile. After that, whoever won leads with anything.
+  let opener=s.opener,salida=null;
+  if(s.handNo===0){
+    const rank=t=>[t.a===t.b?1:0,t.a+t.b,Math.max(t.a,t.b)],better=(x,y)=>{const a=rank(x),b=rank(y);for(let k=0;k<3;k++)if(a[k]!==b[k])return a[k]>b[k];return false;};
+    let best=null;hands.forEach((h,i)=>h.forEach(t=>{if(!best||better(t,best.t))best={t,i};}));
+    opener=best.i;salida=best.t.id;
+  }
+  return {...s,seed,phase:'playing',hands,pozo,salida,deal:hands.map(h=>h.map(t=>({...t}))),pozoDeal:pozo.map(t=>t.id),chain:[],left:null,right:null,turn:opener,opener,handNo:s.handNo+1,passes:0,lastPlay:opener,moves:[],result:null,event:{type:'deal',seat:opener}};
 }
 /** The host, or anyone sitting at the table who is not a bot. */
 const canDeal=(s,p)=>{const seat=s.players.indexOf(p);return p===s.hostId||(seat>=0&&!s.bots[seat]);};
@@ -83,7 +115,7 @@ export function validateAction(s,p,a) {
     if(a.type==='settings'){
       if(s.phase!=='lobby') return fail('House rules are locked after the first deal.');
       const x=a.settings;
-      if(!x||typeof x!=='object'||![100,200,300].includes(x.target)||![0,25,50].includes(x.capicua)||!['blocker','none'].includes(x.tie)||typeof x.allPips!=='boolean'||!['boolean','undefined'].includes(typeof x.capicuaDistinct)) return fail('Choose valid house rules.');
+      if(!x||typeof x!=='object'||![100,200,300].includes(x.target)||![0,25,50].includes(x.capicua)||!['blocker','none'].includes(x.tie)||typeof x.allPips!=='boolean'||!['boolean','undefined'].includes(typeof x.capicuaDistinct)||!['boolean','undefined'].includes(typeof x.pozo)) return fail('Choose valid house rules.');
     }
     return {ok:true};
   }
@@ -91,7 +123,8 @@ export function validateAction(s,p,a) {
   if(seat<0) return fail('Spectators cannot play.');
   if(seat!==s.turn) return fail('Wait for your turn.');
   const legal=options(s,seat);
-  if(a.type==='pass') return legal.length?fail('You have a legal tile. Play it instead of passing.'):{ok:true};
+  if(a.type==='pass') return legal.length?fail('You have a legal tile. Play it instead of passing.'):canDraw(s,seat)?fail('Draw from the boneyard first.'):{ok:true};
+  if(a.type==='draw') return canDraw(s,seat)?{ok:true}:!drawing(s)?fail('This table plays without drawing.'):legal.length?fail('You have a legal tile. Play it instead of drawing.'):fail('The boneyard is empty.');
   if(a.type!=='play') return fail('Choose a tile or pass.');
   return legal.some(o=>o.tile===a.tile&&o.side===a.side)?{ok:true}:fail('That tile does not fit this end.');
 }
@@ -99,17 +132,19 @@ export function validateAction(s,p,a) {
  * Who leads the next hand. After a dominó, the one who went out. After a
  * tranque, the pair that WON it: the blocker if it was his pair, otherwise the
  * winning pair's player with fewer pips (the one next in turn on a tie). A tied
- * tranque that nobody takes leaves the lead where it was this hand.
+ * tranque that nobody takes leaves the lead where it was this hand. At two, a
+ * "pair" is one player: the seat number is the team number.
  */
 function nextOpener(s, type, seat, team, pips) {
   if(type!=='tranque') return seat;
   if(team===null) return s.opener;
   if(seat%2===team) return seat;
+  if(pips.length===2) return team;
   const a=(seat+1)%4, b=(seat+3)%4;
   return pips[b]<pips[a]?b:a;
 }
 function closeHand(s, type, seat, capicua=false) {
-  const pips=s.hands.map(sum), totals=[pips[0]+pips[2],pips[1]+pips[3]];
+  const pips=s.hands.map(sum), totals=[0,1].map(t=>pips.reduce((n,p,i)=>i%2===t?n+p:n,0));
   let team=seat%2;
   if(type==='tranque') team=totals[0]===totals[1]?(s.settings.tie==='blocker'?s.lastPlay%2:null):(totals[0]<totals[1]?0:1);
   const base=team===null?0:(s.settings.allPips?totals[0]+totals[1]:totals[1-team]);
@@ -118,7 +153,7 @@ function closeHand(s, type, seat, capicua=false) {
   const scores=[...s.scores]; if(team!==null) scores[team]+=points;
   const series=team!==null&&scores[team]>=s.settings.target;
   const result={type:bonus>0?'capicua':type,seat,team,base,bonus,points,pips,totals,zapato:series&&scores[1-team]===0};
-  const record={handNo:s.handNo,result,deal:s.deal,moves:s.moves};
+  const record={handNo:s.handNo,result,deal:s.deal,moves:s.moves,...(s.pozoDeal?.length?{pozo:s.pozoDeal}:{})};
   return {...s,scores,phase:series?'seriesEnd':'handEnd',opener:nextOpener(s,type,seat,team,pips),result,event:{type:result.type,seat},history:[...s.history,record].slice(-30)};
 }
 export function applyAction(state,p,a) {
@@ -126,15 +161,17 @@ export function applyAction(state,p,a) {
   // Field by field: whatever else a client packs into `settings` never reaches
   // the state, the storage or the other phones. An older client that does not
   // know capicuaDistinct leaves it as it was.
-  if(a.type==='settings'){const x=a.settings;return {...s,settings:{target:x.target,capicua:x.capicua,tie:x.tie,allPips:x.allPips,capicuaDistinct:typeof x.capicuaDistinct==='boolean'?x.capicuaDistinct:s.settings.capicuaDistinct===true}};}
+  if(a.type==='settings'){const x=a.settings;return {...s,settings:{target:x.target,capicua:x.capicua,tie:x.tie,allPips:x.allPips,capicuaDistinct:typeof x.capicuaDistinct==='boolean'?x.capicuaDistinct:s.settings.capicuaDistinct===true,pozo:typeof x.pozo==='boolean'?x.pozo:s.settings.pozo!==false}};}
   if(a.type==='start'||a.type==='next') return deal(s);
-  if(a.type==='newSeries') return {...setup(s.players),hostId:s.hostId,names:s.names,bots:s.bots,cast:s.cast,seed:s.seed,settings:s.settings};
-  const seat=s.players.indexOf(p);
+  if(a.type==='newSeries') return {...setup(s.players,seatsOf(s)),hostId:s.hostId,names:s.names,bots:s.bots,cast:s.cast,seed:s.seed,settings:s.settings};
+  const seat=s.players.indexOf(p),n=seatsOf(s);
   if(a.type==='pass'){
     s.passes++;s.moves.push({type:'pass',seat});s.event={type:'pass',seat};
-    if(s.passes===4) return closeHand(s,'tranque',s.lastPlay);
-    s.turn=(seat+1)%4;return s;
+    if(s.passes===n) return closeHand(s,'tranque',s.lastPlay);
+    s.turn=(seat+1)%n;return s;
   }
+  // Robar: one tile per tap, same turn. The move says who drew, never what.
+  if(a.type==='draw'){s.hands[seat].push(s.pozo.shift());s.moves.push({type:'draw',seat});s.event={type:'draw',seat};return s;}
   const index=s.hands[seat].findIndex(t=>t.id===a.tile),tile=s.hands[seat].splice(index,1)[0];
   // Capicúa: the last tile fits both ends. Some houses also want the two ends
   // to differ (closing on a 3 at both ends does not count): capicuaDistinct.
@@ -150,13 +187,20 @@ export function applyAction(state,p,a) {
   if(!s.hands[seat].length) return closeHand(s,'domino',seat,capicua);
   // Trancado: no tile left in any hand fits either end. Close it now instead
   // of making four people press "paso" in turn; whoever just played trancó.
-  if(!s.hands.some(h=>h.some(t=>t.a===s.left||t.b===s.left||t.a===s.right||t.b===s.right))) return closeHand(s,'tranque',seat);
-  s.turn=(seat+1)%4;return s;
+  // Drawing, the pozo counts too — and if nothing in it fits either, the next
+  // player would draw every last tile before passing, so they take them now.
+  const vivas=drawing(s)?[...s.hands,s.pozo]:s.hands;
+  if(!vivas.some(h=>h.some(t=>fits(t,s.left,s.right)))){
+    const next=(seat+1)%n;
+    while(drawing(s)&&s.pozo.length){s.hands[next].push(s.pozo.shift());s.moves.push({type:'draw',seat:next});}
+    return closeHand(s,'tranque',seat);
+  }
+  s.turn=(seat+1)%n;return s;
 }
 export function isGameOver(s) {
   return s.phase==='seriesEnd'?{over:true,winner:String(s.result.team),zapato:s.result.zapato}:{over:false};
 }
 export function viewFor(s,p) {
   const seat=s.players.indexOf(p),closed=s.phase==='handEnd'||s.phase==='seriesEnd';
-  return {phase:s.phase,names:s.names,bots:s.bots,cast:s.cast,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,isVip:!!s.vip&&p===s.vip,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
+  return {phase:s.phase,names:s.names,bots:s.bots,cast:s.cast,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),pozo:drawing(s)?s.pozo?.length??0:0,canDraw:canDraw(s,seat),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,isVip:!!s.vip&&p===s.vip,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length&&!canDraw(s,seat),moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
 }

@@ -42,6 +42,31 @@ describe('the phone that runs the table',()=>{
  });
 });
 
+describe('uno contra uno',()=>{
+ it('lets the table switch to two chairs in the lobby, keeping people, and refuses when too many sit',async()=>{
+  await inRoom(lobby({0:'ana',2:'beto'}),async(room,state)=>{
+   await room.commit(await stored(state));
+   const beto=ws('beto');await say(room,beto,{type:'modo',n:2});expect(lastError(beto)).toBe('Only the table host can do that.');
+   await say(room,ws('ana'),{type:'modo',n:2});
+   let s=(await stored(state)).state;expect(s.players).toEqual(['ana','beto']);expect(s.names).toEqual(['ana','beto']);
+   await say(room,ws('ana'),{type:'action',action:{type:'start'}});
+   s=(await stored(state)).state;expect(s.hands.map((h:any[])=>h.length)).toEqual([7,7]);expect(s.pozo.length).toBe(14);
+   const late=ws('ana');await say(room,late,{type:'modo',n:4});expect(lastError(late)).toBe('Seats change between series.');
+  });
+  await inRoom(lobby({0:'ana',1:'beto',3:'caro'}),async(room,state)=>{
+   await room.commit(await stored(state));const ana=ws('ana');await say(room,ana,{type:'modo',n:2});
+   expect(lastError(ana)).toBe('Only two fit at one against one. Someone has to get up first.');expect((await stored(state)).state.players.length).toBe(4);
+  });
+ });
+ it('never sends the pozo to anyone',async()=>{
+  await inRoom(lobby({0:'ana'}),async(room,state)=>{
+   await room.commit(await stored(state));await say(room,ws('ana'),{type:'modo',n:2});await say(room,ws('ana'),{type:'action',action:{type:'start'}});
+   const g=await stored(state),sock=ws('ana');room.ctx.getWebSockets=()=>[sock];room.broadcast(g);
+   const msg=JSON.stringify(sock.sent.at(-1));expect(sock.sent.at(-1).view.pozo).toBe(14);for(const x of g.state.pozo)expect(msg).not.toContain(`"${x.id}"`);
+  });
+ });
+});
+
 describe('seats',()=>{
  it('lets a person move to a free seat and the table phone swap two seats',async()=>{
   await inRoom(lobby({0:'ana',1:'beto'}),async(room,state)=>{

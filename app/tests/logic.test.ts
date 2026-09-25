@@ -40,7 +40,7 @@ describe('Dominican double-six rules',()=>{
   for(const bad of [null,'x',[],{...ok,target:150},{...ok,capicua:10},{...ok,tie:'split'},{...ok,allPips:'yes'},{...ok,capicuaDistinct:1}])
    expect(L.validateAction(s,'host',{type:'settings',settings:bad}).ok).toBe(false);
   const next:any=play(s,'host',{type:'settings',settings:{...ok,capicuaDistinct:true,huge:'x'.repeat(3000),bots:[false,false,false,false]}});
-  expect(next.settings).toEqual({...ok,capicuaDistinct:true});expect(next.bots).toEqual(s.bots);
+  expect(next.settings).toEqual({...ok,capicuaDistinct:true,pozo:true});expect(next.bots).toEqual(s.bots);
   // a client that does not know the newer field leaves it as it was
   expect((play(next,'host',{type:'settings',settings:ok}) as any).settings.capicuaDistinct).toBe(true);
   expect((L.applyAction(s,'host',{type:'settings',settings:ok}) as any).settings.capicuaDistinct).toBe(false);
@@ -112,3 +112,59 @@ describe('a fair deal nobody can reconstruct',()=>{
   }
  });
 });
+describe('uno contra uno',()=>{
+ const two=(pozo=true)=>{const s:any=L.setup(['a'],2);s.hostId='host';s.settings.pozo=pozo;return L.applyAction(s,'host',{type:'start'}) as any;};
+ it('seats two, deals seven each and leaves fourteen in the pozo, hidden from every view',()=>{
+  const s=two();expect(s.players).toEqual(['a','bot-1']);expect(s.hands.map((h:any[])=>h.length)).toEqual([7,7]);expect(s.pozo.length).toBe(14);
+  expect(new Set([...s.hands.flat(),...s.pozo].map((x:any)=>x.id)).size).toBe(28);
+  for(const id of ['a','bot-1','host','spectator']){const v:any=L.viewFor(s,id),j=JSON.stringify(v);expect(v.pozo).toBe(14);for(const x of s.pozo)expect(j).not.toContain(`"${x.id}"`);}
+ });
+ it('opens the first hand with the best double in hand, or the heaviest tile when nobody has one',()=>{
+  let s:any=L.setup(['a'],2);s.hostId='host';
+  for(let k=0;k<40;k++){s.seed='abre'+k;const d:any=L.applyAction(s,'host',{type:'start'}),mine=d.hands.flat(),doubles=mine.filter((x:any)=>x.a===x.b);
+   const want=doubles.length?doubles.sort((x:any,y:any)=>y.a-x.a)[0]:mine.sort((x:any,y:any)=>(y.a+y.b)-(x.a+x.b)||Math.max(y.a,y.b)-Math.max(x.a,x.b))[0];
+   expect(d.salida).toBe(want.id);expect(d.hands[d.turn].some((x:any)=>x.id===want.id)).toBe(true);
+   const v:any=L.viewFor(d,d.players[d.turn]);expect(v.legal).toEqual([{tile:want.id,side:'right'}]);}
+ });
+ it('draws one tile per tap only with nothing that fits, and passes only once the pozo is empty',()=>{
+  let s=two();s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.hands=[[t(0,1),t(2,3)],[t(4,5)]];s.pozo=[t(1,1),t(5,6),t(0,0)];
+  expect(L.validateAction(s,'a',{type:'pass'}).error).toBe('Draw from the boneyard first.');
+  expect((L.viewFor(s,'a') as any).canDraw).toBe(true);expect((L.viewFor(s,'a') as any).canPass).toBe(false);
+  s=play(s,'a',{type:'draw'});expect(s.turn).toBe(0);expect(s.hands[0].length).toBe(3);expect(s.moves.at(-1)).toEqual({type:'draw',seat:0});
+  s=play(s,'a',{type:'draw'});expect(L.validateAction(s,'a',{type:'draw'}).error).toBe('You have a legal tile. Play it instead of drawing.');
+  s=play(s,'a',{type:'play',tile:'5-6',side:'right'});expect(s.turn).toBe(1);expect(s.pozo.length).toBe(1);
+  expect(L.validateAction(s,'bot-1',{type:'draw'}).error).toBe('You have a legal tile. Play it instead of drawing.');
+ });
+ it('without the pozo, the fourteen sleep: nobody draws and a pass is a pass',()=>{
+  let s=two(false);s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.hands=[[t(0,1)],[t(4,6)]];
+  expect(L.validateAction(s,'a',{type:'draw'}).error).toBe('This table plays without drawing.');
+  s=play(s,'a',{type:'pass'});expect(s.turn).toBe(1);expect(s.pozo.length).toBe(14);
+ });
+ it('scores a dominó from the one opponent and a tranque by pips, winner leading next',()=>{
+  let s=two();s.handNo=2;s.chain=[{...t(1,2),x:1,y:2}];s.left=1;s.right=2;s.turn=1;s.hands=[[t(5,5),t(0,3)],[t(2,4)]];
+  s=play(s,'bot-1',{type:'play',tile:'2-4',side:'right'});expect(s.result.team).toBe(1);expect(s.result.points).toBe(13);expect(s.scores).toEqual([0,13]);expect(s.opener).toBe(1);
+  s=two();s.pozo=[];s.chain=[{...t(6,6),x:6,y:6}];s.left=6;s.right=6;s.turn=0;s.lastPlay=0;s.hands=[[t(0,1)],[t(4,5)]];
+  s=play(s,'a',{type:'pass'});s=play(s,'bot-1',{type:'pass'});
+  expect(s.result.type).toBe('tranque');expect(s.result.team).toBe(0);expect(s.result.points).toBe(9);expect(s.opener).toBe(0);
+ });
+ it('closes a true block at once, the next player taking the dead pozo as the rules would make him draw it',()=>{
+  let s=two();s.chain=[{...t(6,6),x:6,y:6},{...t(6,5),x:6,y:5}];s.left=6;s.right=5;s.turn=0;
+  s.hands=[[t(5,1),t(0,0)],[t(2,3)]];s.pozo=[t(4,4),t(1,2)];
+  const all=[t(0,6),t(1,6),t(2,6),t(3,6),t(4,6),t(0,5),t(2,5),t(3,5),t(4,5),t(5,5)].map((x,i)=>({...x,x:x.a,y:x.b,seat:i%2}));s.chain=[...s.chain,...all];
+  s=play(s,'a',{type:'play',tile:'1-5',side:'right'});   // the new end is 1 and the pozo still has the 1-2: play on
+  expect(s.phase).toBe('playing');
+  let u=two();u.chain=[{...t(6,6),x:6,y:6}];u.left=6;u.right=6;u.turn=0;u.hands=[[t(6,0),t(1,1)],[t(2,3)]];u.pozo=[t(4,4),t(2,2)];
+  u.chain=[...u.chain,...[t(1,6),t(2,6),t(3,6),t(4,6),t(5,6),t(0,1),t(0,2),t(0,3),t(0,4),t(0,5),t(0,0)].map((x,i)=>({...x,x:x.a,y:x.b,seat:i%2}))];
+  u=play(u,'a',{type:'play',tile:'0-6',side:'right'});    // ends 6 and 0: every 6 and every 0 is out
+  expect(u.result.type).toBe('tranque');expect(u.pozo.length).toBe(0);expect(u.hands[1].length).toBe(3);expect(u.result.pips).toEqual([2,17]);expect(u.result.team).toBe(0);
+ });
+ it('switches between dos contra dos and uno contra uno in the lobby, people first',()=>{
+  const four:any=L.setup(['a']);four.players[2]='b';four.bots[2]=false;four.names=['Ana','Seat 2','Beto','Seat 4'];
+  const t2:any=L.seatsFor(four,2);expect(t2.players).toEqual(['a','b']);expect(t2.names).toEqual(['Ana','Beto']);expect(t2.bots).toEqual([false,false]);
+  const back:any=L.seatsFor(t2,4);expect(back.players).toEqual(['a','b','bot-2','bot-3']);expect(back.bots).toEqual([false,false,true,true]);
+  four.players[1]='c';four.bots[1]=false;expect(L.seatsFor(four,2)).toBeNull();
+  expect(L.seatsFor({...t2,phase:'playing'},4)).toBeNull();
+  const again:any=L.applyAction({...t2,phase:'seriesEnd',hostId:'host'},'a',{type:'newSeries'});expect(again.players.length).toBe(2);expect(again.hands.length).toBe(2);
+ });
+});
+

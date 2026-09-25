@@ -6,7 +6,7 @@
 import {env,runInDurableObject} from 'cloudflare:test';
 import {describe,it,expect} from 'vitest';
 import * as L from '../src/logic.js';
-import {AUTO_DEAL_MS,ESPERA_FIN_MS,autoDealAt,vipOf} from '../src/room';
+import {AUTO_DEAL_MS,BOTS_SOLOS_MS,ESPERA_FIN_MS,autoDealAt,vipOf} from '../src/room';
 
 const run=runInDurableObject as unknown as <R>(stub:DurableObjectStub,fn:(room:any,state:DurableObjectState)=>Promise<R>)=>Promise<R>;
 const member=(id:string,now:number,extra:any={})=>({id,publicId:'pub-'+id,name:id,role:'player',lastSeen:now,away:false,...extra});
@@ -80,6 +80,13 @@ describe('seats',()=>{
 });
 
 describe('after a hand closes',()=>{
+ it('keeps an all-bot table dealing while someone watches, and stops when nobody does',()=>{
+  const now=Date.now(),g=lobby({},now);
+  g.state=L.applyAction(g.state,'host',{type:'start'});g.state.phase='handEnd';g.closedAt=now;
+  expect(autoDealAt(g,now)).toBe(now+BOTS_SOLOS_MS);
+  g.members.host.lastSeen=now-60000;expect(autoDealAt(g,now)).toBeNull();
+  g.state.phase='seriesEnd';g.members.host.lastSeen=now;expect(autoDealAt(g,now)).toBeNull();   // la serie terminó: no se reparte sola
+ });
  it('lets nobody deal during the reveal, then deals when everyone says Listo',async()=>{
   const now=Date.now(),g=lobby({0:'ana',2:'beto'},now);
   g.state=L.applyAction(g.state,'host',{type:'start'});g.state.phase='handEnd';g.closedAt=now;

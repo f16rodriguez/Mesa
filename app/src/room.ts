@@ -80,12 +80,19 @@ export function coverAt(g:Table,seat:number,now:number):number|null{
  return Math.max(now,m?goneAt(m):now);
 }
 export function botMayCover(g:Table,seat:number,now:number){const t=coverAt(g,seat,now);return t!==null&&t<=now;}
+/** With only bots at the table, the next hand deals itself this long after one closes
+ *  (the reveal, then a beat): the table plays itself to the end of the series. */
+export const BOTS_SOLOS_MS=ESPERA_FIN_MS+2000;
 /** When the room should deal a closed hand itself: AUTO_DEAL_MS after it
- *  closed, and only while a seated human is there to play it. */
+ *  closed while a seated human is there to play it; with only bots seated, BOTS_SOLOS_MS
+ *  after, while anyone (the TV, a spectator) is watching. An empty room never deals. */
 export function autoDealAt(g:Table&{closedAt?:number;listos?:number[]},now:number):number|null{
  const s=g.state;if(s.phase!=='handEnd'||g.closedAt===undefined)return null;
  const here=s.players.map((p:string,i:number)=>!s.bots[i]&&present(g.members[p],now)?i:-1).filter((i:number)=>i>=0);
- if(!here.length)return null;
+ if(!here.length){
+  if(s.bots.some((b:boolean)=>!b))return null;   // hay gente sentada que no está: se espera
+  return Object.values(g.members).some(m=>present(m,now))?Math.max(now,g.closedAt+BOTS_SOLOS_MS):null;
+ }
  const ready=here.every((i:number)=>(g.listos??[]).includes(i));
  return Math.max(now,g.closedAt+(ready?ESPERA_FIN_MS:AUTO_DEAL_MS));
 }

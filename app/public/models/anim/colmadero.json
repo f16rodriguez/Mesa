@@ -7,11 +7,11 @@
   "cuadros": 41
  },
  "Esperar": {
-  "duracion": 4.0333,
-  "paso": 0.0365,
+  "duracion": 2.5333,
+  "paso": 0.0045,
   "cadera": 0.9489,
-  "avance": 0.0,
-  "cuadros": 121
+  "avance": 0.0001,
+  "cuadros": 76
  },
  "Saludar": {
   "duracion": 4.1333,
@@ -27,18 +27,18 @@
   "avance": 0.0014,
   "cuadros": 156
  },
- "Atender": {
-  "duracion": 6.5,
-  "paso": 0.0321,
-  "cadera": 0.9489,
-  "avance": 0.0001,
-  "cuadros": 195
- },
  "Dar": {
   "duracion": 2.0333,
   "paso": 0.0057,
   "cadera": 0.9489,
   "avance": 0.0,
   "cuadros": 61
+ },
+ "Recoger": {
+  "duracion": 0.8667,
+  "paso": 0.0278,
+  "cadera": 0.9489,
+  "avance": 0.0,
+  "cuadros": 26
  }
 }

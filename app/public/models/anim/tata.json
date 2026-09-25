@@ -7,11 +7,11 @@
   "cuadros": 41
  },
  "Esperar": {
-  "duracion": 4.0333,
-  "paso": 0.0435,
+  "duracion": 2.5333,
+  "paso": 0.0083,
   "cadera": 0.7855,
-  "avance": 0.0,
-  "cuadros": 121
+  "avance": 0.0001,
+  "cuadros": 76
  },
  "Saludar": {
   "duracion": 4.1333,
@@ -26,5 +26,12 @@
   "cadera": 0.7855,
   "avance": 0.0011,
   "cuadros": 156
+ },
+ "SentadoHabla": {
+  "duracion": 2.9667,
+  "paso": 0.0005,
+  "cadera": 0.7855,
+  "avance": 0.0,
+  "cuadros": 89
  }
 }

@@ -29,8 +29,10 @@ export const MESA_CLASICA=['rafa','marisol','luis','carmen'];
 
 /* Los modelos traen la textura también como emisiva a 1: se alumbran solos y la ropa sale plana,
   pegada encima de la escena (la camisa blanca, un parche blanco sin un pliegue). A .4 conservan la
-  cara legible en la penumbra y la ropa toma la luz del bombillo y las sombras de verdad. */
-export const LUZ_PROPIA=.4;
+  cara legible en la penumbra y la ropa toma la luz del bombillo y las sombras de verdad (.3 desde
+  que las normales están suavizadas, scripts/manos/suavizar.py: antes, con menos luz propia, se veían
+  las facetas). */
+export const LUZ_PROPIA=.3;
 const porId=new Map([...PERSONAJES,COLMADERO].map(p=>[p.id,p]));
 export const personaje=id=>porId.get(id)||null;
 /** Qué hay hecho de cada uno: el juego solo usa a quien ya tiene sus animaciones. */

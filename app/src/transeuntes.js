@@ -37,7 +37,11 @@ export function cargar(p){
  if(!cache.has(p.modelo))cache.set(p.modelo,Promise.all([cargador.loadAsync(`/models/${p.modelo}.glb`),cargador.loadAsync(`/models/anim/${p.modelo}.glb`)]).then(([g,a])=>{
   const acciones={};
   // Solo rotaciones y el movimiento de la cadera: el resto de las pistas repite el reposo.
-  for(const c of a.animations){c.tracks=c.tracks.filter(t=>t.name.endsWith('.quaternion')||t.name==='Hips.position');acciones[c.name]=c;}
+  for(const c of a.animations){c.tracks=c.tracks.filter(t=>t.name.endsWith('.quaternion')||t.name==='Hips.position');acciones[c.name]=c;
+   // De pie, en su sitio: el clip de conversar de Meshy pasea la cadera medio metro de lado a lado
+   // (Kiko se salía de detrás del mostrador). Fuera de caminar, la cadera solo sube y baja.
+   const cad=c.name!=='Caminar'&&c.tracks.find(t=>t.name==='Hips.position');
+   if(cad){const v=cad.values;for(let i=3;i<v.length;i+=3){v[i]=v[0];v[i+2]=v[2];}}}
   return {p,gltf:g,acciones,datos:clips(p)};
  }).catch(e=>{cache.delete(p.modelo);throw e;}));
  return cache.get(p.modelo);
@@ -55,6 +59,8 @@ function cabeza(g,peso){
   _d.subVectors(g.mirar,_a).normalize();const ang=_u.angleTo(_d);if(ang<1e-3)continue;
   giraEnMundo(hueso,_q2.identity().slerp(_q.setFromUnitVectors(_u,_d),peso*parte*Math.min(ang,1.1)/ang));}
 }
+/** Clips que van una sola vez y se quedan en su último cuadro. */
+const UNA_VEZ=new Set(['Saludar','Dar','Recoger']);
 /** En el clip Dar (Interact), cuándo está el brazo estirado del todo, en segundos. */
 const DAR_PICO=1;
 /** El brazo derecho que alcanza: arriba a un anaquel (alto 1) o al frente, a dar o recibir (0). */
@@ -109,11 +115,11 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   const d=t.datos.Caminar,vClip=d?d.paso/d.duracion:1.1;
   return {t,p:t.p,root,holder,h,malla,mixer,acc,actual:null,vClip,marcha:0,t:0,alcanza:0,alcanzaAlto:0,mirar:v3(0,1.4,5),mira:0,yaw:0};
  }
- /** Cambia de clip con un cruce suave. Saludar y Dar van una sola vez y se quedan en su último cuadro. */
+ /** Cambia de clip con un cruce suave. Los de UNA_VEZ se quedan en su último cuadro. */
  function jugar(g,nombre,cruce=.4){
   if(g.actual===nombre)return;const a=g.acc[nombre]||g.acc.Esperar;if(!a)return;
   a.reset();a.setEffectiveTimeScale(1);a.setEffectiveWeight(1);
-  if(nombre==='Saludar'||nombre==='Dar'){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true;}
+  if(UNA_VEZ.has(nombre)){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true;}
   a.fadeIn(cruce).play();
   const antes=g.actual&&g.acc[g.actual];if(antes&&antes!==a)antes.fadeOut(cruce);
   g.actual=nombre;
@@ -145,7 +151,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
  }
  const giroHacia=(g,yaw,dt,vel=2.6)=>{let d=yaw-g.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));g.yaw+=Math.max(-vel*dt,Math.min(vel*dt,d));g.holder.rotation.y=g.yaw;return Math.abs(d);};
  function andar(g,dt,estado){
-  let tramo=g.guion[g.i];if(!tramo){if(!g.fijo){soltar(g);return;}g.guion=[vigilar()];g.i=0;tramo=g.guion[0];tramo.t0=g.t;}
+  let tramo=g.guion[g.i];if(!tramo){if(!g.fijo){soltar(g);return;}g.guion=g===colmadero?tareas():[vigilar()];g.i=0;tramo=g.guion[0];tramo.t0=g.t;}
   g.t+=dt;
   if(tramo.tipo==='ruta'){
    const sigue=g.guion[g.i+1],para=sigue&&sigue.tipo!=='ruta',falta=tramo.largo-tramo.d;
@@ -160,6 +166,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   }else if(tramo.tipo==='quieto'){
    g.marcha=0;const e=g.t-(tramo.t0??g.t);
    if(tramo.saludo)saludar(g,tramo,e,estado);
+   if(!tramo.empezo){tramo.empezo=true;if(UNA_VEZ.has(tramo.clip)&&g.actual===tramo.clip)g.actual=null;}   // dos 'Dar' seguidos: el segundo arranca de nuevo
    jugar(g,tramo.clip||'Esperar',.45);
    if(tramo.yaw!=null)giroHacia(g,tramo.yaw,dt,2);
    if(tramo.miraA?.h?.Head)tramo.mira=tramo.miraA.h.Head.getWorldPosition(tramo.mira||v3());
@@ -179,7 +186,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
     esté cerrando mano ni hablando nadie). Si no, sigue de largo. */
  function saludar(g,tramo,e,estado){
   if(!tramo.decidido){tramo.decidido=true;const v=estado?.view;
-   const ok=v&&(v.phase==='lobby'||v.phase==='playing')&&(forzar||!estado.habla?.size&&reloj>150&&reloj-ultimoSaludo>420);forzar=false;
+   const ok=v&&(v.phase==='lobby'||v.phase==='playing')&&(forzar||!estado.habla?.size&&reloj>60&&reloj-ultimoSaludo>240);forzar=false;
    if(!ok){tramo.dur=0;return;}
    const bots=[0,1,2,3].filter(s=>v.bots?.[s]),seat=bots.length&&Math.random()<.8?uno(bots):null;
    tramo.seat=seat;ultimoSaludo=reloj;
@@ -199,9 +206,20 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   const g=armar(t);if(!g)return;
   g.fijo=true;g.zona='colmado';colmadero=g;g.malla.castShadow=true;
   g.holder.position.copy(COLMADERO);g.yaw=0;g.holder.rotation.y=0;g.mirar.set(0,.8,0);
-  g.guion=[vigilar()];g.i=0;g.guion[0].t0=0;jugar(g,'Esperar',0);scene.add(g.holder);
+  g.guion=tareas();g.i=0;g.guion[0].t0=0;jugar(g,'Esperar',0);scene.add(g.holder);
  }
  function vigilar(){return {tipo:'quieto',dur:1e9,yaw:0,vigila:true};}
+ /* Kiko no se queda parado meciéndose: mira la mesa un rato y se pone a hacer algo. Todo con clips
+    (Dar, Recoger), nada de brazo armado a mano: estirado así se torcía y se metía en el anaquel. */
+ function tareas(){
+  const q=(dur,o)=>({tipo:'quieto',dur,...o}),atras=Math.PI,estante=v3(COLMADERO.x+azar(-.6,.6),azar(1.2,1.6),-4.8),r=Math.random();
+  const mirar=q(azar(6,14),{yaw:0,vigila:true});
+  if(r<.4)return [mirar,q(.9,{yaw:atras,mira:estante}),q(2.1,{yaw:atras,mira:estante,clip:'Dar'}),   // surte el anaquel
+   q(1,{yaw:atras+azar(-.35,.35),mira:estante}),q(2.1,{yaw:atras,mira:estante,clip:'Dar'}),q(.9,{yaw:0})];
+  if(r<.75)return [mirar,q(.9,{yaw:atras,mira:v3(estante.x,.8,-4.8)}),q(1.3,{yaw:atras,mira:v3(estante.x,.8,-4.8),clip:'Recoger'}),   // busca abajo y lo pone en el mostrador
+   q(.9,{yaw:0}),q(2.1,{yaw:0,mira:v3(COLMADERO.x+azar(-.5,.5),1.1,TOPE_DELANTE),clip:'Dar'})];
+  return [mirar,q(azar(4,8),{yaw:azar(-.4,.4),vigila:true})];   // se queda mirando la mesa
+ }
  function vigilando(tramo,estado){
   if(tramo.cambio&&reloj<tramo.cambio)return tramo.mira;
   tramo.cambio=reloj+azar(3,6.5);const v=estado?.view,r=Math.random(),cab=estado?.cabezas,alguien=gente.find(g=>g.zona==='patio');
@@ -211,11 +229,11 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   return v3(azar(-4,4),1.5,6);
  }
  function servir(c,cliente){
-  const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),anaquel=v3(COLMADERO.x+azar(-.5,.5),1.72,-4.8);
+  const quieto=(dur,o)=>({tipo:'quieto',dur,...o}),anaquel=v3(COLMADERO.x+azar(-.5,.5),1.4,-4.8);
   // Lo mira, se vira al anaquel de atrás, estira el brazo, se vira y se lo da por encima del mostrador
   // (con el clip 'Dar', de la librería de Quaternius; si no lo tiene, con el brazo armado a mano).
   const dar=c.acc.Dar?quieto(2.1,{yaw:0,miraA:cliente,clip:'Dar',recibe:cliente}):quieto(2.4,{yaw:0,miraA:cliente,brazo:{alto:.15,entrega:cliente}});
-  c.guion=[quieto(1.4,{yaw:0,miraA:cliente}),quieto(.9,{yaw:Math.PI,mira:anaquel}),quieto(2.2,{yaw:Math.PI,mira:anaquel,brazo:{alto:1}}),
+  c.guion=[quieto(1.4,{yaw:0,miraA:cliente}),quieto(.9,{yaw:Math.PI,mira:anaquel}),c.acc.Dar?quieto(2.1,{yaw:Math.PI,mira:anaquel,clip:'Dar'}):quieto(2.2,{yaw:Math.PI,mira:anaquel,brazo:{alto:1}}),
    quieto(.9,{yaw:0,miraA:cliente}),dar,quieto(4,{yaw:0,miraA:cliente,clip:'Conversar'})];
   c.i=0;c.guion[0].t0=c.t;
  }
@@ -231,6 +249,15 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   else guion.push(ruta(unir(vuelta(AL_MOSTRADOR),vuelta(PATIO_DER))));
   return guion;
  }
+ /** Por la calle. Si ya toca un saludo, a veces se para frente a la mesa (donde el camino le queda
+    más cerca), saluda a uno de los que juegan y sigue: no solo saluda quien entra al colmado. */
+ function porLaCalle(ya=false){
+  const ps=Math.random()<1/3?CALLE.lateral():CALLE.enfrente();
+  if(!ya&&!(reloj>60&&reloj-ultimoSaludo>240&&Math.random()<.5))return [ruta(ps)];
+  if(ps.length===4)ps.splice(2,0,v3(0,0,(ps[1].z+ps[2].z)/2));   // la acera de enfrente: justo frente a la mesa
+  let k=1,mejor=1e9;for(let i=1;i<ps.length-1;i++){const d=ps[i].x**2+ps[i].z**2;if(d<mejor){mejor=d;k=i;}}
+  return [ruta(ps.slice(0,k+1)),{tipo:'quieto',dur:3.6,saludo:true},ruta(ps.slice(k))];
+ }
  function deCamino(){const ps=unir(PATIO_DER,PATIO_MEDIO,PATIO_IZQ);return [ruta(Math.random()<.5?ps:vuelta(ps))];}
 
  // El colmadero se carga al rato de estar la mesa: no le quita tiempo a la carga.
@@ -241,7 +268,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   if(saludo){saludo.e=reloj-saludo.t0;if(reloj>saludo.hasta)saludo=null;}
   const reducido=document.documentElement.classList.contains('reduced');
   if(!reducido&&!pocos&&reloj>proxCalle){proxCalle=reloj+azar(14,32);
-   if(gente.filter(g=>g.zona==='calle').length<2){const g=nuevo();if(g)poner(g,[ruta(uno([CALLE.enfrente,CALLE.enfrente,CALLE.lateral])())],'calle');}}
+   if(gente.filter(g=>g.zona==='calle').length<2){const g=nuevo();if(g)poner(g,porLaCalle(),'calle');}}
   if(!reducido&&reloj>proxPatio&&!gente.some(g=>g.zona==='patio')){
    const g=nuevo();if(g){proxPatio=reloj+azar(50,110);poner(g,Math.random()<.65?cliente():deCamino(),'patio');}else proxPatio=reloj+3;}
   camera.updateMatrixWorld();frustum.setFromProjectionMatrix(_m.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
@@ -258,9 +285,10 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
  // Para capturas y pruebas: saca a alguien ya (tipo cliente, saluda, calle, cruza, posa).
  window.mesaTranseunte=(tipo='cliente',_,donde)=>{const g=nuevo();if(!g)return false;
   if(tipo==='posa'){const [x,z,yaw=0]=donde;poner(g,[ruta(P([x-Math.sin(yaw)*.3,z-Math.cos(yaw)*.3],[x,z])),{tipo:'quieto',dur:1e4}],'patio');return true;}
-  const s=tipo==='calle'?[ruta(CALLE.enfrente())]:tipo==='cruza'?deCamino():cliente();
+  const s=tipo==='calle'||tipo==='calle-saluda'?porLaCalle(tipo==='calle-saluda'):tipo==='cruza'?deCamino():cliente();
   if(tipo==='saluda'){if(!s.some(t=>t.saludo))s.splice(1,0,{tipo:'quieto',dur:3.6,saludo:true});forzar=true;}
-  poner(g,s,tipo==='calle'?'calle':'patio');return true;};
+  if(tipo==='calle-saluda')forzar=true;
+  poner(g,s,tipo.startsWith('calle')?'calle':'patio');return true;};
  window.mesaServir=()=>{const g=gente[gente.length-1];if(!colmadero||!g)return false;servir(colmadero,g);return true;};
  window.mesaKiko=()=>colmadero&&{clip:colmadero.actual,tramo:colmadero.i};
  window.mesaGente=()=>gente.map(g=>({quien:g.p.id,pos:g.holder.position.toArray().map(x=>+x.toFixed(2)),clip:g.actual,marcha:+g.marcha.toFixed(2),tramo:g.i}));

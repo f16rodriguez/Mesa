@@ -171,18 +171,22 @@ function tragoEn(actor,time,ctx){
  ultimoTrago=time;actor.trago={t0:time};return 0;
 }
 function dejarVaso(b){b.group.position.copy(b.home);b.group.quaternion.identity();}
+/* Dónde se agarra: en el centro de la palma, a 7 cm de la muñeca a lo largo de los dedos. A 3 cm el
+  vaso quedaba en el talón de la mano: en la mesa parecía que no lo alcanzaba y en la boca se escondía
+  dentro de la mano. */
+const PALMA=.07;
 const _boca=new THREE.Vector3(),_agarre=new THREE.Vector3(),_Fa=new THREE.Vector3(),_Fb=new THREE.Vector3(),_eje2=new THREE.Vector3();
 function manoEnTrago(actor,e,reposo,out){
  const b=actor.bebida;
  // Pulgar arriba: palma hacia dentro (+X del asiento para la derecha), dedos al frente.
  _Fa.copy(_ejeZ).addScaledVector(Y,.25).normalize();_Fb.copy(_ejeZ).multiplyScalar(.55).addScaledVector(Y,.8).normalize();
- _agarre.copy(b.home);_agarre.y+=b.alto;_agarre.addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fa,-.03);
+ _agarre.copy(b.home);_agarre.y+=b.alto;_agarre.addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fa,-PALMA);
  // Boca: bajo la nariz. El eje de la bebida inclinada (arriba hacia la cara) va
  // de la mano al borde; la mano queda "boca" más allá, por fuera de la cara.
  // La boca de verdad (vértice de la boca de cada modelo, ya deformado); si no, bajo la nariz.
  if(actor.bocaMundo){actor.bocaMundo(_boca);_boca.addScaledVector(_ejeZ,.006);}else{actor.front.getWorldPosition(_boca);_boca.y-=.075;_boca.addScaledVector(_ejeZ,.012);}
  const a=b.inclina;_eje2.copy(Y).multiplyScalar(Math.cos(a)).addScaledVector(_ejeZ,-Math.sin(a));
- _boca.addScaledVector(_eje2,-b.boca).addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fb,-.03);
+ _boca.addScaledVector(_eje2,-b.boca).addScaledVector(_ejeX,-(b.radio+.015)).addScaledVector(_Fb,-PALMA);
  // Mientras bebe, se apunta dónde quedó la boca; al bajar se usa esa, quieta: si la cabeza ya
  // mira a la mesa, la mano no se va detrás de ella (eso era el tirón del codo).
  const tr=actor.trago;if(tr){if(e<TRAMOS[2])(tr.boca??=new THREE.Vector3()).copy(_boca);else if(tr.boca)_boca.copy(tr.boca);}
@@ -214,7 +218,7 @@ function vasoEnMano(actor,e){
  const d=e<TRAMOS[1]?suave((e-TRAMOS[0])/(TRAMOS[1]-TRAMOS[0])):e<TRAMOS[2]?1:1-suave((e-TRAMOS[2])/(TRAMOS[3]-TRAMOS[2]));
  b.group.quaternion.setFromAxisAngle(_ejeX,-b.inclina*d);
  _arr.set(0,1,0).applyQuaternion(b.group.quaternion);
- b.group.position.copy(_mano).addScaledVector(_pal,b.radio+.015).addScaledVector(_ded,.03).addScaledVector(_arr,-b.alto);
+ b.group.position.copy(_mano).addScaledVector(_pal,b.radio+.015).addScaledVector(_ded,PALMA).addScaledVector(_arr,-b.alto);
  // El brazo no siempre cae clavado en el agarre: el vaso pasa del sitio a la mano en 0,2 s.
  const k=Math.min(1,(e-TRAMOS[0])/.2,(TRAMOS[3]-e)/.2);if(k<1){const s=suave(Math.max(0,k));b.group.position.lerpVectors(b.home,b.group.position,s);b.group.quaternion.slerpQuaternions(_q0.identity(),b.group.quaternion,s);}
 }
@@ -360,7 +364,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
    let o=brazo.lado==='Right'?manoEnJugada(actor,time,reposo):null,jugando=!!o,dedos=null;
    if(!o&&trago!=null&&brazo.lado==='Right'){o=_tmp.set(0,0,0);dedos=manoEnTrago(actor,trago,reposo,o).clone();}
    o=(o||reposo).clone();
-   if(!jugando&&vivo&&ctx?.habla?.has(i)&&brazo.lado==='Left'){actor.gesto=Math.min(1,(actor.gesto||0)+(ctx.dt||0)*3);}
+   if(!jugando&&vivo&&ctx?.habla?.has(i)&&brazo.lado==='Left'&&!actor.clipHabla){actor.gesto=Math.min(1,(actor.gesto||0)+(ctx.dt||0)*3);}
    else if(brazo.lado==='Left')actor.gesto=Math.max(0,(actor.gesto||0)-(ctx?.dt||1)*2);
    if(brazo.lado==='Left'&&actor.gesto>0){const g=suave(actor.gesto);o.addScaledVector(_ejeZ,.06*g).addScaledVector(_ejeX,-.07*g);o.y+=.07*g+Math.sin(time*5.2)*.012*g;}
    if(brazo.lado==='Right'&&!jugando&&fin&&i%2===ctx.fin.team){const e=time-ctx.fin.t;if(e<1.1)o.y+=Math.max(0,Math.sin(Math.min(1,e/.9)*Math.PI))*.13;}
@@ -436,5 +440,39 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
    if(tau<.55){brazo.mano.getWorldQuaternion(_wq);_eje.set(1,0,0).applyQuaternion(_wq);giraEnMundo(brazo.mano,_lean.setFromAxisAngle(_eje,-.22*Math.max(0,Math.sin(tau/.55*Math.PI*4))));}
   }
  }
+ if(vivo)hablarConClip(actor,time,ctx,trago);
  actor.holder.updateMatrixWorld(true);
 }
+
+/**
+ * Hablando, el bot gesticula con el clip de la librería de Quaternius (Sitting_Talking_Loop, horneado
+ * como SentadoHabla). Brazos y manos toman la rotación del clip (encima del IK, con peso que entra en
+ * medio segundo y sale en 0,3 s, así al jugar o beber la mano vuelve limpia a su trabajo); el tronco y
+ * la cabeza solo su vaivén, relativo al promedio del clip, encima de la pose de la mesa.
+ */
+const BRAZOS_CLIP=['LeftShoulder','LeftArm','LeftForeArm','LeftHand','RightShoulder','RightArm','RightForeArm','RightHand'],TRONCO_CLIP=['Spine01','Spine','neck','Head'];
+const _qc=new THREE.Quaternion(),_qr=new THREE.Quaternion(),_qi=new THREE.Quaternion();
+function hablarConClip(actor,time,ctx,trago){
+ const c=actor.clipHabla;if(!c||!actor.brazos)return;
+ const quiere=!!(ctx?.habla?.has(actor.index)&&!actor.jugada&&trago==null),dt=ctx?.dt||0;
+ actor.wHabla=Math.max(0,Math.min(1,(actor.wHabla||0)+(quiere?dt/.5:-dt/.3)));
+ const w=suave(actor.wHabla);if(w<=0)return;
+ if(!actor.pistasHabla){
+  actor.pistasHabla=[];
+  for(const tr of c.tracks){
+   const [nombre,prop]=tr.name.split('.'),abs=BRAZOS_CLIP.includes(nombre);if(prop!=='quaternion'||!(abs||TRONCO_CLIP.includes(nombre)))continue;
+   const bone=actor.root.getObjectByName(nombre),it=tr.createInterpolant();if(!bone)continue;
+   // El promedio del clip, para sacar de él solo el vaivén.
+   const ref=new THREE.Quaternion(0,0,0,0),n=16;
+   for(let k=0;k<n;k++){_qc.fromArray(it.evaluate(c.duration*k/n));if(ref.x*_qc.x+ref.y*_qc.y+ref.z*_qc.z+ref.w*_qc.w<0)_qc.set(-_qc.x,-_qc.y,-_qc.z,-_qc.w);ref.set(ref.x+_qc.x,ref.y+_qc.y,ref.z+_qc.z,ref.w+_qc.w);}
+   actor.pistasHabla.push({bone,it,abs,ref:ref.normalize().invert()});
+  }
+ }
+ const tt=(time+actor.index*1.7)%c.duration;
+ for(const p of actor.pistasHabla){
+  _qc.fromArray(p.it.evaluate(tt));
+  if(p.abs)p.bone.quaternion.slerp(_qc,w);
+  else p.bone.quaternion.multiply(_qi.identity().slerp(_qr.copy(p.ref).multiply(_qc),w));
+ }
+}
+

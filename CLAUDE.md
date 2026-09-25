@@ -57,7 +57,7 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   lista de movimientos), no de video. Elegida por el motor con un puntaje de drama.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
 - Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
-  Mesa abre en el idioma del aparato si nadie eligió otro. Las voces de los bots tienen su versión
+  Mesa abre en español si nadie eligió otro (25 sep 2026); el inglés, con el botón ES · EN de arriba o en Ajustes. Las voces de los bots tienen su versión
   en inglés (mismas voces, con su acento) en `app/public/audio/bots/<bot>/en/`.
 - **Three Thirteen Studios** (el estudio, de Trey Rodriguez) firma Mesa en tres sitios y
   nada más: el splash al abrir la portada (video de 3,5 s, se salta tocando, una vez por
@@ -97,12 +97,13 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   Animation Library de Quaternius (CC0; `animar.py` reconoce su esqueleto y corrige la dirección de
   brazos y piernas, porque su reposo es una T y el de Meshy no); Don Rafa y Nando conservan el
   caminar de Meshy para que no todos anden igual. El resto de los clips son de Meshy. Se alumbran solos con su textura:
-  la emisiva va a `LUZ_PROPIA` (.4) para que la ropa tome luz y sombra de la escena. Nada de teñir
+  la emisiva va a `LUZ_PROPIA` (.3) para que la ropa tome luz y sombra de la escena, y las normales
+  vienen suavizadas (`scripts/manos/suavizar.py`: Meshy las parte en cada arista y la cara salía facetada). Nada de teñir
   ropa ni poner gorras en el shader: se quitó porque se veía mal. Voces: cada bot tiene las suyas
   en español y en inglés (el inglés clonado de su toma en español, con su acento).
 - **La gente que pasa** (`app/src/transeuntes.js`): vecinos por la acera de enfrente y la calle de
   al lado, y cada minuto o dos alguien cruza el patio o entra a comprar al colmado. Muy de vez en
-  cuando (≥7 min) el cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo`
+  cuando (el primero pasado el minuto, luego cada ≥4 min) el cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo`
   en `bot-chatter.js`; audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la
   cámara mira hacia abajo y al que está de pie se le ve de la cintura para abajo; en el lobby se ve
   entero. Kiko atiende detrás del mostrador: lo mira, se vira al anaquel, estira el brazo y se lo da

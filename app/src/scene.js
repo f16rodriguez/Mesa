@@ -206,7 +206,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   const b=new THREE.Box3().setFromObject(root),hips=root.getObjectByName('Hips'),hp=hips?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,Math.max(-b.min.y,CADERA_SENTADA-hp.y),-hp.z);const [x,z,a]=seats[index];holder.position.set(x,0,z);holder.rotation.y=a;
   const viejo=characters[index];if(viejo){scene.remove(viejo.holder);for(const q of viejo.parpados||[]){scene.remove(q.m);q.m.geometry.dispose();q.m.material.dispose();}}
   scene.add(holder);
-  characters[index]={id,root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips,lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);
+  characters[index]={id,clipHabla:t.acciones.SentadoHabla||null,root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips,lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);
   if(gen===0){loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);}
  }catch(e){failed.push(id);console.error('Character load failed',id,e);if(gen===0)onProgress(`Could not load ${p?.nombre||id}. Reload to retry.`,loaded/total);}}
  const ready=Promise.all(reparto.map((id,i)=>loadPerson(i,id,0)));
@@ -245,14 +245,14 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  function dentroDelSet(){const p=camera.position,t=controls.target;
   _off.subVectors(p,t);if(_off.length()>4.6)p.copy(t).addScaledVector(_off.normalize(),4.6);
   p.z=Math.max(p.z,-2.1);p.x=THREE.MathUtils.clamp(p.x,-4.9,4.9);p.y=THREE.MathUtils.clamp(p.y,.35,5.2);}
- let sacudida=-1,vuelta=null,distanciaAntes=controls.minDistance;
+ let sacudida=-1,vuelta=null,distanciaAntes=controls.minDistance,vista='table',cortado=false;
  function corte(p,seat,golpe){
   if(document.documentElement.classList.contains('reduced'))return;
   let mejor=v3(1,0,1).normalize(),max=-9;
   for(const [dx,dz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){const d=v3(dx,0,dz).normalize(),k=d.x*p.x+d.z*p.z;if(k>max){max=k;mejor=d;}}
   const pos=p.clone().addScaledVector(mejor,.3);
   pos.x=THREE.MathUtils.clamp(pos.x,-.4,.4);pos.z=THREE.MathUtils.clamp(pos.z,-.4,.4);pos.y=DIM.surfaceY+(golpe?.12:.19);
-  if(!vuelta)distanciaAntes=controls.minDistance;controls.minDistance=.1;
+  if(!vuelta)distanciaAntes=controls.minDistance;controls.minDistance=.1;cortado=true;
   vuelta={pos:vuelta?.pos||camera.position.clone(),target:vuelta?.target||controls.target.clone(),at:clock.elapsedTime+3.4};
   camTween={from:camera.position.clone(),to:pos,fromTarget:controls.target.clone(),toTarget:p.clone().setY(p.y+.01),t:0,dur:.45};
  }
@@ -260,7 +260,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  //  table: la mesa y los cuatro, con el colmado y la gente de fondo arriba.
  //  overhead: el tablero entero, con los atriles.  close: por encima del hombro.
  //  seat: desde la silla de quien juega (su cuerpo se esconde para no taparse).
- function setCamera(which='table'){
+ function setCamera(which='table'){vista=which;cortado=false;
   controls.minDistance=which==='seat'||which==='close'?.3:.7;controls.minPolarAngle=which==='overhead'?.01:.25;
   if(camera.aspect<.95&&which==='table')which='overhead';
   let pos,target=v3(0,.80,0);
@@ -326,7 +326,8 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   // Mano nueva, lobby o portada: se arma de cero. Si no, solo entran las fichas nuevas, y una
   // ficha que va volando no se reinicia porque alguien pasó mientras tanto.
   const clave=!view||view.phase==='lobby'?'pila':'mano'+view.handNo;
-  if(clave!==claveMesa){claveMesa=clave;clear(tileGroup);fichas.clear();animations=animations.filter(a=>a.reparto);for(const c of characters)if(c)c.jugada=null;if(clave==='pila')pila();}
+  if(clave!==claveMesa){claveMesa=clave;if(cortado)setCamera(vista);   // mano nueva: si quedó algo del corte, a la vista de siempre
+  clear(tileGroup);fichas.clear();animations=animations.filter(a=>a.reparto);for(const c of characters)if(c)c.jugada=null;if(clave==='pila')pila();}
   if(view&&view.chain?.length){
    const layout=chainLayout(view.chain,view.moves),ev=view.event,cierre=['domino','capicua','tranque'].includes(ev?.type),ultima=view.moves[view.moves.length-1],golpe=ev?.type==='domino'||ev?.type==='capicua';
    // Al cerrar la mano el evento pasa a ser domino/capicua/tranque: la ficha que la cerró es la última jugada.
@@ -376,7 +377,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
    else if(!forzarHQ&&quality==='low'&&!bajadaMin&&now-(bajadaAuto||arranque)>9000&&now-(bajadaAuto||arranque)<40000&&fps<20){bajadaMin=true;api.quality('min');dispatchEvent(new CustomEvent('mesa:calidad',{detail:'min'}));}}
   frame++;renderer.info.reset();
   const reduced=document.documentElement.classList.contains('reduced');
-  if(vuelta&&clock.elapsedTime>vuelta.at){camTween={from:camera.position.clone(),to:vuelta.pos,fromTarget:controls.target.clone(),toTarget:vuelta.target,t:0,dur:1.2};vuelta=null;controls.minDistance=distanciaAntes;}
+  if(vuelta&&clock.elapsedTime>vuelta.at){camTween={from:camera.position.clone(),to:vuelta.pos,fromTarget:controls.target.clone(),toTarget:vuelta.target,t:0,dur:1.2};vuelta=null;cortado=false;controls.minDistance=distanciaAntes;}
   // El golpe del dominó: tiembla la mesa, la cámara, y el bombillo da un chispazo.
   let temblor=0;
   if(sacudida>=0){const e=clock.elapsedTime-sacudida;
@@ -429,7 +430,9 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  const encuadre=()=>{if(camera.aspect<.95)camera.setViewOffset(innerWidth,innerHeight*1.24,0,innerHeight*.24,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();};
  const ratio=()=>software?.65:quality==='min'?Math.min(devicePixelRatio,1)*.55:quality==='low'?Math.min(devicePixelRatio,1)*.8:Math.min(devicePixelRatio,1.5,1920/innerWidth);
  const resize=()=>{camera.aspect=innerWidth/innerHeight;encuadre();renderer.setPixelRatio(ratio());renderer.setSize(innerWidth,innerHeight);atmos.resize(innerWidth,innerHeight);};encuadre();window.addEventListener('resize',resize);
- controls.addEventListener('start',()=>{camTween=null;vuelta=null;});
+ // Quien toca la pantalla toma la cámara, salvo en el corte del dominó: ahí un toque sin querer
+ // cancelaba la vuelta y la cámara se quedaba pegada al paño para siempre.
+ controls.addEventListener('start',()=>{camTween=null;if(!cortado)vuelta=null;});
  // Si el contexto WebGL se pierde (pasa en teles) y vuelve, el entorno se regenera.
  renderer.domElement.addEventListener('webglcontextrestored',()=>atmos.entorno?.());
  const api={update,setCrowd,setCamera,ready,sentar,get reparto(){return reparto.slice();},

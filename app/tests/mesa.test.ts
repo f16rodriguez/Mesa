@@ -6,7 +6,7 @@
 import {env,runInDurableObject} from 'cloudflare:test';
 import {describe,it,expect} from 'vitest';
 import * as L from '../src/logic.js';
-import {AUTO_DEAL_MS,BOTS_SOLOS_MS,ESPERA_FIN_MS,autoDealAt,vipOf} from '../src/room';
+import {AUTO_DEAL_MS,BOTS_SOLOS_MS,ESPERA_FIN_MS,autoDealAt,vipOf,rotacion} from '../src/room';
 
 const run=runInDurableObject as unknown as <R>(stub:DurableObjectStub,fn:(room:any,state:DurableObjectState)=>Promise<R>)=>Promise<R>;
 const member=(id:string,now:number,extra:any={})=>({id,publicId:'pub-'+id,name:id,role:'player',lastSeen:now,away:false,...extra});
@@ -96,10 +96,10 @@ describe('seats',()=>{
    const token='cd'.repeat(32),bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));
    const id=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
    await say(room,ws(null),{type:'join',role:'player',token,name:'Cleo'});
-   let h=await stored(state);expect(h.members[id].espera).toBe(true);expect(h.state.players).not.toContain(id);
+   let h=await stored(state);expect(h.fila).toEqual([id]);expect(h.state.players).not.toContain(id);
    h.state.phase='handEnd';h.state.result={team:0,type:'domino',points:10,pips:[0,0,0,0],totals:[0,0]};await state.storage.put('mesa',h);
    await room.commit(await stored(state));
-   h=await stored(state);expect(h.state.players[1]).toBe(id);expect(h.state.names[1]).toBe('Cleo');expect(h.members[id].role).toBe('player');
+   h=await stored(state);expect(h.state.players[1]).toBe(id);expect(h.state.names[1]).toBe('Cleo');expect(h.members[id].role).toBe('player');expect(h.fila).toEqual([]);
   });
  });
 });
@@ -138,3 +138,47 @@ describe('after a hand closes',()=>{
   });
  });
 });
+
+describe('se para el que pierde',()=>{
+ const cerrada=(players:string[],bots:boolean[],team:number)=>({phase:'seriesEnd',players,bots,result:{team}});
+ it('lets the line fill bot seats first and gets up only as many losers as it needs',()=>{
+  expect(rotacion(cerrada(['a','b','c','d'],[false,false,false,false],0),['x','y'])).toEqual({salen:[1,3],entran:[{seat:1,id:'x'},{seat:3,id:'y'}]});
+  expect(rotacion(cerrada(['a','b','c','d'],[false,false,false,false],0),['x'])).toEqual({salen:[1],entran:[{seat:1,id:'x'}]});
+  // the winners' partner is a bot: the first in line takes that chair, and only one loser gets up
+  expect(rotacion(cerrada(['a','b','bot-2','d'],[false,false,true,false],0),['x','y'])).toEqual({salen:[1],entran:[{seat:1,id:'x'},{seat:2,id:'y'}]});
+  expect(rotacion(cerrada(['a','b'],[false,false],1),['x'])).toEqual({salen:[0],entran:[{seat:0,id:'x'}]});   // uno contra uno
+  expect(rotacion(cerrada(['a','b','c','d'],[false,false,false,false],0),[])).toEqual({salen:[],entran:[]});
+  expect(rotacion({...cerrada(['a','b','c','d'],[false,false,false,false],0),phase:'handEnd'},['x'])).toEqual({salen:[],entran:[]});
+ });
+ it('queues whoever arrives at a full table, rotates at the rematch, and sends the losers to the back of the line',async()=>{
+  const g=lobby({0:'ana',1:'beto',2:'caro',3:'dani'});
+  await inRoom(g,async(room,state)=>{
+   await room.commit(await stored(state));
+   const join=async(t:string,name:string)=>{const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));const sock=ws(null);await say(room,sock,{type:'join',role:'player',token:t,name});return {id:Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join(''),sock};};
+   const eli=await join('e1'.repeat(32),'Eli'),fer=await join('f1'.repeat(32),'Fer');
+   expect(lastError(eli.sock)).toBeUndefined();
+   let h=await stored(state);expect(h.fila).toEqual([eli.id,fer.id]);expect(h.members[eli.id].role).toBe('spectator');
+   // what the phones see: the line and, once the series closes, who gets up and who comes in
+   h.state=L.applyAction(h.state,'host',{type:'start'});h.state.phase='seriesEnd';h.state.result={team:0,type:'domino',points:30,pips:[0,0,0,0],totals:[0,0]};h.state.scores=[210,90];h.closedAt=Date.now()-ESPERA_FIN_MS-1;await state.storage.put('mesa',h);
+   const mira=ws(eli.id);room.ctx.getWebSockets=()=>[mira];room.broadcast(await stored(state));
+   const m=mira.sent.at(-1);expect(m.yo).toEqual({espera:true,puesto:1});expect(m.mesa.fila).toEqual(['Eli','Fer']);expect(m.mesa.rota).toEqual({salen:[1,3],entran:['Eli','Fer']});
+   await say(room,ws('ana'),{type:'action',action:{type:'newSeries'}});
+   h=await stored(state);
+   expect(h.state.phase).toBe('playing');expect(h.state.players).toEqual(['ana',eli.id,'caro',fer.id]);expect(h.state.names).toEqual(['ana','Eli','caro','Fer']);
+   expect(h.fila).toEqual(['beto','dani']);expect(h.members.beto.role).toBe('spectator');expect(h.members[eli.id].role).toBe('player');
+   // leaving the line
+   await say(room,ws('dani'),{type:'fila',en:false});expect((await stored(state)).fila).toEqual(['beto']);
+   const sentada=ws('ana');await say(room,sentada,{type:'fila',en:true});expect(lastError(sentada)).toBe('You already have a seat.');
+  });
+ });
+ it('rotates only once per series, even if the deal is held back and pressed again',async()=>{
+  const g=lobby({0:'ana',1:'beto',2:'caro',3:'dani'});
+  await inRoom(g,async(room,state)=>{
+   const h=await stored(state);h.state=L.applyAction(h.state,'host',{type:'start'});h.state.phase='seriesEnd';h.state.result={team:0,type:'domino',points:30,pips:[0,0,0,0],totals:[0,0]};
+   h.members.eli={...h.members.ana,id:'eli',publicId:'pub-eli',name:'Eli',role:'spectator'};h.fila=['eli'];await state.storage.put('mesa',h);
+   const x=await stored(state);expect(room.rotar(x,Date.now())).toBe(true);expect(x.state.players[1]).toBe('eli');expect(x.fila).toEqual(['beto']);
+   expect(room.rotar(x,Date.now())).toBe(false);expect(x.state.players[1]).toBe('eli');
+  });
+ });
+});
+

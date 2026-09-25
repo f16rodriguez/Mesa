@@ -113,7 +113,7 @@ html.con-splash .title-screen,html.con-splash .title-actions .g-button{animation
 .loading-error{position:absolute;top:40%;left:50%;transform:translateX(-50%);width:min(420px,86vw);background:var(--panel);padding:1.4rem;border:1px solid var(--salsa);border-radius:var(--radio);pointer-events:auto;font-size:.85rem;line-height:1.7}
 
 /* Si nadie toca nada, la tele queda limpia: solo la mesa, el marcador y el turno. */
-body.quieto .game-tools,body.quieto .game-bottom>:not(.patrocinio),body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}
+body.quieto .game-tools,body.quieto .game-bottom>:not(.patrocinio):not(.fila-tv),body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}
 .game-tools,.game-bottom>*,.crowd-toggle,.hand-mark,#voice-hud{transition:opacity .35s}
 body.quieto{cursor:none}
 
@@ -489,6 +489,9 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .game-bottom .modo-mesa{display:inline-flex;margin:0 0 0 .5rem}
 .game-bottom .modo-mesa button{flex:none;font-size:.66rem;padding:.55em 1em}
 .vip-acciones .modo-mesa{margin:0}
+.fila-tv{display:inline-flex;align-items:center;gap:.5rem;margin-left:.6rem;padding:.4em .8em;border-radius:999px;background:var(--panel-alfa);border:1px solid var(--linea);font-size:.78rem;color:var(--suave)}
+.fila-tv b{font:500 .62rem var(--mono);letter-spacing:.14em;color:var(--gold)}
+.resultado .rota,.phone-wait .rota{margin:.4rem 0 .2rem;font-size:.9rem;color:var(--ivory)}
 .pozo-cuenta{font:500 .66rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--suave);padding:.35em .7em;border:1px solid var(--linea);border-radius:999px;white-space:nowrap}
 #perf{position:fixed;left:10px;bottom:8px;z-index:20;font-size:10px;color:var(--tenue);pointer-events:none}
 

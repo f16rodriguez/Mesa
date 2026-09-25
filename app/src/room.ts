@@ -34,11 +34,17 @@ const AFTER_DEAL_MS=4200,AFTER_HUMAN_MS=1500;
 export const botName=(cast:unknown,i:number)=>personaje(repartoValido(cast)[i]??'')?.nombre??'Bot';
 
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number;
- /** Arrived mid-hand: sits in the first free seat when the hand closes. */
+ /** Viejo: "llegó a mitad de mano". Ahora es la fila (Store.fila); load() lo pasa a ella. */
  espera?:boolean};
 type Chat={id:string;sender:string;name:string;text:string;role:string;at:number};
 type Participant={id:string;won:boolean;ownScore:number;opponentScore:number};
 type Store={state:any;members:Record<string,Member>;chat:Chat[];muted:string[];featured:boolean;seriesId:string;
+ /** La fila: quienes esperan silla, en orden de llegada (ids de miembro). Las sillas de bot se llenan
+  *  de aquí en el lobby y entre manos; al cerrar la serie, se para el que pierde (rotacion). */
+ fila?:string[];
+ /** La serie (seriesId) cuya rotación ya se hizo: si el reparto se frena (el cobro) y se vuelve a
+  *  tocar, no se rota otra vez (los que entraron quedarían del lado que perdió y se pararían). */
+ rotada?:string;
  /** The finished series has been queued for the profile database (not necessarily written yet). */
  recorded?:boolean;
  /** Finished series still to be written to D1, oldest first; retried from the alarm. */
@@ -96,6 +102,21 @@ export function autoDealAt(g:Table&{closedAt?:number;listos?:number[]},now:numbe
  const ready=here.every((i:number)=>(g.listos??[]).includes(i));
  return Math.max(now,g.closedAt+(ready?ESPERA_FIN_MS:AUTO_DEAL_MS));
 }
+/**
+ * "Se para el que pierde." Al empezar la serie siguiente, quien espera en la fila entra: primero a
+ * las sillas de bot; si todavía queda gente esperando, se paran las personas del lado que perdió
+ * (solo las que hagan falta, en orden de silla) y se van al final de la fila. Nadie más se mueve:
+ * los que ganaron siguen. Pura, para que la tele y los teléfonos enseñen lo mismo que va a pasar.
+ */
+export function rotacion(s:any,esperan:string[]):{salen:number[];entran:{seat:number;id:string}[]}{
+ const nada={salen:[],entran:[]};
+ if(s?.phase!=='seriesEnd'||s.result?.team==null||!esperan.length)return nada;
+ const libres=s.bots.flatMap((b:boolean,i:number)=>b?[i]:[]);
+ const perdedores=s.players.flatMap((_:string,i:number)=>i%2!==s.result.team&&!s.bots[i]?[i]:[]);
+ const salen=perdedores.slice(0,Math.max(0,esperan.length-libres.length));
+ const sillas=[...libres,...salen].sort((a:number,b:number)=>a-b);
+ return {salen,entran:sillas.slice(0,esperan.length).map((seat:number,k:number)=>({seat,id:esperan[k]!}))};
+}
 /** The phone that runs the table: the first seat (in order) with a person whose phone is
  *  live; if none is, the first seat with a person. Null with only bots. */
 export function vipOf(g:Table,now:number):string|null{
@@ -150,7 +171,19 @@ export class Room extends DurableObject<Env>{
  }
  private send(ws:WebSocket,data:unknown){try{ws.send(JSON.stringify(data));}catch{}}
  private error(ws:WebSocket,error:string){this.send(ws,{type:'error',error});}
- private async load(){const g=await this.ctx.storage.get<Store>('mesa');if(g){g.chat??=[];g.muted??=[];g.featured??=false;g.seriesId??=crypto.randomUUID();for(const m of Object.values(g.members)){m.publicId??=crypto.randomUUID();m.name??=m.role==='host'?'Host':'Neighbor';}}return g;}
+ private async load(){const g=await this.ctx.storage.get<Store>('mesa');if(g){g.chat??=[];g.muted??=[];g.featured??=false;g.seriesId??=crypto.randomUUID();g.fila??=[];for(const m of Object.values(g.members)){m.publicId??=crypto.randomUUID();m.name??=m.role==='host'?'Host':'Neighbor';if(m.espera){if(!g.fila.includes(m.id))g.fila.push(m.id);delete m.espera;}}g.fila=g.fila.filter(id=>g.members[id]&&!g.state.players.includes(id));}return g;}
+ /** Quienes de la fila cuentan ahora: con el teléfono vivo y sin silla. El que se fue conserva su puesto. */
+ private esperan(g:Store,now:number){return (g.fila??[]).filter(id=>present(g.members[id],now)&&!g.state.players.includes(id));}
+ /** Se para el que pierde (rotacion) y entran los de la fila. Al final de la serie, antes de repartir. */
+ private rotar(g:Store,now:number){
+  if(g.rotada===g.seriesId)return false;
+  const s=g.state,r=rotacion(s,this.esperan(g,now));if(!r.entran.length)return false;g.rotada=g.seriesId;
+  const salen=r.salen.map(i=>s.players[i] as string);
+  for(const i of r.salen){const m=g.members[s.players[i]];if(m)m.role='spectator';s.players[i]='bot-'+i;s.bots[i]=true;s.names[i]='Seat '+(i+1);}
+  for(const {seat,id} of r.entran){const m=g.members[id]!;s.players[seat]=id;s.bots[seat]=false;s.names[seat]=m.name;m.role='player';}
+  g.fila=[...(g.fila??[]).filter(id=>!r.entran.some(e=>e.id===id)),...salen];
+  return true;
+ }
  private async save(g:Store){await this.ctx.storage.put('mesa',g);}
  private spectators(g:Store){const online=new Set(this.ctx.getWebSockets().map(s=>s.deserializeAttachment()?.id));return Object.values(g.members).filter(m=>m.role==='spectator'&&!m.away&&Date.now()-m.lastSeen<CROWD_MS&&online.has(m.id));}
  private broadcast(g:Store){
@@ -158,7 +191,8 @@ export class Room extends DurableObject<Env>{
   for(const ws of this.ctx.getWebSockets()){
    const id=ws.deserializeAttachment()?.id;if(!id||!g.members[id])continue;
    const auto=autoDealAt(g,now),fin=g.closedAt!==undefined?{espera:Math.max(0,g.closedAt+ESPERA_FIN_MS-now),auto:auto===null?null:Math.max(0,auto-now),listos:g.listos??[]}:null;
-   this.send(ws,{type:'state',yo:{espera:!!g.members[id]!.espera},mesa:{pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null,botMs:g.botDue!==undefined?Math.max(0,g.botDue-now):null,fin},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
+   const fila=this.esperan(g,now),puesto=fila.indexOf(id),rota=g.rotada===g.seriesId?{salen:[],entran:[]}:rotacion(g.state,fila);
+   this.send(ws,{type:'state',yo:{espera:puesto>=0,puesto:puesto+1},mesa:{fila:fila.map(f=>g.members[f]!.name),rota:{salen:rota.salen,entran:rota.entran.map(e=>g.members[e.id]!.name)},pagos:pagosActivos(this.env),gratis:SERIES_GRATIS,patrocinio:g.patrocinio??null,bloqueo:g.bloqueo??null,botMs:g.botDue!==undefined?Math.max(0,g.botDue-now):null,fin},view:logic.viewFor(g.state,id),presence:g.state.players.map((p:string)=>present(g.members[p],now)),connected:this.ctx.getWebSockets().length,crowd:{count:viewers.length,viewers:viewers.map(m=>({id:m.publicId,name:m.name})),featured:g.featured,chat:g.chat,muted:g.muted,you:g.members[id]!.publicId},meta:logic.meta});
   }
  }
  /** Bot turn and hand-closing bookkeeping. Returns whether anything changed. */
@@ -192,10 +226,11 @@ export class Room extends DurableObject<Env>{
  }
  /** People who arrived mid-hand sit down once it closes, in the first free seat. */
  private seatWaiting(g:Store){
-  const s=g.state;if(s.phase==='playing')return false;let changed=false;
-  for(const m of Object.values(g.members)){
-   if(!m.espera)continue;const seat=s.bots.findIndex((b:boolean)=>b);if(seat<0)break;
-   s.players[seat]=m.id;s.bots[seat]=false;s.names[seat]=m.name;m.role='player';delete m.espera;changed=true;
+  // En serie cerrada no: ahí entra la fila con la rotación, al repartir la siguiente.
+  const s=g.state;if(s.phase==='playing'||s.phase==='seriesEnd')return false;let changed=false;
+  for(const id of this.esperan(g,Date.now())){
+   const seat=s.bots.findIndex((b:boolean)=>b);if(seat<0)break;const m=g.members[id]!;
+   s.players[seat]=m.id;s.bots[seat]=false;s.names[seat]=m.name;m.role='player';g.fila=(g.fila??[]).filter(x=>x!==id);changed=true;
   }
   return changed;
  }
@@ -266,13 +301,15 @@ export class Room extends DurableObject<Env>{
     const name=cleanName(msg.name)||att?.profileName||(role==='player'?'Jugador':role==='host'?'Host':'Neighbor');
     let wait=false;
     if(role==='player'){
-     const seat=g.state.bots.findIndex((b:boolean)=>b);if(seat<0)return this.error(ws,'All seats are taken. You can still watch.');
+     const seat=g.state.bots.findIndex((b:boolean)=>b);
      if(!msg.name&&!att?.profileName)return this.error(ws,'Tell us your name to take a seat.');
      if(att?.profileId&&Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId))return this.error(ws,'Your profile already has a seat. Use your original phone.');
-     // With a hand in play, a newcomer watches and sits down when it closes.
-     if(g.state.phase==='playing')wait=true;else{g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;}
+     // Con una mano en juego, o la mesa llena, se mira y se espera en la fila: entra al cerrar la
+     // mano si hay silla de bot, o cuando se pare el que pierda.
+     if(g.state.phase==='playing'||g.state.phase==='seriesEnd'||seat<0)wait=true;else{g.state.players[seat]=id;g.state.names[seat]=name;g.state.bots[seat]=false;}
     }
-    g.members[id]={id,publicId:crypto.randomUUID(),name,role:wait?'spectator':role,lastSeen:now,away:false,...(wait?{espera:true}:{}),...(att?.profileId?{profileId:att.profileId}:{})};
+    g.members[id]={id,publicId:crypto.randomUUID(),name,role:wait?'spectator':role,lastSeen:now,away:false,...(att?.profileId?{profileId:att.profileId}:{})};
+    if(wait)g.fila=[...(g.fila??[]),id];
    }
    else if(att?.profileId&&!g.members[id]!.profileId&&!Object.values(g.members).some(m=>m.role==='player'&&m.profileId===att.profileId)){
     // Alguien sentado acaba de crear su cuenta o entrar a ella: la silla se queda
@@ -300,6 +337,13 @@ export class Room extends DurableObject<Env>{
    if(now-(member.lastChat||0)<2500)return this.error(ws,'Let the table breathe. Wait a moment between messages.');
    member.lastChat=now;g.chat.push({id:crypto.randomUUID(),sender:member.publicId,name:member.name,text,role:member.role,at:now});g.chat=g.chat.slice(-40);await this.commit(g);return;
   }
+  if(msg.type==='fila'){
+   // Anotarse (o salirse) para jugar: quien mira. Con silla de bot libre y sin mano en juego, se sienta ya.
+   if(member.role==='host')return this.error(ws,'Choose a seat.');
+   if(g.state.players.includes(id))return this.error(ws,'You already have a seat.');
+   g.fila=(g.fila??[]).filter(x=>x!==id);if(msg.en===true)g.fila.push(id);
+   await this.commit(g);return;
+  }
   if(msg.type==='listo'){
    const seat=g.state.players.indexOf(id);if(g.state.phase!=='handEnd'||seat<0||g.state.bots[seat])return;
    g.listos=[...new Set([...(g.listos??[]),seat])];await this.commit(g);return;
@@ -309,11 +353,11 @@ export class Room extends DurableObject<Env>{
    // asking for a seat queues you for the next free one when the hand closes.
    const s=g.state,to=msg.to,from=s.players.indexOf(id);
    if(member.role==='host')return this.error(ws,'Choose a seat.');
-   if(s.phase!=='lobby'){if(from>=0)return this.error(ws,'Seats change between series.');member.espera=true;await this.commit(g);return;}
+   if(s.phase!=='lobby'){if(from>=0)return this.error(ws,'Seats change between series.');if(!(g.fila??[]).includes(id))g.fila=[...(g.fila??[]),id];await this.commit(g);return;}
    if(!Number.isInteger(to)||to<0||to>=s.players.length)return this.error(ws,'Choose a seat.');
    if(!s.bots[to])return this.error(ws,'That seat is taken.');
    s.players[to]=id;s.bots[to]=false;s.names[to]=from>=0?s.names[from]:member.name;
-   if(from>=0){s.players[from]='bot-'+from;s.bots[from]=true;s.names[from]='Seat '+(from+1);}else{member.role='player';delete member.espera;}
+   if(from>=0){s.players[from]='bot-'+from;s.bots[from]=true;s.names[from]='Seat '+(from+1);}else{member.role='player';g.fila=(g.fila??[]).filter(x=>x!==id);}
    await this.commit(g);return;
   }
   if(msg.type==='cambiar'){
@@ -332,7 +376,7 @@ export class Room extends DurableObject<Env>{
    if(!Number.isInteger(seat)||seat<0||seat>=s.players.length||s.bots[seat])return this.error(ws,'Choose a seat.');
    const who=s.players[seat];if(who!==id&&!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
    s.players[seat]='bot-'+seat;s.bots[seat]=true;if(s.phase==='lobby')s.names[seat]='Seat '+(seat+1);
-   const m=g.members[who];if(m){m.role='spectator';delete m.espera;}
+   const m=g.members[who];if(m){m.role='spectator';g.fila=(g.fila??[]).filter(x=>x!==who);}
    await this.commit(g);return;
   }
   if(msg.type==='modo'){
@@ -347,6 +391,7 @@ export class Room extends DurableObject<Env>{
    // After a series: back to the lobby to change partners, instead of the one-tap rematch.
    if(!this.runs(g,id))return this.error(ws,'Only the table host can do that.');
    if(g.state.phase!=='seriesEnd')return this.error(ws,'Finish the series first.');
+   this.rotar(g,now);
    g.state=logic.applyAction(g.state,g.state.hostId,{type:'newSeries'});g.seriesId=crypto.randomUUID();g.recorded=false;delete g.patrocinio;
    await this.commit(g);return;
   }
@@ -365,6 +410,7 @@ export class Room extends DurableObject<Env>{
   const check=logic.validateAction(g.state,id,msg.action);if(!check.ok)return this.error(ws,check.error??'Invalid move.');
   const type=msg.action.type,dealing=['start','next','newSeries'].includes(type);
   if((type==='next'||type==='newSeries')&&g.closedAt!==undefined&&now<g.closedAt+ESPERA_FIN_MS)return this.error(ws,'Let everyone see the hand first.');
+  if(type==='newSeries')this.rotar(g,now);   // se para el que pierde: antes de ver quién cubre la serie
   if(type==='start'||type==='newSeries'){
    const serie=type==='newSeries'?crypto.randomUUID():g.seriesId;
    if(!await this.cubrir(g,serie)){await this.commit(g);return;}

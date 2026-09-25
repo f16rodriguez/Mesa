@@ -121,6 +121,12 @@ casa: sin pozo (las 14 duermen y nadie roba). El pozo nunca sale en una vista, s
   entero. Kiko atiende detrás del mostrador: lo mira, se vira al anaquel, estira el brazo y se lo da
   por encima. El mostrador (`MOSTRADOR` en `scene-layout.ts`) tiene el tope a 1,06 m y está corrido
   hacia la calle para que él quepa; lo que va encima y su frente de vitrinas se calculan de ahí.
+- **Se para el que pierde** (25 sep 2026): cuando son más de cuatro, los demás se anotan en la fila
+  desde el teléfono (`fila` en la sala; quien entra con la mesa llena o con una mano en juego cae ahí
+  solo). Las sillas de bot se llenan de la fila en el lobby y entre manos; al empezar la serie
+  siguiente, si todavía espera alguien, se paran las personas del lado que perdió (solo las que hagan
+  falta) y se van al final de la fila (`rotacion` en `room.ts`, una sola vez por serie). La tele enseña
+  la fila abajo y, al cerrar la serie, quién se para y quién entra.
 - **En línea y la Liga, en la portada como Próximamente** (25 sep 2026), cada una con su lista de
   espera (`/api/lista`, tablas `waitlist` y `waitlist_liga`). La tarjeta de la Liga no promete ranked
   ni pone precio todavía.

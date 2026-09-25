@@ -302,18 +302,29 @@ function objetivoMirada(actor,time,ctx,out){
  if(!ctx.jugando&&r<.85&&ctx.cabezas[(i+1+(k%2)*2)%4])return out.copy(ctx.cabezas[(i+1+(k%2)*2)%4]);
  return out.set((hash(k+7)-.5)*.2,DIM.surfaceY,(hash(k+3)-.5)*.2);
 }
+/** Lo más que gira la cara respecto al cuerpo, cuello y cabeza juntos (~62°). Antes cada hueso
+ *  giraba hasta 72° por su cuenta y sumados pasaban de 100°: quien tenía de espaldas a alguien que
+ *  saludaba desde la calle se torcía el cuello como un búho. Si lo que mira queda detrás, mira de
+ *  reojo hasta ahí. */
+const GIRO_MAX=1.08;
+const _cuerpo=new THREE.Vector3(),_qCuerpo=new THREE.Quaternion();
+const envolver=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function mirar(actor,time,ctx){
  const head=actor.head,neck=actor.neck,front=actor.front;if(!head||!front)return;
  objetivoMirada(actor,time,ctx,_mira);
  if(!actor.mirada||!ctx?.dt)actor.mirada=(actor.mirada||new THREE.Vector3()).copy(_mira);
  else actor.mirada.lerp(_mira,1-Math.exp(-ctx.dt*5.5));
+ // Hacia dónde da el cuerpo (el frente de la silla) y cuánto querría girar la cara, ya con tope.
+ actor.holder.getWorldQuaternion(_qCuerpo);_cuerpo.set(0,0,1).applyQuaternion(_qCuerpo);const rumbo=Math.atan2(_cuerpo.x,_cuerpo.z);
+ head.getWorldPosition(_cab);_dir.subVectors(actor.mirada,_cab);
+ const giro=entre(envolver(Math.atan2(_dir.x,_dir.z)-rumbo),-GIRO_MAX,GIRO_MAX);
  for(const [hueso,parte] of [[neck,.4],[head,1]]){
   if(!hueso)continue;
   head.getWorldPosition(_cab);front.getWorldPosition(_fr);
   _fr.sub(_cab);if(_fr.lengthSq()<1e-10)return;_fr.normalize();
   _dir.subVectors(actor.mirada,_cab);if(_dir.lengthSq()<1e-8)return;_dir.normalize();
-  // Guiñada: ángulo con signo de la mirada actual a la querida, en el plano del piso.
-  const guiñada=entre(Math.atan2(_fr.z*_dir.x-_fr.x*_dir.z,_fr.x*_dir.x+_fr.z*_dir.z),-1.25,1.25)*parte;
+  // Guiñada: de hacia donde da la cara ahora a la parte que le toca a este hueso del giro total.
+  const guiñada=envolver(rumbo+giro*parte-Math.atan2(_fr.x,_fr.z));
   giraEnMundo(hueso,_q.setFromAxisAngle(Y,guiñada));
   front.getWorldPosition(_fr);_fr.sub(_cab).normalize();
   _eje.crossVectors(_fr,Y);if(_eje.lengthSq()<1e-8)continue;_eje.normalize();

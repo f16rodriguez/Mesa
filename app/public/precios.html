@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1B2C22"><title>Precios · Mesa</title><link rel="icon" href="/icono.svg"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/paginas.css">
-<script>/* Español o inglés: ?lang= manda; si no, lo que eligió en la mesa; si nunca eligió, el idioma del aparato. */try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma'),a=((navigator.languages&&navigator.languages[0])||navigator.language||'').toLowerCase(),l=q==='en'||q==='es'?q:g==='en'||g==='es'?g:a.startsWith('es')?'es':'en';if(l==='en')document.documentElement.lang='en';}catch{}</script></head>
+<script>/* Español o inglés: ?lang= manda; si no, lo que eligió en la mesa; si nunca eligió, español. */try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma'),l=q==='en'||q==='es'?q:g==='en'||g==='es'?g:'es';if(l==='en')document.documentElement.lang='en';}catch{}</script></head>
 <body><main class="pagina">
 <header class="arriba"><a class="marca" href="/"><img src="/marca/mesa-logo-horizontal-notag-transparent.svg" alt="Mesa" width="1330" height="346"></a><nav class="lenguas"><a href="?lang=es" class="le">Español</a><a href="?lang=en" class="len">English</a></nav></header>
 <article class="solo-es">

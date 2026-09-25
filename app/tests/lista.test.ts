@@ -49,4 +49,13 @@ describe('lista de espera /api/lista',()=>{
   expect(limpiarCorreo('a'.repeat(65)+'@example.com')).toBe('');
   expect(limpiarCorreo('ana@-mal.com')).toBe('');
  });
+ it('la Liga tiene su propia lista: apuntarse ahí no toca la de Mesa en línea',async()=>{
+  const e=correo();
+  expect((await post({email:e,lang:'es',source:'portada',lista:'liga'})).status).toBe(200);
+  const liga=await DB.prepare('SELECT * FROM waitlist_liga WHERE email=?').bind(e).first<any>();
+  expect(liga.source).toBe('portada');expect(liga.lang).toBe('es');expect(await fila(e)).toBeNull();
+  await post({email:e,lang:'en',source:'portada'});
+  expect((await fila(e)).source).toBe('portada');
+  const n=await DB.prepare('SELECT COUNT(*) AS n FROM waitlist_liga WHERE email=?').bind(e).first<{n:number}>();expect(n?.n).toBe(1);
+ });
 });

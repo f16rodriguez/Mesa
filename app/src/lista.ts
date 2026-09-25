@@ -1,21 +1,25 @@
 import type {Env} from './env';
 import {hash} from './accounts';
 /**
- * POST /api/lista — la lista de espera de Mesa en línea. Guarda un correo, el
- * idioma en que escribirle y de qué pantalla vino; nada más (ni IP ni perfil).
- * Se usa para UN correo cuando abra el juego en línea; el detalle para la
- * política está en PRIVACIDAD-DATOS.md.
+ * POST /api/lista — las dos listas de espera: Mesa en línea (`lista: 'linea'`, la
+ * de siempre) y la Liga (`lista: 'liga'`). Guarda un correo, el idioma en que
+ * escribirle y de qué pantalla vino; nada más (ni IP ni perfil). Cada lista se
+ * usa para UN correo cuando abra lo suyo; el detalle para la política está en
+ * PRIVACIDAD-DATOS.md.
  *
  * Siempre contesta lo mismo si el correo ya estaba: la lista no le dice a nadie
  * quién más se apuntó.
  */
-export const ORIGENES=['fin_serie','fin_practica'] as const;
+export const ORIGENES=['fin_serie','fin_practica','portada'] as const;
+/** Cada lista en su tabla: apuntarse a la Liga no cambia la fila de la otra. */
+const LISTAS={linea:'waitlist',liga:'waitlist_liga'} as const;
 const MAX_CUERPO=1024,POR_MINUTO=5;
 const CORREO=/^[^\s@<>()[\]\\,;:"]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,24}$/;
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store'}});
 
 const TABLAS=[
  'CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, lang TEXT NOT NULL, source TEXT NOT NULL, created_at INTEGER NOT NULL)',
+ 'CREATE TABLE IF NOT EXISTS waitlist_liga (email TEXT PRIMARY KEY, lang TEXT NOT NULL, source TEXT NOT NULL, created_at INTEGER NOT NULL)',
  // Mismo truco que auth_limits: una fila por IP (con hash) y minuto.
  'CREATE TABLE IF NOT EXISTS waitlist_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL)'
 ];
@@ -37,13 +41,13 @@ export async function listaRoute(req:Request,env:Env){
  if(!input||typeof input!=='object'||Array.isArray(input))return json({error:'Invalid request'},400);
  const email=limpiarCorreo(input.email);
  if(!email)return json({error:'Check your email.'},400);
- const lang=input.lang==='en'?'en':'es',source=(ORIGENES as readonly string[]).includes(input.source)?input.source:'fin_serie';
+ const lang=input.lang==='en'?'en':'es',source=(ORIGENES as readonly string[]).includes(input.source)?input.source:'fin_serie',tabla=LISTAS[input.lista==='liga'?'liga':'linea'];
  await ensureLista(env);
  const ip=req.headers.get('cf-connecting-ip')||'local',ventana=Math.floor(Date.now()/60000),key=await hash('lista|'+ip+'|'+ventana);
  const rate=await env.DB.prepare('INSERT INTO waitlist_limits(key,count,expires_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count').bind(key,Date.now()+120000).first<{count:number}>();
  if((rate?.count||0)>POR_MINUTO)return json({error:'Too many attempts. Wait a minute.'},429);
  await env.DB.batch([
-  env.DB.prepare('INSERT INTO waitlist(email,lang,source,created_at) VALUES(?,?,?,?) ON CONFLICT(email) DO NOTHING').bind(email,lang,source,Date.now()),
+  env.DB.prepare(`INSERT INTO ${tabla}(email,lang,source,created_at) VALUES(?,?,?,?) ON CONFLICT(email) DO NOTHING`).bind(email,lang,source,Date.now()),
   env.DB.prepare('DELETE FROM waitlist_limits WHERE expires_at<?').bind(Date.now())
  ]);
  return json({ok:true});

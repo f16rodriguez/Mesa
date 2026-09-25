@@ -43,7 +43,7 @@ Los eventos y lo que llevan en `data` (todos llevan además `rol`: `host`, `play
 | `cuenta_creada`    | Alguien crea su cuenta | si fue sentado en una mesa |
 | `desbloquear`      | Alguien toca Desbloquear | si tenía sesión |
 | `pago`             | El servidor confirma un desbloqueo pagado | — |
-| `lista`            | Alguien abre el aviso de Mesa en línea o se apunta | paso (abierta o enviada), de qué pantalla |
+| `lista`            | Alguien abre el aviso de Mesa en línea o de la Liga, o se apunta | paso (abierta o enviada), de qué pantalla (fin de serie, fin de práctica o portada), a cuál lista (`linea` o `liga`) |
 
 Sobre los errores: el mensaje y la pila se cortan a 300 caracteres; la pila va sin
 dominio, sin ruta y sin parámetros de la URL (así no lleva el código de la mesa);

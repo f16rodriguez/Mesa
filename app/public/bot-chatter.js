@@ -113,7 +113,7 @@ export const botChatter={
    // Una línea de pensar que acabaría DESPUÉS de que el bot juegue se calla:
    // "un momentico" dicho con la ficha ya en el aire no tiene sentido.
    if(antesDe&&performance.now()+buffer.duration*1000>antesDe)return;
-   const source=this.context.createBufferSource(),panner=this.context.createPanner(),gain=this.context.createGain();source.buffer=buffer;/* equalpower y no HRTF: el HRTF filtra la voz como si saliera de un auricular — parte del "teléfono". */panner.panningModel='equalpower';panner.distanceModel='inverse';panner.refDistance=1.6;panner.maxDistance=14;panner.rolloffFactor=1.05;const p=POSITIONS[seat];panner.positionX.value=p[0];panner.positionY.value=p[1];panner.positionZ.value=p[2];/* Rampa de entrada y salida. Sin ella la voz arranca y corta en seco sobre
+   const source=this.context.createBufferSource(),panner=this.context.createPanner(),gain=this.context.createGain();source.buffer=buffer;/* equalpower y no HRTF: el HRTF filtra la voz como si saliera de un auricular — parte del "teléfono". */panner.panningModel='equalpower';panner.distanceModel='inverse';panner.refDistance=1.6;panner.maxDistance=14;panner.rolloffFactor=1.05;const p=POSITIONS[this.bots?.length===2?[0,2][seat]??seat:seat];panner.positionX.value=p[0];panner.positionY.value=p[1];panner.positionZ.value=p[2];/* Rampa de entrada y salida. Sin ella la voz arranca y corta en seco sobre
      lo que quede de ruido en el clip, y suena a algo que alguien enciende y
      apaga. 25 ms para entrar; para salir hasta 120 ms, sin comerse el clip. */
    const t0=this.context.currentTime,dur=buffer.duration,V=.72,ENTRA=.025,SALE=Math.min(.12,dur*.25);

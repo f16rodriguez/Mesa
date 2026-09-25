@@ -115,7 +115,8 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  // etiqueta. Los compañeros se sientan enfrente, así que el paño queda con dos
  // lados rojos enfrentados y dos azules: se lee de un vistazo quién va con quién.
  const TEAM=['#C8402F','#6FB7C9'];  // los de la marca: salsa y cielo
- for(let i=0;i<4;i++){const [x,z,ang]=seats[i],r=DIM.feltWidth/2-.012,band=new THREE.Mesh(new THREE.PlaneGeometry(DIM.feltWidth*.72,.009),new THREE.MeshStandardMaterial({color:TEAM[i%2],roughness:.9}));band.rotation.set(-Math.PI/2,0,ang);band.position.set(x*r/DIM.seatDistance,DIM.surfaceY+.0006,z*r/DIM.seatDistance);band.receiveShadow=true;scene.add(band);}
+ const bandas=[],maderas=[];
+ for(let i=0;i<4;i++){const [x,z,ang]=seats[i],r=DIM.feltWidth/2-.012,band=new THREE.Mesh(new THREE.PlaneGeometry(DIM.feltWidth*.72,.009),new THREE.MeshStandardMaterial({color:TEAM[i%2],roughness:.9}));band.rotation.set(-Math.PI/2,0,ang);band.position.set(x*r/DIM.seatDistance,DIM.surfaceY+.0006,z*r/DIM.seatDistance);band.receiveShadow=true;scene.add(band);bandas.push(band);}
  // Guano: el asiento tejido de palma de la silla de colmado. Cuadros alternos de
  // tres hebras, en horizontal y en vertical, con variación de tono por hebra.
  const guano=new THREE.MeshStandardMaterial({roughness:.92,map:texture((c,w,h)=>{c.fillStyle='#8f7446';c.fillRect(0,0,w,h);const n=12,t=w/n;
@@ -123,7 +124,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
    c.fillStyle=`rgb(${tono+30},${tono+8},${tono-45})`;const o=k*t/3+t*.04,g=t/3-t*.08;
    if(horiz)c.fillRect(gx*t+1,gy*t+o,t-2,g);else c.fillRect(gx*t+o,gy*t+1,g,t-2);}}
   c.fillStyle='rgba(40,28,14,.18)';for(let q=0;q<=n;q++){c.fillRect(q*t-1,0,2,h);c.fillRect(0,q*t-1,w,2);}},256,256)});
- for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=mat(i%2?'#5e9fb2':'#b53f2e',.62);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
+ for(let i=0;i<4;i++){const [x,z,ang]=seats[i],group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=ang;scene.add(group);const madera=new THREE.MeshStandardMaterial({color:i%2?'#5e9fb2':'#b53f2e',roughness:.62});maderas.push(madera);const add=(w,h,d,px,py,pz,m=madera,r=.008)=>{const p=v3(px,py,pz).applyAxisAngle(v3(0,1,0),ang).add(v3(x,0,z));staticGeo(new RoundedBoxGeometry(w,h,d,2,r),m,p.toArray(),[0,ang,0]);};add(DIM.chairSeatWidth-.04,.035,.5,0,DIM.chairSeatY,0,guano,.01);for(const sx of [-1,1])add(.04,.05,.54,sx*(DIM.chairSeatWidth/2-.02),DIM.chairSeatY-.005,0);for(const sz of [-1,1])add(DIM.chairSeatWidth,.05,.04,0,DIM.chairSeatY-.005,sz*.25);for(const lx of [-.24,.24])for(const lz of [-.21,.21])add(.04,DIM.chairSeatY,.04,lx,DIM.chairSeatY/2,lz);for(const lx of [-.24,.24])add(.024,.024,.42,lx,.15,0);add(.48,.024,.024,0,.15,.21);for(const lx of [-.24,.24])add(.04,.52,.04,lx,DIM.chairSeatY+.26,-.23);for(const ty of [.2,.33,.46])add(.46,ty===.46?.07:.045,.022,0,DIM.chairSeatY+ty,-.23);}
  function sign(text,width,height,bg,fg,size=60){const t=texture((c,w,h)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.fillStyle=fg;c.textAlign='center';c.textBaseline='middle';c.font=`bold ${size}px Georgia`;c.fillText(text,w/2,h/2);},1024,256);return new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:t}));}
  const storeSign=sign('COLMADO  LA ESQUINA',4.8,.38,'#a05d42','#f8e8b9',64);storeSign.position.set(0,2.94,-2.33);scene.add(storeSign);
  const tableLogo=sign('MESA',.11,.029,'#284e3e','#81906b',77);{const c=document.createElement('canvas');c.width=512;c.height=136;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
@@ -159,7 +160,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  }
  function boardPosition(p){return v3(p.x,DIM.surfaceY+DIM.tileThickness/2+.001,p.z);}
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.20,.006,5,38),new THREE.MeshBasicMaterial({color:'#e8bf70',transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.027;scene.add(ring);
- const characters=[],crowd=[],drinks=[];let loaded=0,total=4,failed=[];
+ const characters=[],crowd=[],drinks=[];let loaded=0,total=4,failed=[];const sentados=new Set();
  drinks.push(...servirBebidas(scene));
  /* Párpados de verdad. Con tan pocos vértices en los ojos, el morph de parpadeo
   solo entrecierra: un párpado del color de la piel de cada quien (guardado en
@@ -194,7 +195,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   de entrar a una, los que eligió la tele al abrir. Cada uno sale del mismo cargador que la gente
   que pasa (transeuntes.js), clonado: la plantilla queda limpia por si después le toca caminar. */
  const CADERA_SENTADA=.605;   // la cadera más baja de la mesa de siempre (Luis): nadie queda más hundido
- let reparto=repartoValido(cast),genReparto=0;
+ let reparto=repartoValido(cast),genReparto=0,vacias=[];
  async function loadPerson(index,id,gen){const p=personaje(id);try{if(gen===0)onProgress(`Seating ${p.nombre}…`,loaded/total);const t=await cargarPersona(p);if(gen!==genReparto||disposed)return;
   const gltf=t.gltf,root=cloneSkeleton(gltf.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);
   // La pose sentada: la del clip 'Sentado' si se horneó aparte (animar.py), si no la que trae el modelo.
@@ -207,18 +208,24 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   const viejo=characters[index];if(viejo){scene.remove(viejo.holder);for(const q of viejo.parpados||[]){scene.remove(q.m);q.m.geometry.dispose();q.m.material.dispose();}}
   scene.add(holder);
   characters[index]={id,clipHabla:t.acciones.SentadoHabla||null,root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips,lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);
-  if(gen===0){loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);}
+  sentados.add(index);{const n=4-vacias.length,k=Math.min(n,[...sentados].filter(i=>!vacias.includes(i)).length);loaded=k;onProgress(k>=n?'The table is ready.':`${k} of ${n} seats ready`,k/n);}
  }catch(e){failed.push(id);console.error('Character load failed',id,e);if(gen===0)onProgress(`Could not load ${p?.nombre||id}. Reload to retry.`,loaded/total);}}
  const ready=Promise.all(reparto.map((id,i)=>loadPerson(i,id,0)));
  /** Cambia a quien haga falta, silla por silla; el que ya está sentado donde va no se mueve. */
- function sentar(ids){ids=repartoValido(ids);if(ids.join()===reparto.join())return;reparto=ids;const gen=++genReparto;
+ /* Uno contra uno: las sillas 1 y 3 se quedan vacías (sin nadie y sin bebida), y los dos que no
+    juegan vuelven a la calle y al público. */
+ function quitar(i){const c=characters[i];if(!c)return;scene.remove(c.holder);for(const q of c.parpados||[]){scene.remove(q.m);q.m.geometry.dispose();q.m.material.dispose();}characters[i]=null;sentados.delete(i);}
+ function sentar(ids,vac=[]){ids=repartoValido(ids);if(ids.join()+'|'+vac.join()===reparto.join()+'|'+vacias.join())return;reparto=ids;vacias=vac;const gen=++genReparto;
   for(const c of crowd.splice(0)){scene.remove(c.holder);}   // los de atrás se vuelven a escoger sin repetir caras
-  Promise.all(ids.map((id,i)=>characters[i]?.id===id?null:loadPerson(i,id,gen))).then(()=>{if(gen===genReparto&&currentCrowd)setCrowd(currentCrowd,true);});}
+  for(const i of vac)quitar(i);
+  drinks.forEach(d=>{const ve=!vac.includes(d.index);d.group.visible=ve;if(d.plato)d.plato.visible=ve;});
+  Promise.all(ids.map((id,i)=>vac.includes(i)||characters[i]?.id===id?null:loadPerson(i,id,gen))).then(()=>{if(gen===genReparto&&currentCrowd)setCrowd(currentCrowd,true);});}
+ const enLaMesa=()=>reparto.filter((_,i)=>!vacias.includes(i));
  // La gente que pasa y el colmadero (transeuntes.js): personajes enteros, los que no están en la
  // mesa ni mirando. En una tele sin GPU, solo el patio.
- let gente=null;ready.then(()=>{if(!disposed){gente=crearTranseuntes({scene,camera,pocos:software,enMesa:()=>[...reparto,...crowd.map(c=>c.id)]});if(currentCrowd)setCrowd(currentCrowd,true);}});
+ let gente=null;ready.then(()=>{if(!disposed){gente=crearTranseuntes({scene,camera,pocos:software,enMesa:()=>[...enLaMesa(),...crowd.map(c=>c.id)]});if(currentCrowd)setCrowd(currentCrowd,true);}});
  let foco=null,fin=null,finKey='',extremos=null;
- const atmos=crearAtmosfera({scene,renderer,camera,controls,software,bulbLight});atmos.calidad('high');const habla=new Set(),hablaTipo=new Map(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active){habla.add(d.seat);hablaTipo.set(d.seat,d.type);}else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
+ const atmos=crearAtmosfera({scene,renderer,camera,controls,software,bulbLight});atmos.calidad('high');const habla=new Set(),hablaTipo=new Map(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{},i=silla(d.seat);if(d.active){habla.add(i);hablaTipo.set(i,d.type);}else habla.delete(i);};window.addEventListener('mesa:botvoice',alHablar);
  let currentView=null,currentCrowd=0,boardKey='',lastHand=0,mode='attract',camTween=null,animations=[],lastMove=0,dealUntil=0;
  function clear(group){while(group.children.length){const c=group.children.pop();c.parent=null;c.traverse(o=>{if(o.isMesh&&!sharedGeometry.has(o.geometry))o.geometry.dispose();if(o.isMesh&&!sharedMaterials.has(o.material))o.material.dispose();});}}
  /* Los que miran, sentados detrás: hasta tres, de los que no están en la mesa ni andando por la
@@ -227,7 +234,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  function setCrowd(count,rehacer=false){if(count===currentCrowd&&!rehacer)return;currentCrowd=count;const gen=++genCrowd,target=Math.min(3,count);
   while(crowd.length>target)scene.remove(crowd.pop().holder);
   if(!gente)return;   // hasta que la mesa esté lista: ready lo vuelve a llamar
-  const usados=new Set([...reparto,...crowd.map(c=>c.id),...gente.andando()]),nuevos=PERSONAJES.filter(p=>listo(p)&&!usados.has(p.id)).slice(0,target-crowd.length);
+  const usados=new Set([...enLaMesa(),...crowd.map(c=>c.id),...gente.andando()]),nuevos=PERSONAJES.filter(p=>listo(p)&&!usados.has(p.id)).slice(0,target-crowd.length);
   for(const p of nuevos)cargarPersona(p).then(t=>{if(gen!==genCrowd||disposed||crowd.length>=target||crowd.some(c=>c.id===p.id)||gente.andando().includes(p.id))return;
    const idx=crowd.length,source=t.gltf,root=cloneSkeleton(source.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);const sit=t.acciones.Sentado||source.animations.find(a=>a.name==='Seated')||source.animations[0];if(sit)mixer.clipAction(sit).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=false;o.frustumCulled=false;o.material.roughness=.83;o.material.specularIntensity=.25;o.material.emissiveIntensity=LUZ_PROPIA;}});const b=new THREE.Box3().setFromObject(root),hp=root.getObjectByName('Hips')?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,Math.max(-b.min.y,CADERA_SENTADA-hp.y),-hp.z);holder.position.set(-2.5+idx*1.66,0,-2.5);holder.rotation.y=0;scene.add(holder);
    const chair=new THREE.Mesh(new THREE.BoxGeometry(.56,.06,.54),cream);chair.position.set(0,DIM.chairSeatY,0);holder.add(chair);crowd.push({id:p.id,root,holder,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),spine:root.getObjectByName('Spine01'),index:idx+4});}).catch(e=>console.warn('Mirón sin cargar',p.id,e));
@@ -285,12 +292,34 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  const huecos=[[],[],[],[]],_o=new THREE.Object3D();let cuentas=[0,0,0,0],revelado='';const ocultos=new Set();
  function moverAtriles(dt){
   let n=0;
-  for(let s=0;s<4;s++){const c=ocultos.has(s)?0:cuentas[s],h=huecos[s];
+  for(let s=0;s<4;s++){const c=ocultos.has(s)?0:Math.max(0,cuentas[s]-llegando[s]),h=huecos[s];
    while(h.length<c)h.push((h.length-(c-1)/2)*DIM.rackSpacing);h.length=c;
    for(let j=0;j<c;j++){const meta=(j-(c-1)/2)*DIM.rackSpacing;h[j]+=(meta-h[j])*(1-Math.exp(-dt*10));poseAtril(s,h[j],_o);_o.updateMatrix();atril.setMatrixAt(n++,_o.matrix);}}
   atril.count=n;atril.instanceMatrix.needsUpdate=true;
  }
  const repartoGroup=new THREE.Group();scene.add(repartoGroup);
+ /* El pozo (1 contra 1): las que no se repartieron, boca abajo en dos filas de siete al lado
+    del paño que da a la silla vacía de la derecha. Al robar, la última vuela al atril de quien
+    robó; la del atril no aparece hasta que llega (llegando). */
+ const pozoGroup=new THREE.Group();scene.add(pozoGroup);const llegando=[0,0,0,0],volando=new Set();
+ const vaciarPozo=()=>{clear(pozoGroup);volando.clear();llegando.fill(0);};
+ const posPozo=k=>v3(.322+(k%2)*.056,DIM.surfaceY+DIM.tileThickness/2+.0003,-.093+Math.floor(k/2)*.031);
+ function ponerPozo(view){
+  const quedan=view?.phase&&view.phase!=='lobby'?Math.max(0,view.restantes??0):0,quietas=pozoGroup.children.filter(d=>!volando.has(d)),hay=quietas.length;
+  if(!quedan){if(pozoGroup.children.length&&!animations.some(a=>a.reparto&&!a.alFinal&&pozoGroup.children.includes(a.obj)))vaciarPozo();return;}
+  if(quedan>hay){if(animations.some(a=>a.reparto))return;for(let k=hay;k<quedan;k++){const d=domino(0,0,true);d.position.copy(posPozo(k));pozoGroup.add(d);}return;}
+  if(quedan===hay)return;
+  // Robaron: de la última jugada para atrás, cada "draw" es una que sale del pozo.
+  const robos=[];for(let i=view.moves.length-1;i>=0&&robos.length<hay-quedan&&view.moves[i].type==='draw';i--)robos.unshift(view.moves[i].seat);
+  let n=0;
+  for(const seat of robos){const d=quietas[quietas.length-1-n],c=cuentas[seat]??0;if(!d)break;volando.add(d);
+   const meta=poseAtril(seat,((c-llegando[seat]-1)-(c-1)/2)*DIM.rackSpacing,new THREE.Object3D());llegando[seat]++;
+   const anim={obj:d,from:d.position.clone(),to:meta.position.clone(),qFrom:d.quaternion.clone(),qTo:meta.quaternion.clone(),elapsed:-n*.18,duration:.6,reparto:true,
+    alFinal:()=>{pozoGroup.remove(d);volando.delete(d);llegando[seat]=Math.max(0,llegando[seat]-1);dispatchEvent(new CustomEvent('mesa:aterriza',{detail:{}}));}};
+   animations.push(anim);n++;}
+  // Lo que no se pudo seguir (una recarga en medio de la mano): se arregla sin volar.
+  for(let k=0;k<hay-n-quedan;k++)pozoGroup.remove(quietas[k]);
+ }
  const fichas=new Map();let claveMesa='',paseVisto='';
  /* La pila revuelta: 28 fichas boca abajo, ACOSTADAS en el paño y sin encimarse. Antes dos de cada
     tres iban a una y dos fichas de alto sin nada debajo, y el reparto las sacaba a 6 mm del paño:
@@ -318,11 +347,27 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
     animations.push({obj:d,from,to,qFrom,qTo,elapsed:-(espera+s*.3+j*.055),duration:.42,revela:s,ultima:j===c-1});});});
  }
 
+ /* Uno contra uno: los dos se sientan frente a frente, en las sillas 0 y 2; las de los lados
+    quedan vacías y el pozo va al paño de la derecha. La escena entera piensa en cuatro sillas,
+    así que la vista de dos se traduce aquí, una vez, al entrar: silla(asiento). */
+ const SILLAS2=[0,2];let sillas=4;
+ function silla(i){return sillas===2&&Number.isInteger(i)&&i>=0?SILLAS2[i]??i:i;}
+ function aSillas(v){
+  if(!v||v.names?.length!==2)return v;
+  const cuatro=(a,vacio)=>{if(!Array.isArray(a))return a;const o=[vacio,vacio,vacio,vacio];a.forEach((x,i)=>{o[SILLAS2[i]]=x;});return o;},m=i=>Number.isInteger(i)&&i>=0?SILLAS2[i]:i;
+  return {...v,names:cuatro(v.names,''),bots:cuatro(v.bots,true),counts:cuatro(v.counts,0),turn:m(v.turn),opener:m(v.opener),seat:m(v.seat),
+   event:v.event?{...v.event,seat:m(v.event.seat)}:v.event,result:v.result?{...v.result,seat:m(v.result.seat),pips:cuatro(v.result.pips,0)}:v.result,
+   chain:v.chain?.map(c=>({...c,seat:m(c.seat)})),moves:v.moves?.map(x=>({...x,seat:m(x.seat)})),revealed:cuatro(v.revealed,[]),restantes:28-(v.chain?.length||0)-v.counts.reduce((n,c)=>n+c,0)};
+ }
+ function ponerModo(n){if(n===sillas)return;sillas=n;
+  maderas[2].color.set(n===2?'#5e9fb2':'#b53f2e');bandas[2].material.color.set(TEAM[n===2?1:0]);for(const i of [1,3])bandas[i].visible=n!==2;}
  function update(view,crowdCount=0){
+  if(view)ponerModo(view.names?.length===2?2:4);
+  view=aSillas(view);
   currentView=view;
   {const cerrada=view&&(view.phase==='handEnd'||view.phase==='seriesEnd')&&view.result,k=cerrada?view.handNo+':'+view.phase:'';if(k&&k!==finKey)fin={t:clock.elapsedTime+.5,team:view.result.team??null};if(!cerrada)fin=null;finKey=k;}
   if(currentCrowd!==crowdCount)setCrowd(crowdCount);
-  if(view?.cast)sentar(view.cast);
+  if(view?.cast)sillas===2?sentar([view.cast[0],view.cast[2],view.cast[1],view.cast[3]],[1,3]):sentar(view.cast);
   // Mano nueva, lobby o portada: se arma de cero. Si no, solo entran las fichas nuevas, y una
   // ficha que va volando no se reinicia porque alguien pasó mientras tanto.
   const clave=!view||view.phase==='lobby'?'pila':'mano'+view.handNo;
@@ -349,9 +394,12 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   if(view?.phase==='playing'&&view.handNo!==lastHand&&view.moves.length===0){
    lastHand=view.handNo;clear(repartoGroup);animations=animations.filter(a=>!a.reparto);dealUntil=performance.now()+3300;
    for(let s=0;s<4;s++)huecos[s]=Array.from({length:7},(_,j)=>(j-3)*DIM.rackSpacing);
-   for(let i=0;i<28;i++){const seat=i%4,slot=Math.floor(i/4),d=domino(0,0,true),q=PILA[i],start=v3(q.x,enPaño,q.z);
-    d.position.copy(start);d.rotation.y=q.ry;repartoGroup.add(d);const meta=poseAtril(seat,(slot-3)*DIM.rackSpacing,new THREE.Object3D());
-    animations.push({obj:d,from:start,to:meta.position.clone(),qFrom:d.quaternion.clone(),qTo:meta.quaternion.clone(),elapsed:-i*.065,duration:1.1,reparto:true});}
+   vaciarPozo();const dos=sillas===2;
+   // A dos: siete y siete, alternando, y las catorce que sobran se arriman al pozo.
+   for(let i=0;i<28;i++){const d=domino(0,0,true),q=PILA[i],start=v3(q.x,enPaño,q.z),alPozo=dos&&i>=14;
+    d.position.copy(start);d.rotation.y=q.ry;(alPozo?pozoGroup:repartoGroup).add(d);
+    const meta=alPozo?{position:posPozo(i-14),quaternion:new THREE.Quaternion()}:dos?poseAtril(SILLAS2[i%2],(Math.floor(i/2)-3)*DIM.rackSpacing,new THREE.Object3D()):poseAtril(i%4,(Math.floor(i/4)-3)*DIM.rackSpacing,new THREE.Object3D());
+    animations.push({obj:d,from:start,to:meta.position.clone(),qFrom:d.quaternion.clone(),qTo:meta.quaternion.clone(),elapsed:-(alPozo?14+(i-14)*.35:i)*.065,duration:1.1,reparto:true});}
   }
   // Pase: quien pasa toca la mesa dos veces con los nudillos.
   const u=view?.moves?.[view.moves.length-1],clavePase=view?view.handNo+':'+view.moves.length:'';
@@ -360,6 +408,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
    if(!cerrada){revelado='';ocultos.clear();}
    else if(k!==revelado){revelado=k;const tipo=view.result?.type;ensenarManos(view,tipo==='domino'||tipo==='capicua'?3.4:tipo==='tranque'?2.5:1.2);}}
   cuentas=[0,1,2,3].map(i=>!view||view.phase==='lobby'?0:(view.counts[i]??0));
+  ponerPozo(view);
   ring.visible=false;
   extremos=view?.phase==='playing'&&view.chain?.length?openEnds(view.chain,view.moves):null;
  }
@@ -386,7 +435,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   if(camTween){camTween.t=Math.min(1,camTween.t+dt/(camTween.dur||1.1));const q=suave(camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,q);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,q);if(camTween.t===1)camTween=null;}
   if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);esquina.update(t);}
   const v=currentView;
-  const ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
+  const ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,equipos:sillas===2?[0,null,1,null]:[0,1,0,1],cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
   if(gente){gente.update(dt,{view:v,habla,cabezas:ctx.cabezas});ctx.saludo=gente.saludo;}
   for(const c of characters){if(!c)continue;applySeatedMotion(c,t,reduced,ctx);moverParpados(c);}
   // El público se mueve a la mitad del ritmo, cada uno en su cuadro: nadie lo nota y la tele respira.
@@ -394,6 +443,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   animations=animations.filter(a=>{
    a.elapsed+=dt;if(a.elapsed<0)return true;
    const p=Math.min(1,a.elapsed/a.duration);
+   if(p>=1&&a.alFinal){const f=a.alFinal;a.alFinal=null;f();}
    if(a.revela!=null){a.obj.visible=true;ocultos.add(a.revela);const e=suave(p);a.obj.quaternion.slerpQuaternions(a.qFrom,a.qTo,e);a.obj.position.lerpVectors(a.from,a.to,e);a.obj.position.y+=Math.sin(p*Math.PI)*.012;
     if(p>=1&&a.ultima)dispatchEvent(new CustomEvent('mesa:aterriza',{detail:{revela:true}}));return p<1;}
    if(a.reparto){a.obj.position.lerpVectors(a.from,a.to,suave(p));a.obj.position.y+=Math.sin(p*Math.PI)*.035;a.obj.quaternion.slerpQuaternions(a.qFrom,a.qTo,suave(Math.min(1,Math.max(0,(p-.3)/.7))));return p<1;}
@@ -406,7 +456,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   const repartiendo=now<dealUntil;rackGroup.visible=!repartiendo;if(!repartiendo&&repartoGroup.children.length)clear(repartoGroup);
   moverAtriles(dt);
   controls.update();if(!camTween&&!vuelta&&!libre)dentroDelSet();atmos.frame(t,dt,{reduced,view:v,ends:extremos,temblor});atmos.render();
-  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=Number(el.dataset.seatlabel),[x,z]=seats[i],cab=characters[i]?.head;
+  if(frame%2===0){for(const el of document.querySelectorAll('[data-seatlabel]')){const i=silla(Number(el.dataset.seatlabel)),[x,z]=seats[i],cab=characters[i]?.head;
    /* El que está de espaldas a la cámara lleva la etiqueta en la espalda: encima de la cabeza
       caía justo sobre la cara del que está enfrente. */
    const deEspaldas=cab&&cab.getWorldPosition(_lab).distanceTo(atmos.vista.position)<_centroMesa.distanceTo(atmos.vista.position)-.2;

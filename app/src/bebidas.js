@@ -103,7 +103,7 @@ export function servirBebidas(scene){
   if(b.plato)home.y+=b.sobrePlato;
   b.g.position.copy(home);scene.add(b.g);
   if(b.plato){b.plato.position.copy(home);b.plato.position.y=tope+b.sobrePlato/2;b.plato.traverse(o=>{if(o.isMesh)o.receiveShadow=true;});scene.add(b.plato);}
-  out.push({group:b.g,home,index:i,tipo,alto:b.alto,radio:b.radio,inclina:b.inclina,boca:b.boca});
+  out.push({group:b.g,home,index:i,tipo,alto:b.alto,radio:b.radio,inclina:b.inclina,boca:b.boca,plato:b.plato||null});
  }
  return out;
 }

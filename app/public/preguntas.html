@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1B2C22"><title>Preguntas · Mesa</title><meta name="description" content="Quién paga, cómo se entra, cuántos juegan, qué hace falta, reglas y cuánto dura una partida de Mesa. Questions about Mesa, the dominoes game for your TV and phones."><link rel="icon" href="/icono.svg"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/paginas.css">
-<script>/* Español o inglés: ?lang= manda; si no, lo que eligió en la mesa; si nunca eligió, el idioma del aparato. */try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma'),a=((navigator.languages&&navigator.languages[0])||navigator.language||'').toLowerCase(),l=q==='en'||q==='es'?q:g==='en'||g==='es'?g:a.startsWith('es')?'es':'en';if(l==='en')document.documentElement.lang='en';}catch{}</script></head>
+<script>/* Español o inglés: ?lang= manda; si no, lo que eligió en la mesa; si nunca eligió, español. */try{const q=new URLSearchParams(location.search).get('lang'),g=localStorage.getItem('mesa-idioma'),l=q==='en'||q==='es'?q:g==='en'||g==='es'?g:'es';if(l==='en')document.documentElement.lang='en';}catch{}</script></head>
 <body><main class="pagina">
 <header class="arriba"><a class="marca" href="/"><img src="/marca/mesa-logo-horizontal-notag-transparent.svg" alt="Mesa" width="1330" height="346"></a><nav class="lenguas"><a href="?lang=es" class="le">Español</a><a href="?lang=en" class="len">English</a></nav></header>
 <article class="solo-es">
@@ -14,7 +14,7 @@
 <p>No hay app. Abres Mesa en el navegador de la tele o la computadora y tocas <b>Abrir una mesa</b>. Cada jugador escanea el código QR que sale en pantalla, o abre Mesa en el navegador del teléfono y escribe las cuatro letras de la mesa. Solo el nombre, sin cuenta.</p>
 
 <h2>¿Se puede jugar con menos de cuatro?</h2>
-<p>Sí. Las sillas vacías las juega un bot, y si a alguien se le duerme el teléfono, un bot le cuida la silla hasta que vuelva. También puedes practicar tú solo contra tres bots, en tres niveles. El uno contra uno todavía no está: viene más adelante.</p>
+<p>Sí. Las sillas vacías las juega un bot, y si a alguien se le duerme el teléfono, un bot le cuida la silla hasta que vuelva. También puedes practicar tú solo contra tres bots, en tres niveles. Y si son dos, está el 1 contra 1: se escoge en el lobby o en la práctica.</p>
 
 <h2>¿Qué necesito? ¿Funciona sin internet?</h2>
 <p>Una tele o computadora con un navegador moderno (Windows, Mac, Linux o una Smart TV con navegador) y un teléfono por jugador. No hay nada que instalar. Si la tele es floja, Mesa baja la calidad sola para que corra bien.</p>
@@ -25,7 +25,7 @@
 <p>Un consejo: en la pantalla de espera la tele enseña el código de la mesa. Si no quieres que se meta gente del stream, tápalo o empieza antes de salir en vivo. Un modo especial para streamers todavía no está.</p>
 
 <h2>¿Qué reglas trae?</h2>
-<p>La mesa es de cuatro, en dos parejas, con doble seis: 28 fichas, 7 para cada quien y sin pozo. La primera mano la sale el doble seis; después sale quien ganó. El turno va a la derecha y el paso es obligado. Dominó: la pareja que gana se lleva los puntos que le quedan al contrario. Tranque: gana la pareja con menos puntos. Capicúa: bono. Zapato: ganar la serie sin que el contrario anote.</p>
+<p>La mesa es de cuatro, en dos parejas, con doble seis: 28 fichas, 7 para cada quien y sin pozo. La primera mano la sale el doble seis; después sale quien ganó. El turno va a la derecha y el paso es obligado. Dominó: la pareja que gana se lleva los puntos que le quedan al contrario. Tranque: gana la pareja con menos puntos. Capicúa: bono. Zapato: ganar la serie sin que el contrario anote. En el 1 contra 1, cada quien lleva 7 fichas y las otras 14 van al pozo: quien no lleva, roba hasta que le pegue, y la primera mano la sale el doble más alto que haya en mano (la casa puede jugarlo sin pozo).</p>
 <p>Las reglas de la casa se cambian desde la mesa antes de empezar:</p>
 <ul>
  <li>Jugar a 100, 200 o 300 puntos (200 de salida).</li>
@@ -52,7 +52,7 @@
 <p>There’s no app. Open Mesa in the browser on your TV or computer and tap <b>Start a table</b>. Each player scans the QR code on screen, or opens Mesa in their phone’s browser and types the table’s four letters. Just a name, no account.</p>
 
 <h2>Can we play with fewer than four?</h2>
-<p>Yes. Empty seats are played by bots, and if someone’s phone falls asleep, a bot keeps their seat until they’re back. You can also practice on your own against three bots, at three levels. One-on-one isn’t in yet; it’s coming later.</p>
+<p>Yes. Empty seats are played by bots, and if someone’s phone falls asleep, a bot keeps their seat until they’re back. You can also practice on your own against three bots, at three levels. And if there are two of you, there’s 1 vs 1: pick it in the lobby or in practice.</p>
 
 <h2>What do I need? Does it work without internet?</h2>
 <p>A TV or computer with a modern browser (Windows, Mac, Linux, or a smart TV with a browser) and one phone per player. Nothing to install. If the TV is on the slow side, Mesa lowers its quality on its own so it runs smoothly.</p>
@@ -63,7 +63,7 @@
 <p>One tip: while waiting to start, the TV shows the table code. If you don’t want viewers jumping in, cover it or start before you go live. A dedicated streamer mode isn’t in yet.</p>
 
 <h2>Which rules are in?</h2>
-<p>Four players in two pairs, double-six: 28 tiles, 7 each, no boneyard. The double six opens the first hand; after that, whoever won leads. Play goes to the right and passing is forced. Domino: the winning pair scores the pips left in the other pair’s hands. Blocked game (tranque): the pair with fewer pips wins. Capicúa: a bonus. Zapato: winning the series before the other pair scores.</p>
+<p>Four players in two pairs, double-six: 28 tiles, 7 each, no boneyard. The double six opens the first hand; after that, whoever won leads. Play goes to the right and passing is forced. Domino: the winning pair scores the pips left in the other pair’s hands. Blocked game (tranque): the pair with fewer pips wins. Capicúa: a bonus. Zapato: winning the series before the other pair scores. In 1 vs 1, each player gets 7 tiles and the other 14 go to the boneyard: no tile that fits, you draw until one does, and the highest double in hand opens the first hand (the house can play it without the boneyard).</p>
 <p>House rules can be changed from the table before you start:</p>
 <ul>
  <li>Play to 100, 200 or 300 points (200 by default).</li>

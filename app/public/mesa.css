@@ -134,6 +134,15 @@ body.quieto{cursor:none}
 .title-secondary{display:flex;gap:1.2rem;margin-top:1.4rem}
 .title-secondary button{font:500 .72rem var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--suave);padding:.4em 0;border-bottom:1px solid var(--linea-fuerte)}
 .title-secondary button:hover{color:var(--gold);border-color:var(--gold)}
+/* Lo que viene: dos tarjetas bajitas, en marfil sobre el paño, sin robarle la vista al logo. */
+.proximo{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;width:min(30rem,100%);margin-top:clamp(1.4rem,4vh,2.4rem);text-align:left;animation:subir .6s .24s cubic-bezier(.2,.8,.2,1) both}
+.proximo-card{padding:.85rem 1rem .8rem;border-radius:14px;background:var(--panel-alfa);border:1px solid var(--linea)}
+.proximo-card .eyebrow{font:500 .6rem var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.proximo-card h3{margin:.25rem 0 .2rem;font-size:1.05rem}
+.proximo-card p{margin:0 0 .5rem;font-size:.82rem;line-height:1.35;color:var(--suave)}
+.proximo-card .text-link{font-size:.82rem}
+.proximo-card .en-lista{font:500 .66rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--suave)}
+@media (max-width:520px){.proximo{gap:.5rem}.proximo-card{padding:.7rem .8rem}.proximo-card p{display:none}.proximo-card h3{font-size:.98rem}}
 .portada .game-bottom{z-index:3}
 .legales{display:flex;gap:1.1rem;letter-spacing:.14em;text-transform:uppercase}
 .pie-derecha{display:flex;align-items:flex-end;gap:1.6rem}
@@ -473,6 +482,14 @@ body.pendiente .tile-button:not(.lanzada){opacity:.6}
 .niveles{display:inline-flex;gap:.3rem;padding:.25rem;border-radius:12px;background:var(--panel-alfa);border:1px solid var(--linea)}
 .niveles button{font:500 .66rem var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:.55em 1em;border-radius:9px;color:var(--suave)}
 .niveles button.elegido{background:var(--ivory);color:var(--ink)}
+/* 2 contra 2 / 1 contra 1: el mismo interruptor que los niveles, en el lobby y en la práctica. */
+.modo-mesa{display:flex;gap:.3rem;padding:.25rem;border-radius:12px;background:var(--panel-alfa);border:1px solid var(--linea);margin:.2rem 0 .5rem}
+.modo-mesa button{flex:1;font:500 .72rem var(--mono);letter-spacing:.12em;text-transform:uppercase;padding:.6em 1em;border-radius:9px;color:var(--suave);cursor:pointer}
+.modo-mesa button.elegido{background:var(--ivory);color:var(--ink)}
+.game-bottom .modo-mesa{display:inline-flex;margin:0 0 0 .5rem}
+.game-bottom .modo-mesa button{flex:none;font-size:.66rem;padding:.55em 1em}
+.vip-acciones .modo-mesa{margin:0}
+.pozo-cuenta{font:500 .66rem var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--suave);padding:.35em .7em;border:1px solid var(--linea);border-radius:999px;white-space:nowrap}
 #perf{position:fixed;left:10px;bottom:8px;z-index:20;font-size:10px;color:var(--tenue);pointer-events:none}
 
 /* ── El teléfono: el mando ─────────────────────────────────────────────────── */

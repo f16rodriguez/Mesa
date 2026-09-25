@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import {idleMotion,DIM} from './scene-layout.ts';
+/** La pareja de cada silla. A 1 contra 1 las sillas 0 y 2 son de lados distintos y la 1 y la 3 están
+ *  vacías: lo dice ctx.equipos. El público (índice 4 en adelante) sigue por paridad. */
+const equipo=(ctx,i)=>ctx?.equipos&&i<ctx.equipos.length?ctx.equipos[i]:i%2;
 const X=new THREE.Vector3(1,0,0),Y=new THREE.Vector3(0,1,0),delta=new THREE.Quaternion();
 export function capturePose(root){const bones=[];root.traverse(bone=>{if(bone.isBone)bones.push({bone,position:bone.position.clone(),quaternion:bone.quaternion.clone(),scale:bone.scale.clone()});});return bones;}
 
@@ -237,7 +240,7 @@ function cara(actor,time,ctx){
  const e=time-(actor.parpadeoT0??-9),p=e<0?0:e<.06?e/.06:e<.09?1:e<.16?1-(e-.09)/.07:0;
  if(actor.caraFija){const f=actor.caraFija,inf=c.mesh.morphTargetInfluences;if(inf){inf[c.iP]=f.p*.85;inf[c.iS]=f.s;}actor.parpadeo=f.p;return f.p;}
  const i=actor.index;let objetivo=0;
- if(ctx?.fin&&ctx.fin.team!=null&&time-ctx.fin.t<5&&time>=ctx.fin.t)objetivo=i%2===ctx.fin.team?.95:-.7;
+ if(ctx?.fin&&ctx.fin.team!=null&&time-ctx.fin.t<5&&time>=ctx.fin.t)objetivo=equipo(ctx,i)===ctx.fin.team?.95:-.7;
  else if(ctx?.habla?.has(i))objetivo=ctx.hablaTipo?.get(i)==='win'?.85:.2;
  else{
   if(actor.casual==null)actor.casual=time+8+Math.random()*30;
@@ -276,7 +279,7 @@ function objetivoMirada(actor,time,ctx,out){
  const i=actor.index;
  if(i>=4||!ctx)return ctx?.foco&&time-ctx.foco.t<2.5?out.copy(ctx.foco.p):out.set(0,DIM.surfaceY,0);
  if(ctx.fin&&time-ctx.fin.t<5){
-  const gano=ctx.fin.team!=null&&i%2===ctx.fin.team;
+  const gano=ctx.fin.team!=null&&equipo(ctx,i)===ctx.fin.team;
   if(gano&&ctx.cabezas[(i+2)%4])return out.copy(ctx.cabezas[(i+2)%4]);
   return enAsiento(actor,0,DIM.surfaceY,DIM.seatDistance-DIM.rackRadius,out);
  }
@@ -352,7 +355,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
 
  // Cómo cierra la mano: la pareja que gana se echa para atrás; la que pierde se encoge.
  let extra=0,fin=0;
- if(jugador&&ctx?.fin&&ctx.fin.team!=null){const e=time-ctx.fin.t;if(e>=0&&e<5){fin=Math.sin(Math.min(1,e/.5)*Math.PI/2)*(e>4?(5-e):1);extra+=(i%2===ctx.fin.team?-.1:.07)*fin;}}
+ if(jugador&&ctx?.fin&&ctx.fin.team!=null){const e=time-ctx.fin.t;if(e>=0&&e<5){fin=Math.sin(Math.min(1,e/.5)*Math.PI/2)*(e>4?(5-e):1);extra+=(equipo(ctx,i)===ctx.fin.team?-.1:.07)*fin;}}
  if(jugador&&ctx?.jugando&&ctx.turno===i)extra+=.04;
 
  const trago=jugador&&vivo&&actor.front?tragoEn(actor,time,ctx):null;
@@ -367,7 +370,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
    if(!jugando&&vivo&&ctx?.habla?.has(i)&&brazo.lado==='Left'&&!actor.clipHabla){actor.gesto=Math.min(1,(actor.gesto||0)+(ctx.dt||0)*3);}
    else if(brazo.lado==='Left')actor.gesto=Math.max(0,(actor.gesto||0)-(ctx?.dt||1)*2);
    if(brazo.lado==='Left'&&actor.gesto>0){const g=suave(actor.gesto);o.addScaledVector(_ejeZ,.06*g).addScaledVector(_ejeX,-.07*g);o.y+=.07*g+Math.sin(time*5.2)*.012*g;}
-   if(brazo.lado==='Right'&&!jugando&&fin&&i%2===ctx.fin.team){const e=time-ctx.fin.t;if(e<1.1)o.y+=Math.max(0,Math.sin(Math.min(1,e/.9)*Math.PI))*.13;}
+   if(brazo.lado==='Right'&&!jugando&&fin&&equipo(ctx,i)===ctx.fin.team){const e=time-ctx.fin.t;if(e<1.1)o.y+=Math.max(0,Math.sin(Math.min(1,e/.9)*Math.PI))*.13;}
    objetivos.push({brazo,o,jugando,dedos,reposo:reposo.clone()});
   }
  }
@@ -401,7 +404,7 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
  if(vivo&&actor.head){
   // Hablando, la cabeza acompaña las sílabas; perdiendo, niega.
   if(ctx?.habla?.has(i)){const a=.035*(.6+.4*Math.sin(time*1.7));giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,Math.sin(time*6.1)*a*.5+Math.sin(time*3.3)*a*.5));}
-  if(fin&&i%2!==ctx.fin.team){const e=time-ctx.fin.t;if(e>.6&&e<2.6)giraEnMundo(actor.head,_lean.setFromAxisAngle(Y,Math.sin((e-.6)*Math.PI*2.4)*.16*(2.6-e)/2));}
+  if(fin&&equipo(ctx,i)!==ctx.fin.team){const e=time-ctx.fin.t;if(e>.6&&e<2.6)giraEnMundo(actor.head,_lean.setFromAxisAngle(Y,Math.sin((e-.6)*Math.PI*2.4)*.16*(2.6-e)/2));}
  }
  if(trago!=null&&trago>TRAMOS[1]-.2&&trago<TRAMOS[2]+.2&&actor.head){const d=Math.sin(Math.min(1,(trago-TRAMOS[1]+.2)/(TRAMOS[2]-TRAMOS[1]+.4))*Math.PI);giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,-.3*d));}
  // A small, bounded acknowledgment belongs only to the acting player.

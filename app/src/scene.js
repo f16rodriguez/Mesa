@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -12,9 +11,10 @@ import {armarEsquina} from './esquina.js';
 import {armarBarrio} from './barrio.js';
 import {servirBebidas} from './bebidas.js';
 import {crearAtmosfera} from './atmosfera.js';
-import {crearTranseuntes} from './transeuntes.js';
+import {crearTranseuntes,cargar as cargarPersona} from './transeuntes.js';
+import {PERSONAJES,MESA_CLASICA,LUZ_PROPIA,personaje,listo,repartoValido} from './personajes.js';
 const pips=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
-export async function createWorld(container,{onProgress=()=>{}}={}){
+export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA}={}){
  const scene=new THREE.Scene();scene.background=new THREE.Color('#2a2d4a');scene.fog=new THREE.FogExp2('#5a5670',.017);
  const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.08,90);camera.position.set(3.1,2.65,4.2);
  let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});}catch{throw Error('This device could not start WebGL. Try a recent desktop browser.');}
@@ -159,7 +159,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  }
  function boardPosition(p){return v3(p.x,DIM.surfaceY+DIM.tileThickness/2+.001,p.z);}
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.20,.006,5,38),new THREE.MeshBasicMaterial({color:'#e8bf70',transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.027;scene.add(ring);
- const characters=[],templates=[],crowd=[],drinks=[];const loader=new GLTFLoader();let loaded=0,total=4,failed=[];
+ const characters=[],crowd=[],drinks=[];let loaded=0,total=4,failed=[];
  drinks.push(...servirBebidas(scene));
  /* Párpados de verdad. Con tan pocos vértices en los ojos, el morph de parpadeo
   solo entrecierra: un párpado del color de la piel de cada quien (guardado en
@@ -190,26 +190,47 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   _pm.makeBasis(_pr,_pu,_pf);
   for(const [p,o] of [[P[0],a],[P[1],b]]){p.m.visible=true;p.m.quaternion.setFromRotationMatrix(_pm);p.m.position.copy(o).addScaledVector(_pu,.0052).addScaledVector(_pf,.0024);p.m.scale.set(1,s,1);}
  }
- async function loadPerson(index,name){try{onProgress(`Seating ${['Don Rafa','Marisol','Luis','Carmen'][index]}…`,loaded/total);const gltf=await loader.loadAsync(`/models/${name}.glb`);templates[index]=gltf;
-  // La pose de reposo del modelo es de pie: la guarda para la gente que pasa (transeuntes.js).
-  gltf.reposo=new Map(capturePose(gltf.scene).map(b=>[b.bone.name,b]));
-  const root=gltf.scene,holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(gltf.animations[0])mixer.clipAction(gltf.animations.find(a=>a.name==='Seated')||gltf.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material.roughness=.83;}});
+ /* Quién se sienta: cuatro de los diez de personajes.js, los que manda la sala (view.cast) o, antes
+  de entrar a una, los que eligió la tele al abrir. Cada uno sale del mismo cargador que la gente
+  que pasa (transeuntes.js), clonado: la plantilla queda limpia por si después le toca caminar. */
+ const CADERA_SENTADA=.605;   // la cadera más baja de la mesa de siempre (Luis): nadie queda más hundido
+ let reparto=repartoValido(cast),genReparto=0;
+ async function loadPerson(index,id,gen){const p=personaje(id);try{if(gen===0)onProgress(`Seating ${p.nombre}…`,loaded/total);const t=await cargarPersona(p);if(gen!==genReparto||disposed)return;
+  const gltf=t.gltf,root=cloneSkeleton(gltf.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);
+  // La pose sentada: la del clip 'Sentado' si se horneó aparte (animar.py), si no la que trae el modelo.
+  const sit=t.acciones.Sentado||gltf.animations.find(a=>a.name==='Seated')||gltf.animations[0];if(sit)mixer.clipAction(sit).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material.roughness=.83;o.material.specularIntensity=.25;o.material.emissiveIntensity=LUZ_PROPIA;}});   // el especular ×2 del modelo prendía cada arruga y costura de la ropa
   // Keep the models' anatomical scale; anchor the pelvis over the chair and
   // ground the feet at a measured neutral pose, not an arbitrary loop frame.
-  const b=new THREE.Box3().setFromObject(root),hips=root.getObjectByName('Hips'),hp=hips?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,-b.min.y,-hp.z);const [x,z,a]=seats[index];holder.position.set(x,0,z);holder.rotation.y=a;scene.add(holder);
-  characters[index]={root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips:root.getObjectByName('Hips'),lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);if(crowd.length===0&&currentCrowd>0)setCrowd(currentCrowd);
- }catch(e){failed.push(name);console.error('Character load failed',name,e);onProgress(`Could not load ${name}. Reload to retry.`,loaded/total);}}
- const ready=Promise.all(['rafa-upright','marisol','luis-upright','carmen'].map((name,i)=>loadPerson(i,name)));
- // La gente que pasa: con los cuerpos de Marisol, Luis y Carmen, otra ropa y otra piel; con el de Don Rafa,
- // el colmadero. En una tele sin GPU, solo el patio.
- let gente=null;ready.then(()=>{if(!disposed)gente=crearTranseuntes({scene,camera,renderer,pocos:software,cuerpos:[['rafa-upright',0],['luis-upright',2],['marisol',1],['carmen',3]].filter(([,i])=>templates[i]).map(([nombre,i])=>({nombre,gltf:templates[i]}))});});
+  // Quien tiene las piernas cortas no se hunde en la silla: se sube hasta la cadera de siempre y
+  // los pies le quedan colgando un poco, como en la vida.
+  const b=new THREE.Box3().setFromObject(root),hips=root.getObjectByName('Hips'),hp=hips?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,Math.max(-b.min.y,CADERA_SENTADA-hp.y),-hp.z);const [x,z,a]=seats[index];holder.position.set(x,0,z);holder.rotation.y=a;
+  const viejo=characters[index];if(viejo){scene.remove(viejo.holder);for(const q of viejo.parpados||[]){scene.remove(q.m);q.m.geometry.dispose();q.m.material.dispose();}}
+  scene.add(holder);
+  characters[index]={id,root,holder,index,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),hips,lomo:root.getObjectByName('Spine02'),muslos:[root.getObjectByName('LeftUpLeg'),root.getObjectByName('RightUpLeg')],hombros:[[1,root.getObjectByName('LeftShoulder')],[-1,root.getObjectByName('RightShoulder')]],spine:root.getObjectByName('Spine01'),reaction:null,brazos:['Left','Right'].map(lado=>({lado,hombro:root.getObjectByName(lado+'Shoulder'),brazo:root.getObjectByName(lado+'Arm'),antebrazo:root.getObjectByName(lado+'ForeArm'),mano:root.getObjectByName(lado+'Hand')}))};characters[index].bebida=drinks.find(d=>d.index===index);ponerCara(characters[index]);
+  if(gen===0){loaded++;onProgress(loaded===4?'The table is ready.':`${loaded} of 4 seats ready`,loaded/total);}
+ }catch(e){failed.push(id);console.error('Character load failed',id,e);if(gen===0)onProgress(`Could not load ${p?.nombre||id}. Reload to retry.`,loaded/total);}}
+ const ready=Promise.all(reparto.map((id,i)=>loadPerson(i,id,0)));
+ /** Cambia a quien haga falta, silla por silla; el que ya está sentado donde va no se mueve. */
+ function sentar(ids){ids=repartoValido(ids);if(ids.join()===reparto.join())return;reparto=ids;const gen=++genReparto;
+  for(const c of crowd.splice(0)){scene.remove(c.holder);}   // los de atrás se vuelven a escoger sin repetir caras
+  Promise.all(ids.map((id,i)=>characters[i]?.id===id?null:loadPerson(i,id,gen))).then(()=>{if(gen===genReparto&&currentCrowd)setCrowd(currentCrowd,true);});}
+ // La gente que pasa y el colmadero (transeuntes.js): personajes enteros, los que no están en la
+ // mesa ni mirando. En una tele sin GPU, solo el patio.
+ let gente=null;ready.then(()=>{if(!disposed){gente=crearTranseuntes({scene,camera,pocos:software,enMesa:()=>[...reparto,...crowd.map(c=>c.id)]});if(currentCrowd)setCrowd(currentCrowd,true);}});
  let foco=null,fin=null,finKey='',extremos=null;
  const atmos=crearAtmosfera({scene,renderer,camera,controls,software,bulbLight});atmos.calidad('high');const habla=new Set(),hablaTipo=new Map(),cabezas=[0,1,2,3].map(()=>v3());const alHablar=e=>{const d=e.detail||{};if(d.active){habla.add(d.seat);hablaTipo.set(d.seat,d.type);}else habla.delete(d.seat);};window.addEventListener('mesa:botvoice',alHablar);
  let currentView=null,currentCrowd=0,boardKey='',lastHand=0,mode='attract',camTween=null,animations=[],lastMove=0,dealUntil=0;
  function clear(group){while(group.children.length){const c=group.children.pop();c.parent=null;c.traverse(o=>{if(o.isMesh&&!sharedGeometry.has(o.geometry))o.geometry.dispose();if(o.isMesh&&!sharedMaterials.has(o.material))o.material.dispose();});}}
- function setCrowd(count){currentCrowd=count;const target=Math.min(8,count);for(let i=crowd.length-1;i>=target;i--){scene.remove(crowd[i].holder);crowd.pop();}
-  while(crowd.length<target&&templates.filter(Boolean).length){const idx=crowd.length,source=templates[idx%4]||templates.find(Boolean),root=cloneSkeleton(source.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);if(source.animations[0])mixer.clipAction(source.animations.find(a=>a.name==='Seated')||source.animations[0]).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=false;o.frustumCulled=false;}});const b=new THREE.Box3().setFromObject(root),hp=root.getObjectByName('Hips')?.getWorldPosition(v3())||b.getCenter(v3());root.position.x-=hp.x;root.position.y-=b.min.y;root.position.z-=hp.z;holder.position.set(-2.5+(idx%4)*1.66,0,-2.5-Math.floor(idx/4)*.65);holder.rotation.y=0;scene.add(holder);
-   const chair=new THREE.Mesh(new THREE.BoxGeometry(.56,.06,.54),cream);chair.position.set(0,DIM.chairSeatY,0);holder.add(chair);crowd.push({root,holder,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),spine:root.getObjectByName('Spine01'),index:idx+4});}
+ /* Los que miran, sentados detrás: hasta tres, de los que no están en la mesa ni andando por la
+  calle, así ninguna cara sale dos veces. */
+ let genCrowd=0;
+ function setCrowd(count,rehacer=false){if(count===currentCrowd&&!rehacer)return;currentCrowd=count;const gen=++genCrowd,target=Math.min(3,count);
+  while(crowd.length>target)scene.remove(crowd.pop().holder);
+  if(!gente)return;   // hasta que la mesa esté lista: ready lo vuelve a llamar
+  const usados=new Set([...reparto,...crowd.map(c=>c.id),...gente.andando()]),nuevos=PERSONAJES.filter(p=>listo(p)&&!usados.has(p.id)).slice(0,target-crowd.length);
+  for(const p of nuevos)cargarPersona(p).then(t=>{if(gen!==genCrowd||disposed||crowd.length>=target||crowd.some(c=>c.id===p.id)||gente.andando().includes(p.id))return;
+   const idx=crowd.length,source=t.gltf,root=cloneSkeleton(source.scene),holder=new THREE.Group();holder.add(root);const mixer=new THREE.AnimationMixer(root);const sit=t.acciones.Sentado||source.animations.find(a=>a.name==='Seated')||source.animations[0];if(sit)mixer.clipAction(sit).play();mixer.setTime(DIM.neutralPoseTime);root.updateMatrixWorld(true);root.traverse(o=>{if(o.isSkinnedMesh)o.computeBoundingBox();if(o.isMesh){o.castShadow=false;o.frustumCulled=false;o.material.roughness=.83;o.material.specularIntensity=.25;o.material.emissiveIntensity=LUZ_PROPIA;}});const b=new THREE.Box3().setFromObject(root),hp=root.getObjectByName('Hips')?.getWorldPosition(v3())||b.getCenter(v3());root.position.set(-hp.x,Math.max(-b.min.y,CADERA_SENTADA-hp.y),-hp.z);holder.position.set(-2.5+idx*1.66,0,-2.5);holder.rotation.y=0;scene.add(holder);
+   const chair=new THREE.Mesh(new THREE.BoxGeometry(.56,.06,.54),cream);chair.position.set(0,DIM.chairSeatY,0);holder.add(chair);crowd.push({id:p.id,root,holder,pose:capturePose(root),head:root.getObjectByName('Head'),neck:root.getObjectByName('neck'),front:root.getObjectByName('headfront'),chest:root.getObjectByName('Spine'),spine:root.getObjectByName('Spine01'),index:idx+4});}).catch(e=>console.warn('Mirón sin cargar',p.id,e));
  }
  // A tamaño real una ficha mide 5 cm, así que las vistas de juego van cerca:
  // 'table' encuadra la mesa y a los cuatro; 'overhead' pone el tablero a
@@ -301,6 +322,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
   currentView=view;
   {const cerrada=view&&(view.phase==='handEnd'||view.phase==='seriesEnd')&&view.result,k=cerrada?view.handNo+':'+view.phase:'';if(k&&k!==finKey)fin={t:clock.elapsedTime+.5,team:view.result.team??null};if(!cerrada)fin=null;finKey=k;}
   if(currentCrowd!==crowdCount)setCrowd(crowdCount);
+  if(view?.cast)sentar(view.cast);
   // Mano nueva, lobby o portada: se arma de cero. Si no, solo entran las fichas nuevas, y una
   // ficha que va volando no se reinicia porque alguien pasó mientras tanto.
   const clave=!view||view.phase==='lobby'?'pila':'mano'+view.handNo;
@@ -399,6 +421,8 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;libre=true;controls.minDistance=.1;controls.maxDistance=30;camera.position.set(...p);controls.target.set(...t);controls.update();};   // solo para capturas: sin recinto
  window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
  window.mesaBeber=(i,fijo)=>{const c=characters[i];if(!c||!c.bebida||c.jugada)return;if(c.trago&&fijo!=null&&c.trago.fijo!=null)c.trago.fijo=fijo;else c.trago={t0:clock.elapsedTime,fijo};};
+ window.mesaSentados=()=>characters.map(c=>{if(!c)return null;const h=c.hips.getWorldPosition(v3()),v=v3();let nalga=9;c.root.traverse(o=>{if(!o.isSkinnedMesh)return;o.skeleton.update();const n=o.geometry.attributes.position.count;for(let i=0;i<n;i+=3){o.getVertexPosition(i,v).applyMatrix4(o.matrixWorld);if(Math.hypot(v.x-h.x,v.z-h.z)<.12&&v.y<nalga)nalga=v.y;}});return {id:c.id,cadera:+h.y.toFixed(3),nalga:+nalga.toFixed(3),pies:+new THREE.Box3().setFromObject(c.root).min.y.toFixed(3)};});
+ window.mesaMirones=n=>{setCrowd(n);return ()=>crowd.map(c=>c.id);};
  window.mesaBrazo=i=>{const c=characters[i],b=c?.brazos?.[1];if(!b)return null;const v=o=>o.getWorldPosition(new THREE.Vector3()).toArray();return {codo:v(b.antebrazo),muneca:v(b.mano),vaso:c.bebida?c.bebida.group.position.toArray():null};};
  update(null);animate();
  /* De pie, el panel de fichas tapa la mitad de abajo: la imagen se corre hacia arriba. */
@@ -408,7 +432,7 @@ export async function createWorld(container,{onProgress=()=>{}}={}){
  controls.addEventListener('start',()=>{camTween=null;vuelta=null;});
  // Si el contexto WebGL se pierde (pasa en teles) y vuelve, el entorno se regenera.
  renderer.domElement.addEventListener('webglcontextrestored',()=>atmos.entorno?.());
- const api={update,setCrowd,setCamera,ready,
+ const api={update,setCrowd,setCamera,ready,sentar,get reparto(){return reparto.slice();},
   sampleTime(time){visualTime=time;for(const c of [...characters.filter(Boolean),...crowd])applySeatedMotion(c,time,false);atmos.frame(time,0,{reduced:false,view:currentView,ends:extremos});atmos.render();},
   setMode(m){mode=m;setCamera(m==='attract'?'attract':'table');},
   // Calidad baja: sin posproceso, la sombra del bombillo apagada (no el mapa: apagarlo en caliente congelaba las sombras) y menos píxeles.

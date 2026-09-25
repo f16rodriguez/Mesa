@@ -1,0 +1,30 @@
+{
+ "Caminar": {
+  "duracion": 4.2333,
+  "paso": 2.7635,
+  "cadera": 0.8817,
+  "avance": 0.0105,
+  "cuadros": 127
+ },
+ "Esperar": {
+  "duracion": 4.0333,
+  "paso": 0.0217,
+  "cadera": 0.8817,
+  "avance": 0.0,
+  "cuadros": 121
+ },
+ "Saludar": {
+  "duracion": 4.1333,
+  "paso": 0.0021,
+  "cadera": 0.8817,
+  "avance": 0.0001,
+  "cuadros": 124
+ },
+ "Conversar": {
+  "duracion": 5.2,
+  "paso": 0.0259,
+  "cadera": 0.8817,
+  "avance": 0.0013,
+  "cuadros": 156
+ }
+}

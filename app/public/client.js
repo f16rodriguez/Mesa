@@ -8,6 +8,7 @@ import {proximityVoice} from './proximity-voice.js';
 import {t,idioma,ponerIdioma,LECCIONES,traducirError} from './textos.js';
 import {sonidos,vibrar,VIBRA} from './sonidos.js';
 import {telemetria} from './telemetria.js';
+import {personaje,repartoAlAzar,repartoValido} from './personajes.js';
 // El mismo reloj de pensar que usa el servidor: la voz sabe cuánto le queda al bot.
 botChatter.pensar=botThinkingMs;
 
@@ -22,9 +23,13 @@ const pipPositions=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 const half=n=>`<span class="half">${Array.from({length:9},(_,i)=>`<i class="pip ${pipPositions[n]?.includes(i)?'':'blank'}"></i>`).join('')}</span>`;
 const tile=(a,b)=>`<span class="tile" role="img" aria-label="${a}–${b}">${half(a)}${half(b)}<i class="clavo"></i></span>`;
 const button=(label,action,type='',ico='')=>`<button class="g-button ${type}" data-action="${action}">${ico?icon(ico):''}${label}</button>`;
-const BOTS=[0,1,2,3].map(i=>t('bot'+i));
+/* Quién se sienta a la mesa: la tele escoge cuatro de los diez al abrir (así ya los tiene cargados
+  cuando crea la sala) y la sala manda los suyos en view.cast. */
+const repartoLocal=(r=>r?repartoValido(r.split(',')):repartoAlAzar())(new URLSearchParams(location.search).get('reparto'));
+const reparto=()=>repartoValido(view?.cast||(practice?practice.cast:repartoLocal));
+const botDe=i=>personaje(reparto()[i])?.nombre||t('bot'+i);
 const corto=n=>String(n||'').replace(/^(Don|Doña|Tío|Tía)\s+/i,'').split(/\s+/)[0];
-const nombreDe=i=>view?.bots?.[i]&&view.phase==='lobby'?t('bot'+i):view?.names?.[i]||'';
+const nombreDe=i=>view?.bots?.[i]&&view.phase==='lobby'?botDe(i):view?.names?.[i]||'';
 const parejaDe=team=>`${esc(corto(nombreDe(team)))} ${idioma()==='en'?'&amp;':'y'} ${esc(corto(nombreDe(team+2)))}`;
 const esTelefono=matchMedia('(pointer:coarse)').matches&&Math.max(innerWidth,innerHeight)<950;
 // Los navegadores de las teles (Samsung, LG, Fire TV, Chromecast, Sony, Hisense…) arrancan livianos.
@@ -88,7 +93,7 @@ let nivel=NIVELES[almacen.get('mesa-nivel')]?almacen.get('mesa-nivel'):'normal';
 const masPesada=v=>{const r=v.legal.map(o=>({...o,w:v.hand.find(x=>x.id===o.tile)})).sort((a,b)=>(b.w.a+b.w.b)-(a.w.a+a.w.b));return {type:'play',tile:r[0].tile,side:r[0].side};};
 function jugadaBot(v){if(!v.legal.length)return {type:'pass'};return Math.random()<NIVELES[nivel].ruido?masPesada(v):chooseMove(v);}
 function practicaGuardada(){const p=almacen.json('mesa-practice',null);return p&&p.phase&&p.phase!=='lobby'?p:null;}
-function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.names=[profile?.name||t('tu'),BOTS[1],BOTS[2],BOTS[3]];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];telemetria.evento('practica',{nivel});action({type:'start'});}
+function startPractice(){disconnect();role='practice';room='';view=null;lastHand=0;lastEvent='';crowd={count:0,chat:[],viewers:[],muted:[],featured:false};history.pushState({},'','?practice=1');page='room';practice=rules.setup(['local']);practice.hostId='local';practice.cast=repartoLocal.slice();practice.names=[profile?.name||t('tu'),...[1,2,3].map(i=>personaje(practice.cast[i]).nombre)];practice.seed=crypto.getRandomValues(new Uint32Array(1))[0];telemetria.evento('practica',{nivel});action({type:'start'});}
 function seguirPractica(){const p=practicaGuardada();if(!p){startPractice();return;}telemetria.evento('practica',{nivel,sigue:1});disconnect();practice=p;role='practice';room='';view=null;lastHand=p.handNo;page='room';history.pushState({},'','?practice=1');receive(rules.viewFor(practice,'local'));scheduleBot();}
 function scheduleBot(){clearTimeout(botTimer);if(!practice||page!=='room')return;
  if(practice.phase!=='playing'||practice.turn===0)return;
@@ -108,7 +113,7 @@ function connect(name=conexion.nombre){
  if(role==='player')hideWorld();else ensureWorld('game');
  if(!view)app.innerHTML=`<div class="center-screen"><div class="join-screen"><div class="eyebrow">MESA</div><h1>${t('conectando')}</h1><p>${t('conectandoMesa')}</p></div></div>`;
  const gen=conexion.gen,s=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/${encodeURIComponent(room)}`);ws=s;
- s.onopen=()=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();s.send(JSON.stringify({type:'join',role,token:token(),name:name||profile?.name||almacen.get('mesa-name','')}));pedirWakeLock();};
+ s.onopen=()=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();s.send(JSON.stringify({type:'join',role,token:token(),...(role==='host'?{cast:repartoLocal}:{}),name:name||profile?.name||almacen.get('mesa-name','')}));pedirWakeLock();};
  s.onmessage=e=>{if(gen!==conexion.gen)return;ultimoMensaje=Date.now();if(e.data==='__pong')return;let m;try{m=JSON.parse(e.data);}catch{return;}
   if(m.type==='error'){soltarPendiente();const e=traducirError(m.error);toast(e);if(!view)joinScreen(e);return;}
   if(m.type==='state'){const antes=connected;connected=true;conexion.intentos=0;soltarPendiente();crowd=m.crowd||crowd;mesaInfo=m.mesa||null;yoInfo=m.yo||null;{const f=m.mesa?.fin,a=performance.now();finPlazo=f?{espera:a+f.espera,auto:f.auto!=null?a+f.auto:null,listos:f.listos||[]}:null;}botChatter.botHasta=m.mesa?.botMs!=null?performance.now()+m.mesa.botMs:0;receive(m.view,m.presence);if(!antes)marcarConexion();}};
@@ -136,7 +141,7 @@ fetch('/api/voice-config').then(r=>r.ok?r.json():{}).then(c=>{vozDisponible=!!c.
 /* ── Mundo 3D ─────────────────────────────────────────────────────────────── */
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}
- if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad')||(esTele?'low':'');if(cal)world.quality(cal);
+ if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{cast:repartoLocal,onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad')||(esTele?'low':'');if(cal)world.quality(cal);
   // Una muestra de cómo corre la escena en esta tele, al minuto.
   setTimeout(()=>{const d=window.mesaDiagnostics;if(d&&role!=='player')telemetria.evento('fps',{fps:d.fps,calidad:d.quality,llamadas:d.drawCalls});},60000);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);telemetria.error(e,'escena');container.innerHTML=`<div class="loading-error">${esc(e.message)}</div>`;});
  world?.resume?.();
@@ -205,7 +210,7 @@ function marcador(){const falta=espera(),r=view.result,s=[...view.scores];if(fal
 function turnoTexto(){if(view.phase!=='playing')return '';const i=view.turn;if(i===view.seat)return `<b>${t('teToca')}</b>`;return `${t('leToca',{nombre:`<b>${esc(nombreDe(i))}</b>`})}${view.bots[i]?` <span class="piensa">${t('pensando')}</span>`:''}`;}
 const inviteUrl=(watch=false)=>`${location.origin}/?room=${room}&role=${watch?'spectator':'player'}`;
 function lobbyPanel(){const llenos=view.bots.filter(b=>!b).length;return `<aside class="cartel">${avisoPago()}<div class="eyebrow">${t('mandaleCodigo')}</div><h2>${t('arrimaSilla')}</h2><div class="cartel-cuerpo"><div id="qr" class="qr" aria-label="QR"></div><div><div class="table-code">${esc(room)}</div><p>${t('escaneaTelefono')}</p><button class="text-link" data-action="copy">${icon('copy')} ${t('copiarEnlace')}</button></div></div>
- <div class="sillas">${view.names.map((n,i)=>`<button class="silla pareja-${i%2?'b':'a'} ${view.bots[i]?'libre':'llego'} ${sillaElegida===i?'elegida':''}" data-silla="${i}"><span class="num">${i+1}</span><span>${view.bots[i]?t('sillaLibre',{bot:esc(BOTS[i])}):esc(n)}</span><small>${t('pareja',{x:i%2?'B':'A'})}</small></button>`).join('')}</div>${notaSillas()}
+ <div class="sillas">${view.names.map((n,i)=>`<button class="silla pareja-${i%2?'b':'a'} ${view.bots[i]?'libre':'llego'} ${sillaElegida===i?'elegida':''}" data-silla="${i}"><span class="num">${i+1}</span><span>${view.bots[i]?t('sillaLibre',{bot:esc(botDe(i))}):esc(n)}</span><small>${t('pareja',{x:i%2?'B':'A'})}</small></button>`).join('')}</div>${notaSillas()}
  ${button(llenos<4?t('repartirConBots'):t('repartir'),'start','primary full')}${button(t('reglasCasa'),'house','full')}<p class="start-caption">${t('tuCompaneroEnfrente')}</p>${mesaInfo?.pagos&&!mesaInfo.bloqueo?`<p class="gratis-nota">${t('gratisNota',{n:mesaInfo.gratis,precio:precio()})}</p>`:''}</aside>`;}
 function endCard(){if(!['handEnd','seriesEnd'].includes(view.phase))return '';const r=view.result,falta=espera(),serie=view.phase==='seriesEnd';
  const sello=r.zapato?t('zapato'):r.type==='capicua'?t('capicua'):r.type==='tranque'?t('tranque'):t('domino');

@@ -1,0 +1,37 @@
+{
+ "Caminar": {
+  "duracion": 4.2333,
+  "paso": 3.015,
+  "cadera": 0.9658,
+  "avance": 0.0115,
+  "cuadros": 127
+ },
+ "Esperar": {
+  "duracion": 4.0333,
+  "paso": 0.0378,
+  "cadera": 0.9658,
+  "avance": 0.0,
+  "cuadros": 121
+ },
+ "Saludar": {
+  "duracion": 4.1333,
+  "paso": 0.0015,
+  "cadera": 0.9658,
+  "avance": 0.0001,
+  "cuadros": 124
+ },
+ "Conversar": {
+  "duracion": 5.2,
+  "paso": 0.0148,
+  "cadera": 0.9658,
+  "avance": 0.0014,
+  "cuadros": 156
+ },
+ "Sentado": {
+  "duracion": 0.0667,
+  "paso": 0.0,
+  "cadera": 0.9658,
+  "avance": 0.0003,
+  "cuadros": 2
+ }
+}

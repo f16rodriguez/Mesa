@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './env';
 import * as logic from './logic.js';
+import {personaje,repartoAlAzar,repartoValido} from './personajes.js';
 import { accountFor, cleanName, cleanText, recordSeries } from './accounts';
 import {botQuickMs,botThinkingMs,botTurnKey} from './bot-rhythm';
 import {chooseMove} from './bot';
@@ -29,7 +30,8 @@ export const RECORD_RETRY_MS=60000;
 /** Before the first bot move of a hand: the deal animation. After a human move: a beat. */
 const AFTER_DEAL_MS=4200,AFTER_HUMAN_MS=1500;
 /** The same four the client shows in the lobby. */
-export const BOT_NAMES=['Don Rafa','Marisol','Luis','Carmen'];
+/** Cómo se llama el bot de cada silla: el personaje que le tocó en el reparto de la mesa. */
+export const botName=(cast:unknown,i:number)=>personaje(repartoValido(cast)[i]??'')?.nombre??'Bot';
 
 type Member={id:string;publicId:string;name:string;role:string;lastSeen:number;away:boolean;awaySince?:number;profileId?:string;lastChat?:number;
  /** Arrived mid-hand: sits in the first free seat when the hand closes. */
@@ -248,7 +250,9 @@ export class Room extends DurableObject<Env>{
    const att=ws.deserializeAttachment();if(att?.id)return this.error(ws,'Already joined.');
    if(typeof msg.token!=='string'||!/^[a-f0-9]{64}$/.test(msg.token))return this.error(ws,'Invalid seat credential. Reload and try again.');
    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg.token));const id=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
-   if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=freshSeed();g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
+   if(!g){if(msg.role!=='host')return this.error(ws,'This table is not open yet. Ask the host to open it.');const state:any=logic.setup([]);state.hostId=id;state.seed=freshSeed();
+    // Quién se sienta: lo que eligió la tele al abrir (ya lo tiene cargado), o cuatro al azar.
+    state.cast=Array.isArray(msg.cast)?repartoValido(msg.cast):repartoAlAzar();g={state,members:{},chat:[],muted:[],featured:false,seriesId:crypto.randomUUID()};}
    if(!g.members[id]){
     if(Object.keys(g.members).length>=128)return this.error(ws,'This table is full.');
     const role=msg.role==='host'&&g.state.hostId===id?'host':msg.role==='player'?'player':'spectator';
@@ -356,7 +360,7 @@ export class Room extends DurableObject<Env>{
   // The rematch: same seats, dealt at once (a series used to fall back to the lobby,
   // where only the TV could deal). Changing partners is the 'lobby' message.
   if(type==='newSeries'){g.state.seed=freshSeed();g.state=logic.applyAction(g.state,g.state.hostId,{type:'start'});}
-  if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?BOT_NAMES[i]:n);
+  if(type==='start')g.state.names=g.state.names.map((n:string,i:number)=>g!.state.bots[i]?botName(g!.state.cast,i):n);
   const queued=this.queueSeries(g,now);
   await this.commit(g,{minimumDelay:dealing?AFTER_DEAL_MS:AFTER_HUMAN_MS});
   if(queued)later.push(()=>this.flushRecords());

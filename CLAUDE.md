@@ -58,7 +58,7 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
 - Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
   Mesa abre en el idioma del aparato si nadie eligió otro. Las voces de los bots tienen su versión
-  en inglés (mismas cuatro voces, con su acento) en `app/public/audio/bots/<bot>/en/`.
+  en inglés (mismas voces, con su acento) en `app/public/audio/bots/<bot>/en/`.
 - **Three Thirteen Studios** (el estudio, de Trey Rodriguez) firma Mesa en tres sitios y
   nada más: el splash al abrir la portada (video de 3,5 s, se salta tocando, una vez por
   sesión, nunca al entrar por QR o enlace de mesa), el logo horizontal abajo en la
@@ -84,19 +84,27 @@ Reglas de casa configurables desde la mesa. Ranked, cuando exista, juega a 200.
   `app/public/audio/musica/`, suenan esas en su lugar. Lo único grabado son los pregoneros
   (`app/public/audio/calle/`, voces generadas y verificadas) que pasan cada 70–160 s. El bombillo
   sobre la mesa cuelga quieto: si se mece, se pasean todas las sombras.
-- **La gente que pasa** (`app/src/transeuntes.js`, 24 sep 2026): vecinos por la acera de enfrente y la
-  calle de al lado, y cada minuto o dos alguien cruza el patio o entra a comprar al colmado. Son los
-  cuerpos de Marisol, Luis y Carmen (Don Rafa no: su pantalón se confunde con la piel) con otra ropa y
-  otra piel teñidas en el shader (máscara por cuerpo; ojo, estos modelos se alumbran solos con su
-  textura, así que se tiñe también lo emisivo) y a veces gorra. No hay animación de caminar: la marcha
-  se arma apuntando huesos desde la pose de reposo, que es de pie. Muy de vez en cuando (≥7 min) el
-  cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo` en `bot-chatter.js`;
-  audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la cámara mira hacia abajo y
-  al que está de pie se le ve de la cintura para abajo; en el lobby se ve entero.
-  El colmadero (cuerpo de Don Rafa, camisa verde y gorra roja) atiende detrás del mostrador: lo
-  mira, se vira al anaquel, estira el brazo y se lo da por encima. El mostrador (`MOSTRADOR` en
-  `scene-layout.ts`) tiene el tope a 1,06 m y está corrido hacia la calle para que él quepa; lo que
-  va encima y su frente de vitrinas se calculan de ahí.
+- **La gente** (`app/src/personajes.js`, 24 sep 2026): diez que juegan (Don Rafa, Marisol, Luis,
+  Carmen, Yuni, Doña Tata, Papo, Yari, Nando, Chela) y Kiko, el colmadero, que no juega. Cada mesa
+  sienta a **cuatro distintos al azar**: la tele los escoge al abrir y los manda al crear la sala
+  (`cast` en el estado, lo valida `repartoValido`); el bot de cada silla se llama como su personaje.
+  **Ninguna cara sale dos veces**: los que pasan por la calle, entran al colmado o miran desde atrás
+  salen de los seis que no están sentados. Cada uno es un GLB de Meshy (`public/models/<modelo>.glb`)
+  y otro de solo animación (`public/models/anim/<modelo>.glb`: Caminar, Esperar, Saludar, Conversar;
+  Sentado para los que se sientan con la pose de Luis; Atender para Kiko), clips de captura de
+  movimiento pasados a cada esqueleto en Blender con `scripts/manos/animar.py` (rotación en el mundo
+  relativa al reposo; el paso medido evita que los pies patinen). Se alumbran solos con su textura:
+  la emisiva va a `LUZ_PROPIA` (.4) para que la ropa tome luz y sombra de la escena. Nada de teñir
+  ropa ni poner gorras en el shader: se quitó porque se veía mal. Voces: cada bot tiene las suyas
+  en español y en inglés (el inglés clonado de su toma en español, con su acento).
+- **La gente que pasa** (`app/src/transeuntes.js`): vecinos por la acera de enfrente y la calle de
+  al lado, y cada minuto o dos alguien cruza el patio o entra a comprar al colmado. Muy de vez en
+  cuando (≥7 min) el cliente saluda por su nombre a un bot y el bot contesta (`SALUDOS` y `saludo`
+  en `bot-chatter.js`; audios en `audio/calle/` y `audio/bots/<bot>/`). En la vista de juego la
+  cámara mira hacia abajo y al que está de pie se le ve de la cintura para abajo; en el lobby se ve
+  entero. Kiko atiende detrás del mostrador: lo mira, se vira al anaquel, estira el brazo y se lo da
+  por encima. El mostrador (`MOSTRADOR` en `scene-layout.ts`) tiene el tope a 1,06 m y está corrido
+  hacia la calle para que él quepa; lo que va encima y su frente de vitrinas se calculan de ahí.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

@@ -128,7 +128,7 @@ export function applyAction(state,p,a) {
   // know capicuaDistinct leaves it as it was.
   if(a.type==='settings'){const x=a.settings;return {...s,settings:{target:x.target,capicua:x.capicua,tie:x.tie,allPips:x.allPips,capicuaDistinct:typeof x.capicuaDistinct==='boolean'?x.capicuaDistinct:s.settings.capicuaDistinct===true}};}
   if(a.type==='start'||a.type==='next') return deal(s);
-  if(a.type==='newSeries') return {...setup(s.players),hostId:s.hostId,names:s.names,bots:s.bots,seed:s.seed,settings:s.settings};
+  if(a.type==='newSeries') return {...setup(s.players),hostId:s.hostId,names:s.names,bots:s.bots,cast:s.cast,seed:s.seed,settings:s.settings};
   const seat=s.players.indexOf(p);
   if(a.type==='pass'){
     s.passes++;s.moves.push({type:'pass',seat});s.event={type:'pass',seat};
@@ -158,5 +158,5 @@ export function isGameOver(s) {
 }
 export function viewFor(s,p) {
   const seat=s.players.indexOf(p),closed=s.phase==='handEnd'||s.phase==='seriesEnd';
-  return {phase:s.phase,names:s.names,bots:s.bots,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,isVip:!!s.vip&&p===s.vip,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
+  return {phase:s.phase,names:s.names,bots:s.bots,cast:s.cast,settings:s.settings,scores:s.scores,counts:s.hands.map(h=>h.length),chain:s.chain,left:s.left,right:s.right,turn:s.turn,opener:s.opener,handNo:s.handNo,passes:s.passes,event:s.event,result:s.result,seat,isHost:p===s.hostId,isVip:!!s.vip&&p===s.vip,canDeal:canDeal(s,p),hand:seat<0?[]:byPips(s.hands[seat]),legal:seat<0?[]:options(s,seat),canPass:seat===s.turn&&s.phase==='playing'&&!options(s,seat).length,moves:s.moves,revealed:closed?s.hands.map(byPips):null,history:s.history.map(h=>({handNo:h.handNo,result:h.result})),replay:closed?s.history[s.history.length-1]:null};
 }

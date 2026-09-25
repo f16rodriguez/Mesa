@@ -9,7 +9,7 @@ import {describe,it,expect} from 'vitest';
 import * as L from '../src/logic.js';
 import {botQuickMs,botTurnKey} from '../src/bot-rhythm';
 import {cleanName} from '../src/accounts';
-import {AUTO_DEAL_MS,BOT_NAMES,COVER_MS,IDLE_TTL_MS,botMayCover,coverAt,coverMove,nextWake} from '../src/room';
+import {AUTO_DEAL_MS,botName,COVER_MS,IDLE_TTL_MS,botMayCover,coverAt,coverMove,nextWake} from '../src/room';
 
 const t=(a:number,b:number)=>({id:`${Math.min(a,b)}-${Math.max(a,b)}`,a:Math.min(a,b),b:Math.max(a,b)});
 const member=(id:string,now:number,extra:any={})=>({id,publicId:'pub-'+id,name:id,role:'player',lastSeen:now,away:false,...extra});
@@ -163,7 +163,7 @@ describe('names at the table',()=>{
   const b=await open({role:'player',name:'​‍'});expect((await b.next(f=>f.type==='state')).view.names[1]).toBe('Jugador');
   host.ws.send(JSON.stringify({type:'action',action:{type:'start'}}));
   const v=(await host.next(f=>f.type==='state'&&f.view.phase==='playing')).view;
-  expect(v.names).toEqual(['evil name','Jugador',BOT_NAMES[2],BOT_NAMES[3]]);expect(BOT_NAMES).toEqual(['Don Rafa','Marisol','Luis','Carmen']);
+  expect(v.cast).toHaveLength(4);expect(new Set(v.cast).size).toBe(4);expect(v.names).toEqual(['evil name','Jugador',botName(v.cast,2),botName(v.cast,3)]);expect(botName(['yuni','tata','papo','chela'],1)).toBe('Doña Tata');expect(botName(undefined,0)).toBe('Don Rafa');
   [host,a,b].forEach(x=>x.ws.close());
  });
  it('lets a player in as a guest when the profile database is down',async()=>{

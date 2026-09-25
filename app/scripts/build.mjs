@@ -60,6 +60,9 @@ const bot = await Bun.build({entrypoints:[resolve(app,'src/bot.ts')],outdir:reso
 if(!bot.success){console.error(bot.logs);throw new Error('Bot build failed');}
 const rhythm = await Bun.build({entrypoints:[resolve(app,'src/bot-rhythm.ts')],outdir:resolve(app,'public'),naming:'bot-rhythm.js',target:'browser',format:'esm',minify:true});
 if(!rhythm.success)throw new Error('Bot timing build failed');
+// Quiénes son los diez (y sus clips): el cliente los usa para el reparto y el nombre de cada bot.
+const gente = await Bun.build({entrypoints:[resolve(app,'src/personajes.js')],outdir:resolve(app,'public'),naming:'personajes.js',target:'browser',format:'esm',minify:true});
+if(!gente.success){console.error(gente.logs);throw new Error('Cast build failed');}
 await cp(resolve(app,'src/bot-chatter.js'),resolve(app,'public/bot-chatter.js'));
 await cp(resolve(app,'src/ambiente.js'),resolve(app,'public/ambiente.js'));
 // La música: lo que haya en public/audio/musica entra solo a la lista. Un

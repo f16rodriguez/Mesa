@@ -151,11 +151,16 @@ function liberarWakeLock(){try{wakeLock?.release();}catch{}wakeLock=null;}
 fetch('/api/voice-config').then(r=>r.ok?r.json():{}).then(c=>{vozDisponible=!!c.available;}).catch(()=>{});
 
 /* ── Mundo 3D ─────────────────────────────────────────────────────────────── */
+/* La escena es un módulo grande (~840 KB). Si la descarga se corta (un wifi flojo, Safari que corta un
+   módulo con poca memoria, un despliegue a medias), Safari dice "Importing a module script failed" y
+   recuerda el fallo para esa dirección: se reintenta sola, cada vez con otra dirección. */
+let escenaFallo=false;
+function importarEscena(intento=0){return import(`/scene.js?v=noche1${intento?'&r='+intento:''}`).catch(e=>{if(intento>=3)throw e;return new Promise(r=>setTimeout(r,1200*(intento+1))).then(()=>importarEscena(intento+1));});}
 async function ensureWorld(mode='game'){
  document.body.classList.remove('phone-mode');let container=$('#world');if(!container){container=document.createElement('div');container.id='world';document.body.prepend(container);}
- if(!worldPromise)worldPromise=import('/scene.js?v=noche1').then(m=>m.createWorld(container,{cast:repartoLocal,onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad')||(esTele?'low':'');if(cal)world.quality(cal);
+ if(!worldPromise)worldPromise=importarEscena().then(m=>m.createWorld(container,{cast:repartoLocal,onProgress:(_,f)=>{const el=$('#scene-loading');if(el){const n=Math.round(f*4);el.textContent=f>=1?t('listo'):n?t('sentados',{n}):t('abriendo');el.classList.toggle('ready',f===1);}}})).then(w=>{world=w;world.setMode(lastMode||mode);const cal=almacen.get('mesa-calidad')||(esTele?'low':'');if(cal)world.quality(cal);
   // Una muestra de cómo corre la escena en esta tele, al minuto.
-  setTimeout(()=>{const d=window.mesaDiagnostics;if(d&&role!=='player')telemetria.evento('fps',{fps:d.fps,calidad:d.quality,llamadas:d.drawCalls});},60000);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);telemetria.error(e,'escena');container.innerHTML=`<div class="loading-error">${esc(e.message)}</div>`;});
+  setTimeout(()=>{const d=window.mesaDiagnostics;if(d&&role!=='player')telemetria.evento('fps',{fps:d.fps,calidad:d.quality,llamadas:d.drawCalls});},60000);world.update(page==='home'?null:view,page==='home'?0:crowd.count);return w;}).catch(e=>{console.error(e);telemetria.error(e,'escena');escenaFallo=true;$('#scene-loading')?.remove();container.innerHTML=`<div class="loading-error"><p>${t('escenaNoCargo')}</p><button class="g-button primary" data-action="recargar">${t('reintentar')}</button><small>${esc(e.message)}</small></div>`;});
  world?.resume?.();
  if(lastMode!==mode){lastMode=mode;cameraIndex=0;world?.setMode(mode);}if(world)world.update(page==='home'?null:view,page==='home'?0:crowd.count);
 }
@@ -239,7 +244,7 @@ function renderRoom(){page='room';if(role==='player'){if(view.seat>=0)renderPhon
  app.innerHTML=`<div id="room-root" class="game-shell mesa-tv ${practice?'practica':''}"><header class="game-top"><div class="game-top-left">${brand()}<div class="hand-mark">${practice?t('practicaEtq'):view.phase==='lobby'?t('tuMesa'):t('mano',{n:String(view.handNo).padStart(2,'0')})}<span class="connection ${connected||practice?'':'off'}">${practice?t('sinPresion'):connected?t('conectado'):t('reconectando')}</span></div></div>${view.phase!=='lobby'?marcador():''}<div class="game-tools">${button('<span class="tool-label">'+t('camara')+'</span>','camera','','camera')}${button('','school','','book')}${button('','settings','','settings')}${esTelefono?'':button('','fullscreen','','expand')}</div></header>
   ${view.isHost&&view.phase==='lobby'&&!practice?lobbyPanel():''}${endCard()}
   ${view.seat>=0&&jugando?`<div class="game-hand-dock">${handPanel()}</div>`:jugando?`<div class="turno-banner pareja-${view.turn%2?'b':'a'}">${turnoTexto()}</div>`:view.phase==='lobby'&&!view.isHost?`<div class="scene-help">${t('haySillaParaTodos')}</div>`:''}
-  <div id="crowd-ui"></div><div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>
+  <div id="crowd-ui"></div>${escenaFallo?'':`<div id="scene-loading" class="load-status ${world?'ready':''}">${world?t('listo'):t('abriendo')}</div>`}
   <div class="game-bottom">${practice?`<span class="niveles">${Object.keys(NIVELES).map(k=>`<button data-nivel="${k}" class="${nivel===k?'elegido':''}">${t('nivel_'+k)}</button>`).join('')}</span>${modoMesa(view.names.length,'data-modo-practica').replace('modo-mesa','modo-mesa niveles')}`:patrocinioTexto()+filaTV()}</div></div>`;
  for(const c of habia)$(c)?.classList.add('sin-entrada');
  if(visto.fin===kFin)$('.resultado')?.classList.add('sin-entrada');else if($('.resultado')&&falta<=0)visto.fin=kFin;
@@ -435,6 +440,7 @@ document.addEventListener('click',async e=>{
  else if(a==='lobby'){modal.close();wire({type:'lobby'});}
  else if(a==='fila-entrar'||a==='fila-salir'){vibrar(VIBRA.elegir);wire({type:'fila',en:a==='fila-entrar'});}
  else if(a==='reintentar'){conexion.intentos=0;connect();}
+ else if(a==='recargar')location.reload();
  else if(a==='host'){role='host';unlockSound(true);createRoom();}
  else if(a==='practice'){modal.close();role='practice';unlockSound(true);startPractice();}
  else if(a==='continuar'){modal.close();role='practice';unlockSound(true);seguirPractica();}

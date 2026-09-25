@@ -111,6 +111,7 @@ html.con-splash .title-screen,html.con-splash .title-actions .g-button{animation
 .load-status::before{content:'';width:.45em;height:.45em;border-radius:50%;background:var(--gold);animation:latido 1.2s infinite}
 .load-status.ready{opacity:0}
 .loading-error{position:absolute;top:40%;left:50%;transform:translateX(-50%);width:min(420px,86vw);background:var(--panel);padding:1.4rem;border:1px solid var(--salsa);border-radius:var(--radio);pointer-events:auto;font-size:.85rem;line-height:1.7}
+.loading-error p{margin:0 0 .9rem}.loading-error small{display:block;margin-top:.8rem;font:500 .62rem var(--mono);color:var(--suave)}
 
 /* Si nadie toca nada, la tele queda limpia: solo la mesa, el marcador y el turno. */
 body.quieto .game-tools,body.quieto .game-bottom>:not(.patrocinio):not(.fila-tv),body.quieto .crowd-toggle,body.quieto .hand-mark,body.quieto #voice-hud{opacity:0;pointer-events:none;transition:opacity 1.2s}

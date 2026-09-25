@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import {idleMotion,DIM} from './scene-layout.ts';
+import {barbilla} from './saludo.js';
 /** La pareja de cada silla. A 1 contra 1 las sillas 0 y 2 son de lados distintos y la 1 y la 3 están
  *  vacías: lo dice ctx.equipos. El público (índice 4 en adelante) sigue por paridad. */
 const equipo=(ctx,i)=>ctx?.equipos&&i<ctx.equipos.length?ctx.equipos[i]:i%2;
 const X=new THREE.Vector3(1,0,0),Y=new THREE.Vector3(0,1,0),delta=new THREE.Quaternion();
-export function capturePose(root){const bones=[];root.traverse(bone=>{if(bone.isBone)bones.push({bone,position:bone.position.clone(),quaternion:bone.quaternion.clone(),scale:bone.scale.clone()});});return bones;}
+// Los dedos (dedos.js) no entran: el juego los abre y cierra aparte y la pose de cada cuadro no los toca.
+export function capturePose(root){const bones=[];root.traverse(bone=>{if(bone.isBone&&!/Dedos[12]$/.test(bone.name))bones.push({bone,position:bone.position.clone(),quaternion:bone.quaternion.clone(),scale:bone.scale.clone()});});return bones;}
 
 const _A=new THREE.Vector3(),_B=new THREE.Vector3(),_C=new THREE.Vector3(),_T=new THREE.Vector3();
 const _u=new THREE.Vector3(),_v=new THREE.Vector3(),_n=new THREE.Vector3(),_w=new THREE.Vector3();
@@ -404,6 +406,8 @@ export function applySeatedMotion(actor,time,reduced=false,ctx=null){
  if(vivo&&actor.head){
   // Hablando, la cabeza acompaña las sílabas; perdiendo, niega.
   if(ctx?.habla?.has(i)){const a=.035*(.6+.4*Math.sin(time*1.7));giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,Math.sin(time*6.1)*a*.5+Math.sin(time*3.3)*a*.5));}
+  // Contestando un saludo de la calle: la barbilla arriba y el cabeceo, como el que saludó (saludo.js).
+  if(ctx?.habla?.has(i)&&ctx.hablaTipo?.get(i)==='saludo'){actor.saludo0??=time;const b=barbilla(time-actor.saludo0);if(b)giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,-b*.8));}else actor.saludo0=null;
   if(fin&&equipo(ctx,i)!==ctx.fin.team){const e=time-ctx.fin.t;if(e>.6&&e<2.6)giraEnMundo(actor.head,_lean.setFromAxisAngle(Y,Math.sin((e-.6)*Math.PI*2.4)*.16*(2.6-e)/2));}
  }
  if(trago!=null&&trago>TRAMOS[1]-.2&&trago<TRAMOS[2]+.2&&actor.head){const d=Math.sin(Math.min(1,(trago-TRAMOS[1]+.2)/(TRAMOS[2]-TRAMOS[1]+.4))*Math.PI);giraEnMundo(actor.head,_lean.setFromAxisAngle(_ejeX,-.3*d));}

@@ -10,6 +10,7 @@ import {dressColmado} from './colmado-detail.js';
 import {armarEsquina} from './esquina.js';
 import {armarBarrio} from './barrio.js';
 import {servirBebidas} from './bebidas.js';
+import {dedosDe,abrir as abrirDedos} from './dedos.js';
 import {crearAtmosfera} from './atmosfera.js';
 import {crearTranseuntes,cargar as cargarPersona} from './transeuntes.js';
 import {PERSONAJES,MESA_CLASICA,LUZ_PROPIA,personaje,listo,repartoValido} from './personajes.js';
@@ -436,7 +437,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
   if(!reduced){fan.rotation.z=t*3.5;foliage.rotation.z=Math.sin(t*.47)*.009;colmado.update(t);esquina.update(t);}
   const v=currentView;
   const ctx={dt,jugando:v?.phase==='playing',turno:v?.turn,habla,hablaTipo,foco,fin,equipos:sillas===2?[0,null,1,null]:[0,1,0,1],cabezas:characters.map((c,i)=>c?.head?c.head.getWorldPosition(cabezas[i]):null)};
-  if(gente){gente.update(dt,{view:v,habla,cabezas:ctx.cabezas});ctx.saludo=gente.saludo;}
+  if(gente){gente.update(dt,{view:v,habla,cabezas:ctx.cabezas,asiento:i=>sillas===2?(i===0?0:i===2?1:null):i});ctx.saludo=gente.saludo;}
   for(const c of characters){if(!c)continue;applySeatedMotion(c,t,reduced,ctx);moverParpados(c);}
   // El público se mueve a la mitad del ritmo, cada uno en su cuadro: nadie lo nota y la tele respira.
   for(let i=0;i<crowd.length;i++)if((frame+i)%2===0)applySeatedMotion(crowd[i],t,reduced,ctx);
@@ -470,6 +471,7 @@ export async function createWorld(container,{onProgress=()=>{},cast=MESA_CLASICA
  }
  // Para capturas y pruebas.
  window.mesaCamara=(p,t)=>{camTween=null;vuelta=null;libre=true;controls.minDistance=.1;controls.maxDistance=30;camera.position.set(...p);controls.target.set(...t);controls.update();};   // solo para capturas: sin recinto
+ window.mesaDedos=(i,x,lado)=>{const c=characters[i];if(!c)return false;c.dedos??=dedosDe(c.root);for(const l of lado?[lado]:['Left','Right'])abrirDedos(c.dedos[l],x);return Object.keys(c.dedos).length;};
  window.mesaCara=(i,p,son)=>{const c=characters[i];if(c)c.caraFija=p==null?null:{p,s:son??0};};
  window.mesaBeber=(i,fijo)=>{const c=characters[i];if(!c||!c.bebida||c.jugada)return;if(c.trago&&fijo!=null&&c.trago.fijo!=null)c.trago.fijo=fijo;else c.trago={t0:clock.elapsedTime,fijo};};
  window.mesaSentados=()=>characters.map(c=>{if(!c)return null;const h=c.hips.getWorldPosition(v3()),v=v3();let nalga=9;c.root.traverse(o=>{if(!o.isSkinnedMesh)return;o.skeleton.update();const n=o.geometry.attributes.position.count;for(let i=0;i<n;i+=3){o.getVertexPosition(i,v).applyMatrix4(o.matrixWorld);if(Math.hypot(v.x-h.x,v.z-h.z)<.12&&v.y<nalga)nalga=v.y;}});return {id:c.id,cadera:+h.y.toFixed(3),nalga:+nalga.toFixed(3),pies:+new THREE.Box3().setFromObject(c.root).min.y.toFixed(3)};});

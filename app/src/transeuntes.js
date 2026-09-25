@@ -3,6 +3,8 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {MOSTRADOR} from './scene-layout.ts';
 import {PERSONAJES,COLMADERO as KIKO,LUZ_PROPIA,listo,clips} from './personajes.js';
+import {dedosDe,abrir as abrirDedos} from './dedos.js';
+import {barbilla,mano as manoArriba} from './saludo.js';
 
 /**
  * La gente que pasa por la esquina, y el colmadero.
@@ -59,8 +61,17 @@ function cabeza(g,peso){
   _d.subVectors(g.mirar,_a).normalize();const ang=_u.angleTo(_d);if(ang<1e-3)continue;
   giraEnMundo(hueso,_q2.identity().slerp(_q.setFromUnitVectors(_u,_d),peso*parte*Math.min(ang,1.1)/ang));}
 }
+/** La barbilla arriba y los cabeceos del saludo (saludo.js), encima de la mirada: el cuello pone un tercio. */
+function cabecea(g,e){
+ const a=barbilla(e),H=g.h;if(!a||!H.Head)return;
+ g.holder.getWorldQuaternion(_hq);_u.set(1,0,0).applyQuaternion(_hq);
+ if(H.neck)giraEnMundo(H.neck,_q.setFromAxisAngle(_u,-a*.35));giraEnMundo(H.Head,_q.setFromAxisAngle(_u,-a*.65));
+}
 /** Clips que van una sola vez y se quedan en su último cuadro. */
 const UNA_VEZ=new Set(['Saludar','Dar','Recoger']);
+/** Del clip Saludar solo se usa la subida: a los 0,6 s la mano va por el hombro, abierta, antes
+ *  de ponerse a menear. Se sube hasta ahí, se queda y se baja (el clip al revés). */
+const MANO_ARRIBA=.6;
 /** En el clip Dar (Interact), cuándo está el brazo estirado del todo, en segundos. */
 const DAR_PICO=1;
 /** El brazo derecho que alcanza: arriba a un anaquel (alto 1) o al frente, a dar o recibir (0). */
@@ -113,7 +124,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   for(const [n,c] of Object.entries(t.acciones))acc[n]=mixer.clipAction(c);
   // A qué velocidad avanza el clip de caminar (m/s), medido en su propio esqueleto.
   const d=t.datos.Caminar,vClip=d?d.paso/d.duracion:1.1;
-  return {t,p:t.p,root,holder,h,malla,mixer,acc,actual:null,vClip,marcha:0,t:0,alcanza:0,alcanzaAlto:0,mirar:v3(0,1.4,5),mira:0,yaw:0};
+  return {t,p:t.p,root,holder,h,malla,mixer,acc,actual:null,vClip,marcha:0,t:0,alcanza:0,alcanzaAlto:0,mirar:v3(0,1.4,5),mira:0,yaw:0,dedos:dedosDe(root),gesto:null};
  }
  /** Cambia de clip con un cruce suave. Los de UNA_VEZ se quedan en su último cuadro. */
  function jugar(g,nombre,cruce=.4){
@@ -167,7 +178,11 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
    g.marcha=0;const e=g.t-(tramo.t0??g.t);
    if(tramo.saludo)saludar(g,tramo,e,estado);
    if(!tramo.empezo){tramo.empezo=true;if(UNA_VEZ.has(tramo.clip)&&g.actual===tramo.clip)g.actual=null;}   // dos 'Dar' seguidos: el segundo arranca de nuevo
-   jugar(g,tramo.clip||'Esperar',.45);
+   jugar(g,tramo.clip||'Esperar',tramo.saludo?.3:.45);
+   // El saludo: el clip Saludar parado, con su tiempo puesto a mano (sube, se queda, baja); la mano
+   // se abre mientras sube. La barbilla y los cabeceos van después de la mirada (update).
+   if(tramo.saludo&&tramo.clip==='Saludar'){const a=g.acc.Saludar,k=manoArriba(e);if(a){a.paused=true;a.time=MANO_ARRIBA*k;}abrirDedos(g.dedos.Right,.85*k);g.gesto=e;
+    if(e>=tramo.dur-.05){g.gesto=null;abrirDedos(g.dedos.Right,0);}}
    if(tramo.yaw!=null)giroHacia(g,tramo.yaw,dt,2);
    if(tramo.miraA?.h?.Head)tramo.mira=tramo.miraA.h.Head.getWorldPosition(tramo.mira||v3());
    else if(tramo.vigila)tramo.mira=vigilando(tramo,estado);
@@ -188,7 +203,7 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   if(!tramo.decidido){tramo.decidido=true;const v=estado?.view;
    const ok=v&&(v.phase==='lobby'||v.phase==='playing')&&(forzar||!estado.habla?.size&&reloj>60&&reloj-ultimoSaludo>240);forzar=false;
    if(!ok){tramo.dur=0;return;}
-   const bots=[0,1,2,3].filter(s=>v.bots?.[s]),seat=bots.length&&Math.random()<.8?uno(bots):null;
+   const bots=[0,1,2,3].filter(s=>v.bots?.[s]&&v.names?.[s]),seat=bots.length&&Math.random()<.8?uno(bots):null;
    tramo.seat=seat;ultimoSaludo=reloj;
    const hacia=seat==null?v3(0,1.2,0):(estado.cabezas?.[seat]?.clone()||v3(0,1.2,0));
    tramo.mira=hacia.clone();tramo.yaw=Math.atan2(hacia.x-g.holder.position.x,hacia.z-g.holder.position.z);
@@ -197,7 +212,8 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
   if(tramo.dur===0)return;
   if(!tramo.dicho&&e>.5){tramo.dicho=true;const cab=g.h.Head.getWorldPosition(v3());
    saludo={seat:tramo.seat,p:cab,t0:reloj,hasta:reloj+5};
-   dispatchEvent(new CustomEvent('mesa:saludo',{detail:{seat:tramo.seat,voz:g.p.sexo,pos:cab.toArray()}}));}
+   // La silla de la escena no es el asiento del juego a 1 contra 1 (la de enfrente es la 2): la voz va por asiento.
+   dispatchEvent(new CustomEvent('mesa:saludo',{detail:{seat:tramo.seat==null?null:(estado.asiento?.(tramo.seat)??tramo.seat),voz:g.p.sexo,pos:cab.toArray()}}));}
  }
 
  /* El colmadero: detrás del mostrador. Vigila la mesa y la calle; cuando llega alguien, lo
@@ -278,19 +294,23 @@ export function crearTranseuntes({scene,camera,enMesa=()=>[],pocos=false}){
    g.mixer.update(dt);
    // Fuera de cuadro el clip igual corre (es barato), pero no se le pone cabeza ni brazo.
    _esfera.center.copy(g.holder.position).y+=.9;
-   if(frustum.intersectsSphere(_esfera)){g.holder.updateMatrixWorld(true);cabeza(g,suave(g.mira));alcanzar(g);}
+   if(frustum.intersectsSphere(_esfera)){g.holder.updateMatrixWorld(true);cabeza(g,suave(g.mira));if(g.gesto!=null)cabecea(g,g.gesto);alcanzar(g);}
   }
   ms+=(performance.now()-t0-ms)*.05;
  }
  // Para capturas y pruebas: saca a alguien ya (tipo cliente, saluda, calle, cruza, posa).
  window.mesaTranseunte=(tipo='cliente',_,donde)=>{const g=nuevo();if(!g)return false;
-  if(tipo==='posa'){const [x,z,yaw=0]=donde;poner(g,[ruta(P([x-Math.sin(yaw)*.3,z-Math.cos(yaw)*.3],[x,z])),{tipo:'quieto',dur:1e4}],'patio');return true;}
+  if(tipo==='posa'||tipo==='posa-saluda'){const [x,z,yaw=0]=donde;const sal=tipo==='posa-saluda';if(sal)forzar=true;
+   poner(g,[ruta(P([x-Math.sin(yaw)*.3,z-Math.cos(yaw)*.3],[x,z])),...(sal?[{tipo:'quieto',dur:3.6,saludo:true}]:[]),{tipo:'quieto',dur:1e4}],'patio');return true;}
   const s=tipo==='calle'||tipo==='calle-saluda'?porLaCalle(tipo==='calle-saluda'):tipo==='cruza'?deCamino():cliente();
   if(tipo==='saluda'){if(!s.some(t=>t.saludo))s.splice(1,0,{tipo:'quieto',dur:3.6,saludo:true});forzar=true;}
   if(tipo==='calle-saluda')forzar=true;
   poner(g,s,tipo.startsWith('calle')?'calle':'patio');return true;};
  window.mesaServir=()=>{const g=gente[gente.length-1];if(!colmadero||!g)return false;servir(colmadero,g);return true;};
  window.mesaKiko=()=>colmadero&&{clip:colmadero.actual,tramo:colmadero.i};
- window.mesaGente=()=>gente.map(g=>({quien:g.p.id,pos:g.holder.position.toArray().map(x=>+x.toFixed(2)),clip:g.actual,marcha:+g.marcha.toFixed(2),tramo:g.i}));
+ // Muestra un clip en el último que salió, en el segundo t, y dice a qué altura (sobre sus pies) quedan las manos.
+ window.mesaAlturaManos=(clip,t)=>{const g=gente[gente.length-1];if(!g)return null;const a=g.acc[clip];if(!a)return null;g.mixer.stopAllAction();a.reset().play();a.paused=true;a.time=t;a.setEffectiveWeight(1);g.mixer.update(0);g.holder.updateMatrixWorld(true);
+  const y0=g.holder.position.y,dur=a.getClip().duration;return {dur,izq:+(g.h.LeftHand.getWorldPosition(v3()).y-y0).toFixed(3),der:+(g.h.RightHand.getWorldPosition(v3()).y-y0).toFixed(3),quien:g.p.id};};
+ window.mesaGente=()=>gente.map(g=>({quien:g.p.id,gesto:g.gesto==null?null:+g.gesto.toFixed(2),pos:g.holder.position.toArray().map(x=>+x.toFixed(2)),clip:g.actual,marcha:+g.marcha.toFixed(2),tramo:g.i}));
  return {update,get saludo(){return saludo;},get ms(){return ms;},andando:()=>gente.map(g=>g.p.id),dispose(){apagado=true;for(const g of gente.slice())soltar(g);if(colmadero)scene.remove(colmadero.holder);}};
 }

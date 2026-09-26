@@ -133,6 +133,10 @@ casa: sin pozo (las 14 duermen y nadie roba). El pozo nunca sale en una vista, s
 - **En línea y la Liga, en la portada como Próximamente** (25 sep 2026), cada una con su lista de
   espera (`/api/lista`, tablas `waitlist` y `waitlist_liga`). La tarjeta de la Liga no promete ranked
   ni pone precio todavía.
+- **3D para el lanzamiento; el 2D es el plan B** (26 sep 2026, con Trey). Se lanza la mesa 3D que ya
+  está en vivo. La compuerta es la prueba en la tele: si en un Fire TV Stick va por debajo de ~30 fps con
+  el modo liviano, se pasa a 2D pintado, empezando por la prueba del títere de Don Rafa. **Sin presupuesto**:
+  todo lo hacen la IA y Claude, sin animador. El prototipo 2D y sus reglas están en `prototipos/2d/`.
 - Lo que va en `ROADMAP.md` está ordenado. No adelantar ranked: necesita liquidez.
 
 ## Estructura

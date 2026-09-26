@@ -1,0 +1,616 @@
+<title>Mesa en juego</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@500&family=Shrikhand&display=swap">
+<style>
+/* Mesa's own face (app/public/mesa.css). One dark look on purpose: it is the game's table at dusk. */
+:root{
+  color-scheme:dark;
+  --felt:#2F4A3A;--felt-deep:#1B2C22;--ivory:#F3EEE3;--ink:#1C1E1A;
+  --salsa:#C8402F;--gold:#E3AE55;--sky:#6FB7C9;--sky-oscuro:#3F8597;--sky-claro:#A9D7E3;
+  --suave:rgba(243,238,227,.74);--tenue:rgba(243,238,227,.52);--linea:rgba(243,238,227,.14);
+  --panel:rgba(27,44,34,.94);
+  --display:'Shrikhand',Georgia,'Times New Roman',serif;
+  --sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+body{background:var(--felt-deep);color:var(--ivory);font:400 16px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:clamp(16px,3vw,32px);padding-block:clamp(24px,4vw,48px) 64px;display:grid;gap:clamp(16px,2.4vw,24px)}
+.cabeza{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:clamp(12px,3vw,40px);align-items:end}
+.eyebrow{font:500 .72rem/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+h1{font:400 clamp(2.6rem,6.5vw,4.4rem)/.95 var(--display);margin:.3em 0 0;text-shadow:.043em .043em 0 var(--salsa);text-wrap:balance}
+.lede{margin:0;color:var(--suave);max-width:40em}
+
+/* ── The stage: painted plate, board canvas, foreground plate, game UI ── */
+.escenario{position:relative;width:100%;max-width:100%;aspect-ratio:1344/752;border-radius:14px;overflow:hidden;background:#0d1510;container-type:inline-size;box-shadow:0 1px 0 rgba(243,238,227,.08) inset,0 18px 50px rgba(0,0,0,.45);--v:1}
+.capa{position:absolute;left:0;top:0;width:1344px;height:752px;transform-origin:0 0;pointer-events:none;will-change:transform}
+.capa img{display:block;width:100%;height:100%}
+#lienzo{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.foto{position:absolute;inset:0;pointer-events:none;transition:opacity .42s ease-out}
+.foto canvas{position:absolute;inset:0;width:100%;height:100%}
+.foto.fuera{opacity:0}
+.ui{position:absolute;inset:0;pointer-events:none;transition:opacity .25s}
+.ui.oculto .silla,.ui.oculto .turno,.ui.oculto .burbuja{opacity:0}
+.ui.cruce .silla,.ui.cruce .burbuja{opacity:0;transition:none}
+
+.pizarra{position:absolute;left:1.8cqw;top:1.6cqw;display:flex;align-items:stretch;background:var(--ivory);color:var(--ink);border-radius:.75cqw;overflow:hidden;box-shadow:0 .35cqw 0 rgba(0,0,0,.25),0 1cqw 2.4cqw rgba(0,0,0,.32)}
+.equipo{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:1.2cqw;padding:.75cqw 1.4cqw .8cqw}
+.equipo .quienes{font:500 max(7px,.78cqw)/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.equipo .barra{grid-column:1;height:.32cqw;border-radius:1cqw;background:rgba(28,30,26,.12);margin-top:.45cqw;overflow:hidden}
+.equipo .barra i{display:block;height:100%;width:0;transition:width .6s}
+.equipo .tanto{grid-row:1/span 2;grid-column:2;font:500 max(14px,2.7cqw)/1 var(--mono);font-variant-numeric:tabular-nums}
+.equipo.a .quienes{color:var(--salsa)}.equipo.a .barra i{background:var(--salsa)}
+.equipo.b .quienes{color:var(--sky-oscuro)}.equipo.b .barra i{background:var(--sky)}
+.equipo.b .tanto{grid-column:1}.equipo.b .quienes,.equipo.b .barra{grid-column:2}
+.meta{display:grid;place-items:center;text-align:center;padding:0 1cqw;font:500 max(6px,.72cqw)/1.5 var(--mono);letter-spacing:.12em;color:rgba(28,30,26,.55);border-inline:1px solid rgba(28,30,26,.12);background:rgba(28,30,26,.04);white-space:nowrap}
+
+.silla{position:absolute;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:.15cqw;padding:.38cqw 1cqw .45cqw;border-radius:.85cqw;background:var(--panel);border-bottom:.3cqw solid var(--p,var(--linea));white-space:nowrap;transition:opacity .25s,box-shadow .3s}
+.silla b{font:600 max(8px,1.18cqw)/1.15 var(--sans)}
+.silla small{font:500 max(6px,.64cqw)/1.2 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tenue)}
+.silla.a{--p:var(--salsa)}.silla.b{--p:var(--sky)}
+.silla.toca{box-shadow:0 0 0 .18cqw var(--gold),0 0 2cqw rgba(227,174,85,.45)}
+.silla.toca small{color:var(--gold)}
+.silla.gana small{color:var(--gold)}
+.mano{display:flex;flex-wrap:wrap;justify-content:center;max-width:13cqw;gap:.16cqw;font-size:max(3px,.36cqw)}
+.mano:empty{display:none}
+
+/* Mini tile for the phone-free UI (hands, the last move). Pips drawn as gradients. */
+.mf{display:inline-flex;vertical-align:middle;background:linear-gradient(#fbf8f0,#ebe3d0);border-radius:.35em;box-shadow:0 .15em 0 #b9ab8c;position:relative}
+.mf b{display:block;width:2.1em;height:2.1em}
+.mf b+b{border-left:.12em solid rgba(28,30,26,.45)}
+
+.turno{position:absolute;right:1.8cqw;top:1.6cqw;display:flex;align-items:center;gap:.7cqw;padding:.65cqw 1.4cqw .7cqw 1.05cqw;border-radius:1.1cqw;background:var(--panel);border:1px solid var(--linea);font:600 max(9px,1.25cqw) var(--sans);white-space:nowrap;box-shadow:0 1cqw 2.4cqw rgba(0,0,0,.35);transition:opacity .25s}
+.turno i{width:.75cqw;height:.75cqw;border-radius:50%;background:var(--q,var(--gold));box-shadow:0 0 1cqw var(--q,var(--gold));flex:none}
+.turno .mf{font-size:max(4px,.62cqw);margin-left:.2cqw}
+.turno.a{--q:var(--salsa)}.turno.b{--q:var(--sky)}
+
+.burbuja{position:absolute;transform:translate(-50%,-100%);padding:.45cqw 1.1cqw .5cqw;border-radius:1cqw;background:var(--ivory);color:var(--ink);font:700 max(9px,1.35cqw)/1.1 var(--sans);box-shadow:0 .5cqw 1.4cqw rgba(0,0,0,.35);animation:pop calc(220ms / var(--v)) cubic-bezier(.3,1.6,.5,1) both}
+@keyframes pop{from{transform:translate(-50%,-100%) scale(.4);opacity:0}}
+
+.sello-mesa{position:absolute;left:50%;top:27%;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:1.2cqw;text-align:center}
+.sello{font:400 max(32px,7.6cqw)/1 var(--display);color:var(--ivory);text-shadow:.043em .043em 0 var(--salsa);transform:rotate(-8deg);white-space:nowrap;animation:estampa calc(380ms / var(--v)) cubic-bezier(.2,1.4,.4,1) both}
+@keyframes estampa{from{transform:rotate(-8deg) scale(2.1);opacity:0}}
+.linea-mesa{font:500 max(9px,1.3cqw)/1.3 var(--mono);letter-spacing:.06em;color:var(--ivory);background:var(--panel);padding:.6cqw 1.2cqw;border-radius:.8cqw;border:1px solid var(--linea)}
+
+.corte{position:absolute;inset:0;overflow:hidden}
+.corte img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:barre calc(300ms / var(--v)) cubic-bezier(.2,.8,.2,1) both}
+@keyframes barre{from{clip-path:polygon(0 0,0 0,0 100%,0 100%);transform:scale(1.07)}to{clip-path:polygon(0 0,100% 0,100% 100%,0 100%);transform:scale(1)}}
+.corte .texto{position:absolute;right:4cqw;bottom:4.5cqw;display:grid;justify-items:end;gap:.6cqw}
+.corte .sello{animation-delay:calc(200ms / var(--v))}
+.puntos{font:500 max(14px,3.4cqw)/1 var(--mono);color:var(--gold);text-shadow:0 .25cqw 1cqw rgba(0,0,0,.6);animation:sube calc(300ms / var(--v)) ease-out calc(450ms / var(--v)) both}
+@keyframes sube{from{transform:translateY(1cqw);opacity:0}}
+
+.final{position:absolute;inset:0;display:grid;place-items:center;background:rgba(13,21,16,.66);animation:aparece .4s ease-out both}
+@keyframes aparece{from{opacity:0}}
+.final div{display:grid;justify-items:center;gap:1.2cqw;text-align:center}
+.final h2{margin:0;font:400 max(32px,6.4cqw)/1 var(--display);text-shadow:.043em .043em 0 var(--salsa);text-wrap:balance}
+.final p{margin:0;font:500 max(12px,2.2cqw)/1.2 var(--mono);color:var(--gold);font-variant-numeric:tabular-nums}
+.final small{font:500 max(8px,.9cqw) var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--suave)}
+
+.ui.intro{opacity:0}
+#titulo .titulo{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:1.6cqw;background:radial-gradient(ellipse at center,rgba(13,21,16,.5),rgba(13,21,16,.84));animation:aparece .6s ease-out both}
+#titulo .titulo img{width:34cqw;filter:drop-shadow(0 .4cqw 1.4cqw rgba(0,0,0,.5))}
+#titulo .titulo p{margin:0;font:500 max(10px,1.15cqw) var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ivory)}
+#titulo .titulo.sale{opacity:0;transition:opacity .6s}
+#imgFrente{-webkit-mask-size:100% 100%;mask-size:100% 100%}
+.cargando{position:absolute;inset:0;display:grid;place-items:center;font:500 .8rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--suave);background:#0d1510}
+.pausado *{animation-play-state:paused!important}
+
+/* ── Controls under the stage ── */
+.mandos{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.grupo{display:flex;align-items:center;gap:8px}
+.grupo>span{font:500 .7rem var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tenue)}
+.seg{display:flex;padding:3px;border-radius:999px;border:1px solid var(--linea);background:rgba(0,0,0,.18)}
+button{font:600 .9rem/1 var(--sans);color:var(--suave);background:transparent;border:0;border-radius:999px;padding:9px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ivory);color:var(--ink)}
+.solo{border:1px solid var(--linea);background:rgba(0,0,0,.18)}
+.solo[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button:hover{color:var(--ivory)}
+.seg button[aria-pressed="true"]:hover{color:var(--ink)}
+.cuenta{margin:0 0 0 auto;font:500 .78rem/1.4 var(--mono);letter-spacing:.06em;color:var(--suave);font-variant-numeric:tabular-nums}
+
+.notas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(16px,3vw,32px);border-top:1px solid var(--linea);padding-top:clamp(16px,2.4vw,24px)}
+.notas h2{font:700 1.05rem/1.25 var(--sans);margin:.35rem 0 .4rem}
+.notas p{margin:0;color:var(--suave);font-size:.94rem}
+.notas code{font:500 .82em var(--mono);color:var(--ivory)}
+
+@container (max-width:560px){
+  .turno{top:auto;bottom:1.6cqw}
+}
+@media (max-width:760px){
+  .cabeza,.notas{grid-template-columns:1fr}
+  .cuenta{margin:0;flex-basis:100%}
+}
+@media (prefers-reduced-motion:no-preference){
+  .silla.toca{animation:pulso 2.4s ease-in-out infinite}
+  @keyframes pulso{50%{box-shadow:0 0 0 .18cqw var(--gold),0 0 3.4cqw rgba(227,174,85,.7)}}
+}
+@media (prefers-reduced-motion:reduce){
+  .corte img,.sello,.puntos,.burbuja{animation:none}
+}
+</style>
+
+<main class="wrap">
+  <header class="cabeza">
+    <div>
+      <div class="eyebrow">2D prototype · live simulation</div>
+      <h1>Mesa en juego</h1>
+    </div>
+    <p class="lede">Four bots play a full series to 200 on the painted table. The rules, the bots and where every tile lands come from the game's own code. The paintings are the 2D direction. The TV cuts between the table and the overhead view on its own; pin either one below.</p>
+  </header>
+
+  <section class="escenario" id="escenario" aria-label="Simulated game">
+    <div class="capa" id="fondo"><img id="imgFondo" alt=""></div>
+    <canvas id="lienzo"></canvas>
+    <div class="capa" id="frente"><img id="imgFrente" alt=""></div>
+    <div class="ui" id="ui">
+      <div class="pizarra" aria-label="Score">
+        <div class="equipo a"><span class="quienes">Luis · Don Rafa</span><span class="barra"><i id="barraA"></i></span><span class="tanto" id="tantoA">0</span></div>
+        <div class="meta" id="meta">MANO 1<br>A 200</div>
+        <div class="equipo b"><span class="tanto" id="tantoB">0</span><span class="quienes">Marisol · Carmen</span><span class="barra"><i id="barraB"></i></span></div>
+      </div>
+      <div class="silla a" id="silla0"></div>
+      <div class="silla b" id="silla1"></div>
+      <div class="silla a" id="silla2"></div>
+      <div class="silla b" id="silla3"></div>
+      <div class="turno" id="turno" aria-live="polite"><i></i><span id="turnoTexto">Barajando</span></div>
+      <div id="burbujas"></div>
+      <div id="selloMesa"></div>
+    </div>
+    <div id="corte"></div>
+    <div id="final"></div>
+    <div id="titulo"></div>
+    <div class="cargando" id="cargando">Preparando la mesa</div>
+  </section>
+
+  <div class="mandos">
+    <div class="grupo"><span>Camera</span>
+      <div class="seg" role="group" aria-label="Camera">
+        <button type="button" id="camAuto" data-cam="auto" aria-pressed="true">Auto</button>
+        <button type="button" id="camTele" data-cam="tele" aria-pressed="false">TV</button>
+        <button type="button" id="camArriba" data-cam="arriba" aria-pressed="false">Overhead</button>
+      </div>
+    </div>
+    <div class="grupo"><span>Speed</span>
+      <div class="seg" role="group" aria-label="Speed">
+        <button type="button" id="vel1" data-vel="1" aria-pressed="true">1×</button>
+        <button type="button" id="vel2" data-vel="2" aria-pressed="false">2×</button>
+        <button type="button" id="vel4" data-vel="4" aria-pressed="false">4×</button>
+      </div>
+    </div>
+    <button type="button" class="solo" id="pausa" aria-pressed="false">Pause</button>
+    <button type="button" class="solo" id="sonido" aria-pressed="false">Sound</button>
+    <button type="button" class="solo" id="manos" aria-pressed="false">Show hands</button>
+    <p class="cuenta" id="cuenta">Hands 0</p>
+  </div>
+
+  <section class="notas">
+    <div>
+      <div class="eyebrow">Real game code</div>
+      <h2>Same engine, same bots, same board</h2>
+      <p>Rules from <code>logic.js</code>: the 6-6 opens the series, play goes counter-clockwise, capicúa pays 25, a tranque goes to the lower pips, first to 200. Moves from <code>bot.ts</code>, the bots in practice mode. Every tile lands where <code>scene-layout.ts</code> puts it in 3D, bending at 27 cm.</p>
+    </div>
+    <div>
+      <div class="eyebrow">Still placeholder</div>
+      <h2>The people don't move yet</h2>
+      <p>Players are single paintings here. In the prototype they become cut-out puppets with a few poses: idle, reach, slam, laugh, the chin-up greeting. Sounds are synthesized stand-ins. Phones are left out; this is only what the TV shows.</p>
+    </div>
+    <div>
+      <div class="eyebrow">What the run caught</div>
+      <h2>The near player hid a third of the board</h2>
+      <p>In the first TV painting, the head of the player nearest the camera covered 31% of the felt. The table is now painted from a higher camera and nothing covers the felt. Rule for every future plate: the near player's head stays below the felt.</p>
+    </div>
+  </section>
+</main>
+
+<script src="motor.js"></script>
+<script>
+(()=>{
+'use strict';
+const M=window.MesaMotor;
+// Video mode (window.VIDEO): the same table rendered frame by frame over animated paintings.
+const V=window.VIDEO||null;
+const W0=V?V.ancho:1344,H0=V?V.alto:752;
+const CARPETA=['luis','marisol','rafa','carmen'];
+const $=id=>document.getElementById(id);
+const NOMBRES=['Luis','Marisol','Don Rafa','Carmen'];
+const PAREJA=['Luis y Don Rafa','Marisol y Carmen'];
+const CORTES=['img/corte-luis.jpg','img/corte-marisol.jpg','img/corte-rafa.jpg','img/corte-carmen.jpg'];
+// Each camera: its painting, the painting with the felt cut out (it goes over the tiles),
+// where the 78 cm felt square sits in the painting, how far from the center the racks stand
+// (north/south, east/west, in mm) and where the name chips go.
+const CAMS={
+  tele:{fondo:'img/tele.jpg',frente:'img/tele-delante.webp',quad:[[453.7,283.9],[843.1,284.7],[933,618.8],[343.7,615.4]],rack:[322,322],sillas:[[372,712],[1070,205],[842,150],[262,190]],tele:true},
+  arriba:{fondo:'img/arriba.jpg',frente:'img/arriba-delante.webp',quad:[[486,199],[862,199],[862,576],[486,576]],rack:[322,452],sillas:[[880,712],[1100,560],[880,64],[250,560]],tele:false}
+};
+const PIPS=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
+const reducido=!V&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+let azar=Math.random;
+if(V){let a=V.azar>>>0;azar=()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  for(const n in CAMS){const j=V.ajuste[n];CAMS[n].sillas=CAMS[n].sillas.map(([x,y])=>[x*j[0]+j[2],y*j[1]+j[3]]);CAMS[n].quad=V.plancha(n,0).quad;}}
+
+/* ── Clock: everything waits on it, so Pause and Speed hold the whole table ── */
+let reloj=0,vel=1,pausado=false,ult=performance.now();const esperas=[];
+const espera=ms=>new Promise(res=>esperas.push({t:reloj+ms,res}));
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const suave=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+
+/* ── Where the felt is in the painting ── */
+let camNombre='tele',cam=CAMS.tele,H=null,vf=0;
+function homografia(q){
+  const [[x0,y0],[x1,y1],[x2,y2],[x3,y3]]=q;
+  const dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3;
+  const den=dx1*dy2-dx2*dy1,g=(dx3*dy2-dx2*dy3)/den,h=(dx1*dy3-dx3*dy1)/den;
+  const a=x1-x0+g*x1,b=x3-x0+h*x3,d=y1-y0+g*y1,e=y3-y0+h*y3;
+  return (X,Y)=>{const u=(X+390)/780,v=(Y+390)/780,w=g*u+h*v+1;return [(a*u+b*v+x0)/w,(d*u+e*v+y0)/w];};
+}
+const proj=(X,Y)=>H(X,Y);
+function jac(X,Y){const e=2,a=H(X+e,Y),b=H(X-e,Y),c=H(X,Y+e),d=H(X,Y-e);return [[(a[0]-b[0])/(2*e),(c[0]-d[0])/(2*e)],[(a[1]-b[1])/(2*e),(c[1]-d[1])/(2*e)]];}
+function ponerCam(n){
+  camNombre=n;cam=CAMS[n];H=homografia(cam.quad);
+  const J=jac(0,0),sx=Math.hypot(J[0][0],J[1][0]),r=Math.abs(J[1][1])/sx;vf=cam.tele?Math.sqrt(Math.max(0,1-r*r)):0;
+}
+// Where a point h mm above the felt shows up, as an offset in painting pixels.
+function alto(X,Y,h){
+  if(!h) return [0,0];
+  const p=proj(X,Y);
+  if(cam.tele){const J=jac(X,Y),sx=Math.hypot(J[0][0],J[1][0]);return [(p[0]-W0/2)*h*.00022,-h*vf*sx];}
+  const c=proj(0,0);return [(p[0]-c[0])*h/2600,(p[1]-c[1])*h/2600];
+}
+
+/* ── Canvas and camera ── */
+const cv=$('lienzo'),ctx=cv.getContext('2d'),esc=$('escenario');
+let cssW=1,dpr=1,base=[1,0,0],ultTr='';
+let camTween={de:{z:1,fx:W0/2,fy:H0/2},a:{z:1,fx:W0/2,fy:H0/2},t0:0,dur:0},temblor=null;
+function medir(){const r=esc.getBoundingClientRect();cssW=r.width;dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);ultTr='';}
+new ResizeObserver(medir).observe(esc);
+function camara(a,dur){const ahora=camAhora();camTween={de:ahora,a:{z:a.z,fx:a.fx??W0/2,fy:a.fy??H0/2},t0:reloj,dur:reducido?0:dur};return espera(reducido?0:dur);}
+function camAhora(){const t=camTween.dur?suave(clamp((reloj-camTween.t0)/camTween.dur)):1,d=camTween.de,a=camTween.a;return {z:d.z+(a.z-d.z)*t,fx:d.fx+(a.fx-d.fx)*t,fy:d.fy+(a.fy-d.fy)*t};}
+function sacudir(amp=7,dur=300){if(!reducido)temblor={t0:reloj,dur,amp};}
+function aplicarCamara(){
+  const k=cssW/W0,c=camAhora(),z=c.z;
+  const fx=clamp(c.fx,W0/(2*z),W0-W0/(2*z)),fy=clamp(c.fy,H0/(2*z),H0-H0/(2*z));
+  let sx=0,sy=0;
+  if(temblor){const t=(reloj-temblor.t0)/temblor.dur;if(t>=1)temblor=null;else{const a=temblor.amp*(1-t)*(cssW/1100);sx=a*Math.sin(t*47);sy=a*Math.cos(t*39);}}
+  const K=k*z,ex=k*W0/2-K*fx+sx,ey=k*H0/2-K*fy+sy;
+  const tr=`translate(${ex.toFixed(2)}px,${ey.toFixed(2)}px) scale(${K.toFixed(5)})`;
+  if(tr!==ultTr){$('fondo').style.transform=tr;$('frente').style.transform=tr;ultTr=tr;}
+  base=[dpr*K,dpr*ex,dpr*ey];
+  $('ui').classList.toggle('oculto',z>1.02);
+}
+// Local frame of a tile: millimetres around (X,Y), turned by rot, as the painting sees it.
+function marco(X,Y,rot,sc,off){
+  const p=proj(X,Y),J=jac(X,Y),c=Math.cos(rot)*sc,s=Math.sin(rot)*sc;
+  const a=J[0][0]*c+J[0][1]*s,b=J[1][0]*c+J[1][1]*s,cc=-J[0][0]*s+J[0][1]*c,d=-J[1][0]*s+J[1][1]*c;
+  const [B,bx,by]=base;
+  ctx.setTransform(B*a,B*b,B*cc,B*d,B*(p[0]+off[0])+bx,B*(p[1]+off[1])+by);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+/* ── Tiles ── */
+function puntos(n,cu){ctx.beginPath();for(const k of PIPS[n]){const u=cu+(k%3-1)*7.2,v=(Math.floor(k/3)-1)*7.6;ctx.moveTo(u+3.1,v);ctx.arc(u,v,3.1,0,Math.PI*2);}ctx.fillStyle='#1c1e1a';ctx.fill();}
+// A tile lying flat: face up with its pips (a on the local left half, b on the right), or face down.
+function ficha(f){
+  const L=54,A=27,T=11,lift=f.lift||0,sc=f.sc||1;
+  ctx.globalAlpha=f.alpha??1;
+  const s=clamp(lift/140);
+  marco(f.X+2.5+s*16,f.Y+4+s*20,f.rot,sc*(1+s*.08),[0,0]);
+  ctx.fillStyle=`rgba(8,18,10,${(.34-.18*s).toFixed(3)})`;rr(-L/2-2,-A/2-2,L+4,A+4,6);ctx.fill();
+  for(let k=0;k<4;k++){marco(f.X,f.Y,f.rot,sc,alto(f.X,f.Y,lift+T*k/4));ctx.fillStyle=k===0?'#a8997a':'#d4c8ad';rr(-L/2,-A/2,L,A,3.4);ctx.fill();}
+  marco(f.X,f.Y,f.rot,sc,alto(f.X,f.Y,lift+T));
+  const g=ctx.createLinearGradient(0,-A/2,0,A/2);g.addColorStop(0,'#fcf9f2');g.addColorStop(1,'#ece4d2');
+  ctx.fillStyle=g;rr(-L/2,-A/2,L,A,3.4);ctx.fill();
+  ctx.lineWidth=.7;ctx.strokeStyle='rgba(70,58,36,.38)';ctx.stroke();
+  if(f.boca!==false){
+    ctx.beginPath();ctx.moveTo(0,-A/2+3);ctx.lineTo(0,A/2-3);ctx.lineWidth=.9;ctx.strokeStyle='rgba(28,30,26,.5)';ctx.stroke();
+    puntos(f.a,-13.5);puntos(f.b,13.5);
+    ctx.beginPath();ctx.arc(0,0,1.5,0,Math.PI*2);ctx.fillStyle='#b88a3c';ctx.fill();
+  }
+  if(f.brillo>0){ctx.globalAlpha=(f.alpha??1)*f.brillo;rr(-L/2-1.5,-A/2-1.5,L+3,A+3,4.5);ctx.lineWidth=2.4;ctx.strokeStyle='#e3ae55';ctx.stroke();}
+  ctx.globalAlpha=1;
+}
+// A tile standing in a player's rack: 27 wide along the row, 11 deep, 54 tall. The camera sees its back.
+function parada(X,Y,eje,lift=0){
+  const w=eje===0?27:11,d=eje===0?11:27,h=54;
+  marco(X+3,Y+4,0,1,[0,0]);ctx.fillStyle='rgba(8,18,10,.3)';rr(-w/2-2,-d/2-2,w+4,d+4,4);ctx.fill();
+  const pasos=cam.tele?8:3;
+  for(let k=0;k<=pasos;k++){const t=k/pasos;marco(X,Y,0,1,alto(X,Y,lift+h*t));const c=Math.round(176+48*t);ctx.fillStyle=`rgb(${c},${c-10},${c-34})`;rr(-w/2,-d/2,w,d,2.6);ctx.fill();}
+  marco(X,Y,0,1,alto(X,Y,lift+h));ctx.fillStyle='#f8f3e8';rr(-w/2,-d/2,w,d,2.6);ctx.fill();ctx.lineWidth=.6;ctx.strokeStyle='rgba(70,58,36,.4)';ctx.stroke();
+}
+function posRack(seat,i,n){
+  const [ns,eo]=cam.rack,o=(i-(n-1)/2)*30.5;
+  return [[o,ns,0],[eo,-o,1],[-o,-ns,0],[-eo,o,1]][seat];
+}
+
+/* ── Table state as drawn ── */
+let S=null,colocadas=[],vuelo=null,ultima=null,polvo=null,revelado=false,reparto=-1,limpiar=-1,manosVisibles=false;
+const puntosDe=t=>t.a+t.b;
+function acomodar(){
+  try{
+    const lay=M.chainLayout(S.chain.map(t=>({id:t.id,x:t.x,y:t.y})),S.moves);
+    colocadas=S.chain.map((t,i)=>({id:t.id,X:lay[i].x*1000,Y:lay[i].z*1000,rot:-lay[i].yaw,a:t.x,b:t.y}));
+  }catch(e){colocadas=[];}
+}
+
+function dibujar(){
+  aplicarCamara();
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+  if(!S||!H) return;
+  const desvanece=limpiar>=0?1-clamp((reloj-limpiar)/420):1;
+  // Where the next tile can go, while someone is thinking.
+  if(S.phase==='playing'&&S.chain.length&&!vuelo){
+    let ends=[];try{ends=M.openEnds(S.chain.map(t=>({id:t.id,x:t.x,y:t.y})),S.moves);}catch(e){}
+    const a=.32+.22*Math.sin(reloj/260);
+    for(const e of ends){marco(e.x*1000,e.z*1000,0,1,[0,0]);ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.lineWidth=2.2;ctx.strokeStyle=`rgba(227,174,85,${a.toFixed(3)})`;ctx.stroke();}
+  }
+  const items=[];
+  for(const f of colocadas){
+    if(vuelo&&f.id===vuelo.id) continue;
+    const brillo=ultima&&ultima.id===f.id?1-clamp((reloj-ultima.t)/1600):0;
+    items.push({y:proj(f.X,f.Y)[1],d:()=>ficha({...f,alpha:desvanece,brillo})});
+  }
+  for(let s=0;s<4;s++){
+    const mano=S.hands[s],n=mano.length;
+    mano.forEach((t,i)=>{
+      const [X,Y,eje]=posRack(s,i,n);
+      if(revelado){items.push({y:proj(X,Y)[1],d:()=>ficha({X,Y,rot:eje===0?Math.PI/2:0,a:t.a,b:t.b,alpha:desvanece})});return;}
+      if(reparto>=0){
+        const t0=reparto+(i*4+s)*26,t=clamp((reloj-t0)/340);if(t<=0) return;
+        const e=suave(t),x=X*e,y=Y*e;
+        items.push({y:proj(x,y)[1],d:()=>parada(x,y,eje,Math.sin(Math.PI*t)*40)});return;
+      }
+      items.push({y:proj(X,Y)[1],d:()=>parada(X,Y,eje)});
+    });
+  }
+  items.sort((p,q)=>p.y-q.y).forEach(it=>it.d());
+  if(vuelo){
+    const t=clamp((reloj-vuelo.t0)/vuelo.dur),e=vuelo.final?(t<.62?suave(t/.62)*.9:.9+.1*((t-.62)/.38)**2):suave(t);
+    const X=vuelo.de[0]+(vuelo.a[0]-vuelo.de[0])*e,Y=vuelo.de[1]+(vuelo.a[1]-vuelo.de[1])*e;
+    const rot=vuelo.r0+vuelo.dr*suave(t),lift=Math.sin(Math.PI*Math.min(1,t*1.02))*(vuelo.final?150:85);
+    ficha({X,Y,rot,a:vuelo.fa,b:vuelo.fb,lift,sc:1+(cam.tele?.05:.22)*Math.sin(Math.PI*t)});
+  }
+  if(polvo){
+    const t=clamp((reloj-polvo.t0)/560);if(t>=1) polvo=null;else{
+      marco(polvo.X,polvo.Y,0,1,[0,0]);ctx.beginPath();ctx.arc(0,0,22+80*suave(t),0,Math.PI*2);ctx.lineWidth=3.5*(1-t)+.4;ctx.strokeStyle=`rgba(243,238,227,${(.6*(1-t)).toFixed(3)})`;ctx.stroke();
+      ctx.beginPath();ctx.arc(0,0,16+46*suave(t),0,Math.PI*2);ctx.lineWidth=2*(1-t);ctx.strokeStyle=`rgba(227,174,85,${(.7*(1-t)).toFixed(3)})`;ctx.stroke();
+    }
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+}
+
+/* ── Sound: synthesized stand-ins, only after a click ── */
+let ac=null,sonidoOn=false;
+function ruido(dur){const n=Math.max(1,Math.floor(ac.sampleRate*dur)),b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=ac.createBufferSource();s.buffer=b;return s;}
+function env(g,t,v,dur){g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0005,t+dur);}
+function golpe(t,f,q,v,dur,tono){
+  const n=ruido(dur),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.frequency.value=f;bp.Q.value=q;env(g,t,v,dur);n.connect(bp).connect(g).connect(ac.destination);n.start(t);n.stop(t+dur);
+  if(tono){const o=ac.createOscillator(),g2=ac.createGain();o.frequency.setValueAtTime(tono[0],t);o.frequency.exponentialRampToValueAtTime(tono[1],t+tono[3]);env(g2,t,tono[2],tono[3]);o.connect(g2).connect(ac.destination);o.start(t);o.stop(t+tono[3]);}
+}
+function voz(seat,clave,tras=0){if(V)V.sonidos.push({t:reloj+tras,voz:CARPETA[seat]+'/'+clave});}
+function sonar(tipo){
+  if(V){V.sonidos.push({t:reloj,tipo});return;}
+  if(!sonidoOn||!ac) return;const t=ac.currentTime+.005;
+  if(tipo==='ficha') golpe(t,2300+Math.random()*500,2.5,.5,.06,[1700,1100,.08,.03]);
+  else if(tipo==='golpe'){golpe(t,1200,1,.95,.16,[120,52,.9,.22]);golpe(t+.01,3000,3,.3,.08);}
+  else if(tipo==='toc'){golpe(t,420,1.4,.5,.07,[190,90,.45,.09]);golpe(t+.17,420,1.4,.5,.07,[190,90,.45,.09]);}
+  else if(tipo==='barajar'){for(let i=0;i<16;i++)golpe(t+i*.045+Math.random()*.02,2600+Math.random()*900,3,.12,.04);}
+  else if(tipo==='corte'){const n=ruido(.4),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.Q.value=1.4;bp.frequency.setValueAtTime(300,t);bp.frequency.exponentialRampToValueAtTime(3200,t+.35);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.28,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+.4);n.connect(bp).connect(g).connect(ac.destination);n.start(t);n.stop(t+.4);}
+}
+
+/* ── Game UI ── */
+function pipsCSS(n){return PIPS[n].map(k=>`radial-gradient(circle at ${22+28*(k%3)}% ${22+28*Math.floor(k/3)}%,#1c1e1a 0 .2em,transparent .25em)`).join(',')||'none';}
+const mini=(a,b)=>`<i class="mf"><b style="background:${pipsCSS(a)}"></b><b style="background:${pipsCSS(b)}"></b></i>`;
+let toca=-1,ganadores=null;
+function sillas(){
+  for(let s=0;s<4;s++){
+    const el=$('silla'+s),[x,y]=cam.sillas[s],n=S?S.hands[s].length:7;
+    el.style.left=(x/W0*100)+'%';el.style.top=(y/H0*100)+'%';
+    let linea=`Pareja ${s%2?'B':'A'} · ${n}`;
+    if(revelado&&S) linea=`${S.hands[s].reduce((m,t)=>m+puntosDe(t),0)} puntos`;
+    const mano=manosVisibles&&S&&!revelado?S.hands[s].map(t=>mini(t.a,t.b)).join(''):'';
+    el.innerHTML=`<b>${NOMBRES[s]}</b><small>${linea}</small><span class="mano">${mano}</span>`;
+    el.classList.toggle('toca',s===toca);
+    el.classList.toggle('gana',!!ganadores&&ganadores.includes(s));
+  }
+}
+function aviso(html,equipo){const t=$('turno');t.className='turno'+(equipo===0?' a':equipo===1?' b':'');$('turnoTexto').innerHTML=html;}
+let mostrado=[0,0];
+function pizarra(){
+  const sc=S.scores,tg=S.settings.target;
+  $('tantoA').textContent=sc[0];$('tantoB').textContent=sc[1];mostrado=[...sc];
+  $('barraA').style.width=clamp(sc[0]/tg)*100+'%';$('barraB').style.width=clamp(sc[1]/tg)*100+'%';
+  $('meta').innerHTML=`MANO ${Math.max(1,S.handNo)}<br>A ${tg}`;
+}
+async function contarPizarra(){
+  const de=[...mostrado],a=S.scores,t0=reloj,dur=900;
+  while(reloj<t0+dur){const t=suave(clamp((reloj-t0)/dur));$('tantoA').textContent=Math.round(de[0]+(a[0]-de[0])*t);$('tantoB').textContent=Math.round(de[1]+(a[1]-de[1])*t);await espera(30);}
+  pizarra();
+}
+function burbuja(seat,texto){
+  const [x,y]=cam.sillas[seat],el=document.createElement('div');el.className='burbuja';el.textContent=texto;
+  el.style.left=(x/W0*100)+'%';el.style.top=((y-26)/H0*100)+'%';$('burbujas').appendChild(el);
+  espera(1100/1).then(()=>el.remove());
+}
+
+/* ── One turn at a time ── */
+const stats={manos:0,domino:0,capicua:0,tranque:0,series:[0,0]};
+function cuenta(){$('cuenta').textContent=`Hands ${stats.manos} · Dominó ${stats.domino} · Capicúa ${stats.capicua} · Tranque ${stats.tranque} · Series ${stats.series[0]}–${stats.series[1]}`;}
+const pensar=()=>(S.chain.length?620:900)+azar()*900;
+
+async function repartir(){
+  direccion('reparto');
+  revelado=false;ganadores=null;colocadas=[];ultima=null;limpiar=-1;
+  pizarra();sillas();aviso('Barajando');sonar('barajar');
+  reparto=reloj;await espera(28*26+380);reparto=-1;
+}
+async function jugada(antes,seat,mv){
+  const n0=antes.hands[seat].length,slot=Math.floor(azar()*n0),[X0,Y0,eje]=posRack(seat,slot,n0);
+  acomodar();
+  const f=colocadas.find(c=>c.id===mv.tile);if(!f){return;}
+  const final=S.phase!=='playing',r0=eje===0?Math.PI/2:0;
+  let dr=((f.rot-r0)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI;
+  vuelo={id:f.id,de:[X0,Y0],a:[f.X,f.Y],r0,dr,fa:f.a,fb:f.b,t0:reloj,dur:final?640:470,final};
+  sillas();
+  await espera(vuelo.dur);
+  vuelo=null;ultima={id:f.id,t:reloj};
+  if(final){sonar('golpe');sacudir();polvo={X:f.X,Y:f.Y,t0:reloj};}else{sonar('ficha');if(azar()<.2)voz(seat,['play','play-2','play-3'][Math.floor(azar()*3)],120);}
+  aviso(`${NOMBRES[seat]} pone ${mini(f.a,f.b)}`,seat%2);
+  await espera(final?260:170);
+}
+async function paso(seat){
+  sonar('toc');voz(seat,'pass',250);burbuja(seat,'Paso');aviso(`${NOMBRES[seat]} pasa`,seat%2);
+  await espera(1000);
+}
+async function cierre(){
+  const r=S.result;toca=-1;sillas();stats.manos++;
+  if(r.type==='capicua')stats.capicua++;else if(r.type==='tranque')stats.tranque++;else stats.domino++;
+  cuenta();
+  const quien=NOMBRES[r.seat];
+  if(r.type!=='tranque'){
+    const f=colocadas.find(c=>ultima&&c.id===ultima.id)||colocadas[colocadas.length-1],p=proj(f.X,f.Y);
+    await camara({z:2.1,fx:p[0],fy:p[1]},reducido?0:430);
+    await espera(620);
+    sonar('corte');voz(r.seat,'win',350);
+    $('corte').innerHTML=`<div class="corte"><img src="${CORTES[r.seat]}" alt="${quien} celebra"><div class="texto"><div class="sello">${r.type==='capicua'?'¡Capicúa!':'¡Dominó!'}</div><div class="puntos">+${r.points}${r.bonus?` · ${r.base} + ${r.bonus}`:''}</div></div></div>`;
+    await espera(260);
+    camTween=quieta();direccion('cuenta',true);
+    await espera(V?4600:2500);
+    $('corte').innerHTML='';
+  }else{
+    await camara({z:1.18,fx:W0/2,fy:(proj(0,0)[1]+H0/2)/2},reducido?0:380);
+    const [a,b]=r.totals;
+    const linea=r.team===null?`${a} a ${b}: empate, nadie anota`:`${PAREJA[0]} ${a} · ${PAREJA[1]} ${b}`;
+    $('selloMesa').innerHTML=`<div class="sello-mesa"><div class="sello">¡Trancado!</div><div class="linea-mesa">${linea}</div></div>`;
+    sonar('golpe');voz(r.seat,'block',400);
+    await espera(2300);
+    $('selloMesa').innerHTML='';
+    if(modoCam==='auto'&&camNombre!=='arriba'){if(!reducido)fotoActual();camTween=quieta();direccion('cuenta',true);}
+    else await camara({z:1},reducido?0:320);
+  }
+  revelado=true;sonar('revelar');ganadores=r.team===null?[]:[r.team,r.team+2];sillas();
+  const texto=r.team===null?'Nadie anota':`${PAREJA[r.team]} se anotan ${r.points}`;
+  aviso(r.type==='tranque'?`Trancó ${quien}. ${texto}`:`${r.type==='capicua'?'Capicúa':'Dominó'} de ${quien}. ${texto}`,r.team??undefined);
+  await contarPizarra();
+  await espera(V?1400:2200);
+  if(V) return;
+  limpiar=reloj;await espera(430);
+}
+async function finDeSerie(){
+  const r=S.result,[a,b]=S.scores,t=r.team;stats.series[t]++;cuenta();
+  $('final').innerHTML=`<div class="final"><div><small>Serie a ${S.settings.target}</small><h2>Ganan ${PAREJA[t]}</h2><p>${Math.max(a,b)} a ${Math.min(a,b)}${r.zapato?' · ¡Zapato!':''}</p></div></div>`;
+  await espera(4200);
+  $('final').innerHTML='';
+}
+async function jugar(){
+  if(V) await intro();
+  for(;;){
+    S=M.setup([],4);S.names=[...NOMBRES];S.seed=V?V.semilla:Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>(x+256).toString(16).slice(1)).join('');
+    S=M.applyAction(S,'host',{type:'start'});
+    for(;;){
+      await repartir();
+      while(S.phase==='playing'){
+        direccion('turno');
+        const seat=S.turn;toca=seat;sillas();aviso(`Le toca a ${NOMBRES[seat]}`,seat%2);
+        await espera(pensar());
+        const pid=S.players[seat],mv=M.chooseMove(M.viewFor(S,pid)),antes=S;
+        S=M.applyAction(S,pid,mv);
+        if(mv.type==='play') await jugada(antes,seat,mv);else await paso(seat);
+      }
+      await cierre();
+      if(V){await outro();finVideo=true;return;}
+      if(S.phase==='seriesEnd'){await finDeSerie();break;}
+      S=M.applyAction(S,'host',{type:'next'});
+    }
+  }
+}
+
+/* ── Controls ── */
+// Auto: the deal opens on the table from the TV, the count is read from above, and in between
+// the shot alternates every two rounds (8 turns, at least 9 s on screen), always between turns.
+let modoCam='auto',turnosPlano=0,planoDesde=0;
+const quieta=()=>({de:{z:1,fx:W0/2,fy:H0/2},a:{z:1,fx:W0/2,fy:H0/2},t0:0,dur:0});
+// Freeze what is on screen and fade it out over the new shot: a cut, not a dip to black.
+function fotoActual(){
+  const o=document.createElement('div');o.className='foto';
+  const c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;c.getContext('2d').drawImage(cv,0,0);
+  const a=$('fondo').cloneNode(true),b=$('frente').cloneNode(true);
+  [a,b,...a.querySelectorAll('[id]'),...b.querySelectorAll('[id]')].forEach(e=>e.removeAttribute('id'));
+  o.append(a,c,b);esc.insertBefore(o,$('ui'));
+  void o.offsetWidth;o.classList.add('fuera');espera(600).then(()=>o.remove());
+}
+function cortar(n,cubierto=false){
+  if(n===camNombre) return;
+  if(!cubierto&&!reducido&&H){fotoActual();$('ui').classList.add('cruce');espera(420).then(()=>$('ui').classList.remove('cruce'));}
+  ponerCam(n);if(!V){$('imgFondo').src=cam.fondo;$('imgFrente').src=cam.frente;}
+  if(S){if(S.chain.length)acomodar();sillas();}
+  ultTr='';turnosPlano=0;planoDesde=reloj;
+}
+function direccion(momento,cubierto=false){
+  if(modoCam!=='auto') return;
+  if(momento==='reparto') cortar('tele',cubierto);
+  else if(momento==='cuenta') cortar('arriba',cubierto);
+  else if(momento==='turno'&&++turnosPlano>=8&&reloj-planoDesde>=9000) cortar(camNombre==='tele'?'arriba':'tele',cubierto);
+}
+function elegirCam(m){
+  modoCam=m;document.querySelectorAll('[data-cam]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cam===m)));
+  if(m!=='auto') cortar(m);else{turnosPlano=0;planoDesde=reloj;}
+}
+document.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click',()=>elegirCam(b.dataset.cam)));
+document.querySelectorAll('[data-vel]').forEach(b=>b.addEventListener('click',()=>{vel=+b.dataset.vel;esc.style.setProperty('--v',vel);document.querySelectorAll('[data-vel]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}));
+function alternarPausa(){pausado=!pausado;$('pausa').setAttribute('aria-pressed',String(pausado));$('pausa').textContent=pausado?'Resume':'Pause';esc.classList.toggle('pausado',pausado);}
+$('pausa').addEventListener('click',alternarPausa);
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!/INPUT|TEXTAREA|BUTTON/.test(document.activeElement?.tagName||'')){e.preventDefault();alternarPausa();}});
+$('sonido').addEventListener('click',()=>{
+  try{if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){return;}
+  sonidoOn=!sonidoOn;$('sonido').setAttribute('aria-pressed',String(sonidoOn));
+});
+$('manos').addEventListener('click',()=>{manosVisibles=!manosVisibles;$('manos').setAttribute('aria-pressed',String(manosVisibles));if(S)sillas();});
+
+/* ── Start: load every painting first so a camera cut never shows a blank ── */
+function tick(now){
+  const dt=Math.min(100,now-ult);ult=now;
+  if(!pausado){reloj+=dt*vel;for(let i=esperas.length-1;i>=0;i--)if(reloj>=esperas[i].t){const w=esperas[i];esperas.splice(i,1);w.res();}}
+  dibujar();requestAnimationFrame(tick);
+}
+/* ── Video mode: step the clock one frame at a time; the paintings are frame sequences ── */
+let finVideo=false,corteT0=-1;
+async function resolver(){for(let k=0;k<60;k++){let hubo=false;for(let i=esperas.length-1;i>=0;i--)if(reloj>=esperas[i].t){const w=esperas[i];esperas.splice(i,1);w.res();hubo=true;}if(!hubo)break;await new Promise(r=>setTimeout(r,0));}}
+const cargar=src=>new Promise(res=>{const i=new Image();i.onload=i.onerror=()=>res();i.src=src;});
+async function planchas(){
+  const pl=V.plancha(camNombre,reloj);cam.quad=pl.quad;H=homografia(pl.quad);
+  const fo=$('imgFondo'),fr=$('imgFrente');
+  if(fo.getAttribute('src')!==pl.fondo){fo.src=pl.fondo;fr.src=pl.fondo;const m=`url(${pl.mascara})`;fr.style.webkitMaskImage=m;fr.style.maskImage=m;}
+  const ci=document.querySelector('#corte img');
+  if(ci){if(corteT0<0)corteT0=reloj;const s=V.corte(reloj-corteT0);if(ci.getAttribute('src')!==s)ci.src=s;}else corteT0=-1;
+  await Promise.all([fo.decode().catch(()=>{}),fr.decode().catch(()=>{}),cargar(pl.mascara),ci?ci.decode().catch(()=>{}):null]);
+}
+function animacionesCSS(){for(const a of document.getAnimations()){if(a._t0===undefined)a._t0=reloj;a.pause();a.currentTime=Math.max(0,reloj-a._t0);}}
+async function intro(){
+  $('ui').classList.add('intro');
+  $('titulo').innerHTML=`<div class="titulo"><img src="${V.logo}" alt="Mesa"><p>Una mano jugada por el motor de Mesa</p></div>`;
+  camTween={de:{z:1.08,fx:W0/2,fy:H0*.5},a:{z:1,fx:W0/2,fy:H0/2},t0:reloj,dur:3600};
+  await espera(2500);
+  $('titulo').firstElementChild.classList.add('sale');
+  await espera(700);$('titulo').innerHTML='';$('ui').classList.remove('intro');
+}
+async function outro(){
+  $('titulo').innerHTML=`<div class="titulo"><img src="${V.logo}" alt="Mesa"><p>Prototipo 2D · reglas, bots y tablero del juego</p></div>`;
+  await espera(3800);
+}
+async function pasoVideo(ms){reloj+=ms;await resolver();await planchas();dibujar();animacionesCSS();return finVideo;}
+if(V){
+  ponerCam('tele');
+  for(const id of ['fondo','frente']){$(id).style.width=W0+'px';$(id).style.height=H0+'px';}
+  medir();$('cargando').hidden=true;
+  window.MESA_VIDEO={paso:pasoVideo};
+  jugar();
+}else{
+const todas=[...new Set([...Object.values(CAMS).flatMap(c=>[c.fondo,c.frente]),...CORTES])];
+Promise.all(todas.map(src=>new Promise(res=>{const i=new Image();i.onload=i.onerror=()=>res();i.src=src;}))).then(()=>{
+  ponerCam('tele');$('imgFondo').src=cam.fondo;$('imgFrente').src=cam.frente;medir();
+  $('cargando').hidden=true;cuenta();requestAnimationFrame(tick);jugar();
+});
+}
+})();
+</script>

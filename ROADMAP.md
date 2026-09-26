@@ -1,5 +1,21 @@
 # Mesa — camino al 75 %
 
+## Camino al lanzamiento (26 sep 2026) — esto manda
+
+La mesa 3D está en vivo y completa para la sala. Falta, en orden:
+
+1. **Prueba en la tele** (Trey): Fire TV Stick o la tele más barata. Fluidez, tiempo de carga, si se cae.
+   Si va mal (< ~30 fps con el modo liviano) → plan B en 2D (`prototipos/2d/`).
+2. **Paddle** (Trey): aprobación de la cuenta y las llaves. Hoy los pagos están apagados (`/api/pagos`
+   responde `activos:false`): nadie puede pagar.
+3. **Nombre y marca** (Trey): verificar que "Mesa" se puede usar en tiendas.
+4. **Mesas de verdad**: 5 o más partidas con gente, no bots. Arreglar lo que se rompa, sobre todo al entrar.
+5. **Pulido**: fichas más grandes en la vista de la tele, música con licencia o libre, sonido de fichas grabado.
+6. Abierto: los bots trancan el 32 % de las manos (4.250 manos simuladas). ¿Se revisa o se deja?
+
+Lo de abajo es el plan original de la v0.3; gran parte ya está hecha.
+
+
 "75 % hecho" quiere decir: un producto que un desconocido puede comprar, instalar en
 su sala, y usar con su familia sin que nadie del equipo esté presente — con lo en
 línea funcionando aunque todavía sin ranked. Lo que sigue está en orden. Cada hito

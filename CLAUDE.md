@@ -63,6 +63,9 @@ casa: sin pozo (las 14 duermen y nadie roba). El pozo nunca sale en una vista, s
 - Espectadores y "partida de la noche": todo sale del **log de jugadas** (reparto +
   lista de movimientos), no de video. Elegida por el motor con un puntaje de drama.
 - Cámara: modo sutil por defecto; los cortes dramáticos, solo en dominó/tranque/capicúa.
+  En dominó y capicúa, después del golpe y el corte de cámara, entra en la tele la **pintura** de quien
+  cerró (26 sep 2026: 2D pintado sobre la mesa 3D; una por personaje en `public/cortes/<id>.jpg`,
+  `cortePintado` en `client.js`). El resultado sale cuando la pintura se va; con menos movimiento, no hay.
 - Idiomas: español e inglés (kreyòl, más adelante). Tablas de cadenas en `app/public/textos.js`.
   Mesa abre en español si nadie eligió otro (25 sep 2026); el inglés, con el botón ES · EN de arriba o en Ajustes. Las voces de los bots tienen su versión
   en inglés (mismas voces, con su acento) en `app/public/audio/bots/<bot>/en/`.

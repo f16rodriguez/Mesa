@@ -221,7 +221,27 @@ function receive(v,presence=[]){
 }
 
 /* ── La tele ──────────────────────────────────────────────────────────────── */
-function espera(){const r=view?.result;if(!r||!['handEnd','seriesEnd'].includes(view.phase))return 0;const k=view.handNo+':'+view.phase;if(finVisto.k!==k)finVisto={k,t:performance.now()};const e=['domino','capicua'].includes(r.type)?3.1:r.type==='tranque'?2.2:0;return Math.max(0,e-(performance.now()-finVisto.t)/1000);}
+/* El corte pintado: en dominó y capicúa, después del golpe y el corte de cámara en 3D, entra la
+   pintura de quien cerró la mano (public/cortes/<personaje>.jpg). Solo en la tele, y nunca con
+   "menos movimiento": ahí tampoco hay corte de cámara. El resultado sale cuando la pintura se va. */
+const CORTE={desde:1.05,dura:2.35};
+const conCorte=()=>role!=='player'&&!document.documentElement.classList.contains('reduced');
+let corteVisto='',cortesCargados='';
+function precargarCortes(){if(!conCorte())return;const ids=reparto().filter(Boolean),k=ids.join();if(k===cortesCargados)return;cortesCargados=k;for(const id of ids){const i=new Image();i.src=`/cortes/${id}.jpg`;}}
+function cortePintado(){
+ const r=view?.result;if(!r||!['handEnd','seriesEnd'].includes(view.phase)||!['domino','capicua'].includes(r.type))return;
+ const k=room+':'+view.handNo+':'+view.phase;if(corteVisto===k)return;corteVisto=k;
+ const id=reparto()[r.seat],desde=CORTE.desde-(performance.now()-finVisto.t)/1000;
+ // Quien llega tarde (recarga, reconexión) no ve un corte a destiempo.
+ if(!conCorte()||!id||desde<-.3)return;
+ $('.corte-pintado')?.remove();
+ const d=Math.max(0,desde),el=document.createElement('div');el.className='corte-pintado';el.setAttribute('aria-hidden','true');
+ el.style.setProperty('--desde',d+'s');el.style.setProperty('--dura',CORTE.dura+'s');
+ el.innerHTML=`<img src="/cortes/${id}.jpg" alt=""><div class="corte-texto"><div class="sello">${r.zapato?t('zapato'):r.type==='capicua'?t('capicua'):t('domino')}</div><div class="corte-quien">${esc(nombreDe(r.seat))}<b>${t('puntos',{n:r.points})}</b></div></div>`;
+ document.body.appendChild(el);
+ setTimeout(()=>sonidos.corte(),d*1000);setTimeout(()=>el.remove(),(d+CORTE.dura)*1000+80);
+}
+function espera(){const r=view?.result;if(!r||!['handEnd','seriesEnd'].includes(view.phase))return 0;const k=view.handNo+':'+view.phase;if(finVisto.k!==k)finVisto={k,t:performance.now()};const e=['domino','capicua'].includes(r.type)?(conCorte()?CORTE.desde+CORTE.dura+.1:3.1):r.type==='tranque'?2.2:0;return Math.max(0,e-(performance.now()-finVisto.t)/1000);}
 // El marcador no se adelanta al golpe: mientras dura el corte de cámara muestra lo de antes.
 function marcador(){const falta=espera(),r=view.result,s=[...view.scores];if(falta>0&&r&&r.team!=null){s[r.team]-=r.points;setTimeout(()=>{if(page==='room')renderRoom();},falta*1000+60);}
  const meta=view.settings.target,pct=i=>Math.min(100,Math.round(s[i]/meta*100));
@@ -249,7 +269,7 @@ function renderRoom(){page='room';if(role==='player'){if(view.seat>=0)renderPhon
  for(const c of habia)$(c)?.classList.add('sin-entrada');
  if(visto.fin===kFin)$('.resultado')?.classList.add('sin-entrada');else if($('.resultado')&&falta<=0)visto.fin=kFin;
  if(visto.turno===kTurno)$('.turno-banner')?.classList.add('sin-entrada');visto.turno=kTurno;
- etiquetas();renderCrowd();chipSonido();
+ etiquetas();renderCrowd();chipSonido();precargarCortes();cortePintado();
  if($('#chat-text')){$('#chat-text').value=talkDraft;if(focus)$('#chat-text').focus();}
  if($('#qr'))QRCode.toString(inviteUrl(),{type:'svg',margin:1,color:{dark:'#1a1426',light:'#f7ecd6'}}).then(svg=>{if($('#qr'))$('#qr').innerHTML=svg;}).catch(()=>{});
 }
